@@ -12,7 +12,7 @@ type flakyProvider struct {
 	calls int32
 }
 
-func (p *flakyProvider) Name() string { return "flaky" }
+func (p *flakyProvider) Name() string           { return "flaky" }
 func (p *flakyProvider) Capabilities() []string { return []string{"code", "test"} }
 func (p *flakyProvider) Execute(_ context.Context, req ExecuteTaskRequest) (ExecuteTaskResult, error) {
 	call := atomic.AddInt32(&p.calls, 1)
@@ -89,8 +89,8 @@ func TestServiceRetriesRetryableFailure(t *testing.T) {
 
 type failProvider struct{}
 
-func (failProvider) Name() string            { return "fail" }
-func (failProvider) Capabilities() []string   { return []string{"code"} }
+func (failProvider) Name() string           { return "fail" }
+func (failProvider) Capabilities() []string { return []string{"code"} }
 func (failProvider) Execute(_ context.Context, _ ExecuteTaskRequest) (ExecuteTaskResult, error) {
 	return ExecuteTaskResult{Retryable: false}, errors.New("permanent failure")
 }
@@ -169,8 +169,8 @@ type slowProvider struct {
 	delay time.Duration
 }
 
-func (p *slowProvider) Name() string            { return "slow" }
-func (p *slowProvider) Capabilities() []string   { return []string{"code"} }
+func (p *slowProvider) Name() string           { return "slow" }
+func (p *slowProvider) Capabilities() []string { return []string{"code"} }
 func (p *slowProvider) Execute(ctx context.Context, _ ExecuteTaskRequest) (ExecuteTaskResult, error) {
 	select {
 	case <-time.After(p.delay):

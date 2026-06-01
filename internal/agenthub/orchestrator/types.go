@@ -55,6 +55,11 @@ const (
 	EventTaskRetried      EventType = "task_retried"
 	EventTaskTimedOut     EventType = "task_timed_out"
 	EventTaskCancelled    EventType = "task_cancelled"
+
+	// EventAgentToolCall is emitted when a provider's CLI subprocess invokes a tool.
+	EventAgentToolCall EventType = "agent_tool_call"
+	// EventAgentOutput is emitted when a provider's CLI subprocess produces text output.
+	EventAgentOutput EventType = "agent_output"
 )
 
 // Run is one user-triggered orchestration lifecycle in an AgentHub room.
@@ -178,11 +183,11 @@ type StartRunInput struct {
 
 // ExecuteTaskRequest is sent to an AgentProvider.
 type ExecuteTaskRequest struct {
-	Run       Run              `json:"run"`
-	Task      Task             `json:"task"`
-	AttemptNo int              `json:"attempt_no"`
-	Context   map[string]any   `json:"context,omitempty"`
-	Upstream  []TaskAttempt    `json:"upstream,omitempty"`
+	Run       Run               `json:"run"`
+	Task      Task              `json:"task"`
+	AttemptNo int               `json:"attempt_no"`
+	Context   map[string]any    `json:"context,omitempty"`
+	Upstream  []TaskAttempt     `json:"upstream,omitempty"`
 	Agents    []AgentDescriptor `json:"agents,omitempty"`
 }
 

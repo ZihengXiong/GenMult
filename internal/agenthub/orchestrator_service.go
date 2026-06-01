@@ -7,11 +7,13 @@ import (
 	"strconv"
 	"strings"
 
+	orch "github.com/memohai/memoh/internal/agenthub/orchestrator"
+	"github.com/memohai/memoh/internal/agenthub/providers"
 	"github.com/memohai/memoh/internal/config"
 	"github.com/memohai/memoh/internal/db"
 	postgresstore "github.com/memohai/memoh/internal/db/postgres/store"
 	sqlitestore "github.com/memohai/memoh/internal/db/sqlite/store"
-	orch "github.com/memohai/memoh/internal/agenthub/orchestrator"
+	"github.com/memohai/memoh/internal/workspace"
 )
 
 type OrchestratorService struct {
@@ -29,7 +31,14 @@ type StartRunRequest struct {
 	AutoDispatch     *bool                  `json:"auto_dispatch,omitempty"`
 }
 
-func NewOrchestratorService(log *slog.Logger, cfg config.Config, pgStore *postgresstore.Store, sqliteStore *sqlitestore.Store, roomService *Service) (*OrchestratorService, error) {
+func NewOrchestratorService(
+	log *slog.Logger,
+	cfg config.Config,
+	pgStore *postgresstore.Store,
+	sqliteStore *sqlitestore.Store,
+	roomService *Service,
+	wsManager *workspace.Manager,
+) (*OrchestratorService, error) {
 	if log == nil {
 		log = slog.Default()
 	}
@@ -54,7 +63,20 @@ func NewOrchestratorService(log *slog.Logger, cfg config.Config, pgStore *postgr
 	if err != nil {
 		return nil, err
 	}
-	registry := orch.NewProviderRegistry(orch.NoopProvider{})
+
+	resolver := providers.NewDefaultWorkspaceResolver(wsManager)
+	var provCfg providers.ProviderConfigs
+	provCfg.FromEnvWithDefaults()
+
+	claudeProvider := providers.NewClaudeCodeProvider(provCfg.ClaudeCode, resolver, store, log)
+	codexProvider := providers.NewCodexProvider(provCfg.Codex, resolver, store, log)
+
+	registry := orch.NewProviderRegistry(
+		orch.NoopProvider{},
+		claudeProvider,
+		codexProvider,
+	)
+
 	orchestrator := orch.NewService(store, orch.NewRulePlanner(), registry, log, orch.Config{
 		MaxParallelPerRun:   3,
 		MaxParallelPerAgent: 1,
@@ -157,8 +179,6 @@ func (s *OrchestratorService) ReconcileActiveRuns(ctx context.Context, ownerUser
 	return out, nil
 }
 
-
-
 func agentsFromRoom(room Room) []orch.AgentDescriptor {
 	if len(room.AgentIDs) == 0 {
 		return []orch.AgentDescriptor{{ID: "orchestrator", ProviderName: "noop", Name: "Orchestrator", Capabilities: []string{"plan", "code", "test", "review"}}}
@@ -173,11 +193,11 @@ func agentsFromRoom(room Room) []orch.AgentDescriptor {
 		name := id
 		lc := strings.ToLower(id)
 		if strings.Contains(lc, "codex") {
-			provider = "noop"
+			provider = "codex"
 			name = "Codex"
 		}
 		if strings.Contains(lc, "claude") {
-			provider = "noop"
+			provider = "claudecode"
 			name = "Claude Code"
 		}
 		out = append(out, orch.AgentDescriptor{
