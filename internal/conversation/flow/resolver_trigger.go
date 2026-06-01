@@ -14,6 +14,7 @@ import (
 	agentpkg "github.com/memohai/memoh/internal/agent"
 	"github.com/memohai/memoh/internal/channel/route"
 	"github.com/memohai/memoh/internal/conversation"
+	"github.com/memohai/memoh/internal/conversation/flow/botruntime"
 	"github.com/memohai/memoh/internal/heartbeat"
 	messageevent "github.com/memohai/memoh/internal/message/event"
 	"github.com/memohai/memoh/internal/schedule"
@@ -68,7 +69,8 @@ func (r *Resolver) TriggerSchedule(ctx context.Context, botID string, payload sc
 	cfg.Messages = append(cfg.Messages, sdk.UserMessage(schedulePrompt))
 	cfg = r.prepareRunConfig(ctx, cfg)
 
-	result, err := r.agent.Generate(ctx, cfg)
+	rt := r.runtimeForBot(ctx, cfg.Identity.BotID)
+	result, err := rt.Generate(ctx, botruntime.RunInput{Config: cfg})
 	if err != nil {
 		return schedule.TriggerResult{}, err
 	}
@@ -132,7 +134,8 @@ func (r *Resolver) TriggerHeartbeat(ctx context.Context, botID string, payload h
 	cfg.Messages = append(cfg.Messages, sdk.UserMessage(heartbeatPrompt))
 	cfg = r.prepareRunConfig(ctx, cfg)
 
-	result, err := r.agent.Generate(ctx, cfg)
+	rt := r.runtimeForBot(ctx, cfg.Identity.BotID)
+	result, err := rt.Generate(ctx, botruntime.RunInput{Config: cfg})
 	if err != nil {
 		return heartbeat.TriggerResult{}, err
 	}
@@ -310,7 +313,8 @@ func (r *Resolver) deliverBackgroundNotifications(ctx context.Context, botID, se
 	idleCtx, idleCancel := withIdleTimeout(ctx)
 	defer idleCancel.Stop()
 
-	eventCh := r.agent.Stream(idleCtx, cfg)
+	rt := r.runtimeForBot(ctx, cfg.Identity.BotID)
+	eventCh := rt.Stream(idleCtx, botruntime.RunInput{Config: cfg})
 	converter := conversation.NewUIMessageStreamConverter()
 	var text strings.Builder
 	stored := false

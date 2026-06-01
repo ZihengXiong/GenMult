@@ -24,6 +24,7 @@ import (
 	agentpkg "github.com/memohai/memoh/internal/agent"
 	"github.com/memohai/memoh/internal/agent/background"
 	agenttools "github.com/memohai/memoh/internal/agent/tools"
+	agenthubproviders "github.com/memohai/memoh/internal/agenthub/providers"
 	audiopkg "github.com/memohai/memoh/internal/audio"
 	"github.com/memohai/memoh/internal/boot"
 	"github.com/memohai/memoh/internal/bots"
@@ -51,6 +52,7 @@ import (
 	containerprovider "github.com/memohai/memoh/internal/container/provider"
 	"github.com/memohai/memoh/internal/conversation"
 	"github.com/memohai/memoh/internal/conversation/flow"
+	"github.com/memohai/memoh/internal/conversation/flow/botruntime"
 	"github.com/memohai/memoh/internal/db"
 	postgresstore "github.com/memohai/memoh/internal/db/postgres/store"
 	sqlitestore "github.com/memohai/memoh/internal/db/sqlite/store"
@@ -369,8 +371,9 @@ func injectToolProviders(a *agentpkg.Agent, msgService *message.DBService, provi
 	}
 }
 
-func provideChatResolver(log *slog.Logger, a *agentpkg.Agent, modelsService *models.Service, queries dbstore.Queries, chatService *conversation.Service, msgService *message.DBService, settingsService *settings.Service, accountService *accounts.Service, mediaService *media.Service, containerdHandler *handlers.ContainerdHandler, memoryRegistry *memprovider.Registry, channelStore *channel.Store, routeService *route.DBService, sessionService *sessionpkg.Service, eventHub *event.Hub, compactionService *compaction.Service, pipeline *pipelinepkg.Pipeline, rc *boot.RuntimeConfig, bgManager *background.Manager, toolApproval *toolapproval.Service) *flow.Resolver {
+func provideChatResolver(log *slog.Logger, a *agentpkg.Agent, modelsService *models.Service, queries dbstore.Queries, chatService *conversation.Service, msgService *message.DBService, settingsService *settings.Service, accountService *accounts.Service, mediaService *media.Service, containerdHandler *handlers.ContainerdHandler, memoryRegistry *memprovider.Registry, channelStore *channel.Store, routeService *route.DBService, sessionService *sessionpkg.Service, eventHub *event.Hub, compactionService *compaction.Service, pipeline *pipelinepkg.Pipeline, rc *boot.RuntimeConfig, bgManager *background.Manager, toolApproval *toolapproval.Service, wsManager *workspace.Manager) *flow.Resolver {
 	resolver := flow.NewResolver(log, modelsService, queries, chatService, msgService, settingsService, accountService, a, rc.TimezoneLocation, 120*time.Second)
+	resolver.SetBotRuntimes(buildCLIBotRuntimes(log, wsManager)...)
 	resolver.SetMemoryRegistry(memoryRegistry)
 	resolver.SetSkillLoader(&skillLoaderAdapter{handler: containerdHandler})
 	resolver.SetGatewayAssetLoader(&gatewayAssetLoaderAdapter{media: mediaService})
@@ -405,6 +408,28 @@ func provideChatResolver(log *slog.Logger, a *agentpkg.Agent, modelsService *mod
 		})
 	}
 	return resolver
+}
+
+// buildCLIBotRuntimes constructs the CLI-backed bot runtimes (claudecode,
+// codex). Provider config is sourced from environment defaults; the work dir is
+// resolved per-bot from the workspace manager.
+func buildCLIBotRuntimes(log *slog.Logger, wsManager *workspace.Manager) []botruntime.BotRuntime {
+	var cfgs agenthubproviders.ProviderConfigs
+	cfgs.FromEnvWithDefaults()
+
+	resolveWorkDir := botruntime.WorkDirResolverFunc(func(ctx context.Context, botID string) (string, error) {
+		if wsManager != nil && botID != "" {
+			if info, err := wsManager.WorkspaceInfo(ctx, botID); err == nil && info.DefaultWorkDir != "" {
+				return info.DefaultWorkDir, nil
+			}
+		}
+		return os.Getwd()
+	})
+
+	return []botruntime.BotRuntime{
+		botruntime.NewClaudeCodeRuntime(cfgs.ClaudeCode, resolveWorkDir, log),
+		botruntime.NewCodexRuntime(cfgs.Codex, resolveWorkDir, log),
+	}
 }
 
 func provideChannelRegistry(log *slog.Logger, hub *local.RouteHub, mediaService *media.Service, cfg config.Config) *channel.Registry {

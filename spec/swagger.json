@@ -10584,6 +10584,9 @@
                 "display_name": {
                     "type": "string"
                 },
+                "framework": {
+                    "type": "string"
+                },
                 "id": {
                     "type": "string"
                 },
@@ -10648,6 +10651,9 @@
                     "type": "string"
                 },
                 "display_name": {
+                    "type": "string"
+                },
+                "framework": {
                     "type": "string"
                 },
                 "is_active": {

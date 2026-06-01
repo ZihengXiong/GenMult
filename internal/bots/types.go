@@ -14,6 +14,7 @@ type Bot struct {
 	Timezone        string         `json:"timezone,omitempty"`
 	IsActive        bool           `json:"is_active"`
 	Status          string         `json:"status"`
+	Framework       string         `json:"framework"`
 	CheckState      string         `json:"check_state"`
 	CheckIssueCount int32          `json:"check_issue_count"`
 	Metadata        map[string]any `json:"metadata,omitempty"`
@@ -40,6 +41,7 @@ type CreateBotRequest struct {
 	Timezone    *string        `json:"timezone,omitempty"`
 	IsActive    *bool          `json:"is_active,omitempty"`
 	AclPreset   string         `json:"acl_preset,omitempty"`
+	Framework   string         `json:"framework,omitempty"`
 	Metadata    map[string]any `json:"metadata,omitempty"`
 }
 
@@ -83,6 +85,15 @@ const (
 	BotStatusCreating = "creating"
 	BotStatusReady    = "ready"
 	BotStatusDeleting = "deleting"
+)
+
+// Framework identifies the agent framework that backs a bot. memoh is the
+// built-in in-process conversational agent; claudecode and codex are
+// CLI-backed runtimes with their own context and tools.
+const (
+	FrameworkMemoh      = "memoh"
+	FrameworkClaudeCode = "claudecode"
+	FrameworkCodex      = "codex"
 )
 
 const (

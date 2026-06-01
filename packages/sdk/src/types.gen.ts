@@ -436,6 +436,7 @@ export type BotsBot = {
     check_state?: string;
     created_at?: string;
     display_name?: string;
+    framework?: string;
     id?: string;
     is_active?: boolean;
     metadata?: {
@@ -464,6 +465,7 @@ export type BotsCreateBotRequest = {
     acl_preset?: string;
     avatar_url?: string;
     display_name?: string;
+    framework?: string;
     is_active?: boolean;
     metadata?: {
         [key: string]: unknown;

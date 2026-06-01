@@ -10,6 +10,7 @@ import (
 	sdk "github.com/memohai/twilight-ai/sdk"
 
 	"github.com/memohai/memoh/internal/conversation"
+	"github.com/memohai/memoh/internal/conversation/flow/botruntime"
 	"github.com/memohai/memoh/internal/models"
 	"github.com/memohai/memoh/internal/toolapproval"
 )
@@ -145,7 +146,8 @@ func (r *Resolver) continueToolApprovalSession(ctx context.Context, approval too
 		UserMessagePersisted:    true,
 	}
 
-	stream := r.agent.Stream(ctx, cfg)
+	rt := r.runtimeForBot(ctx, cfg.Identity.BotID)
+	stream := rt.Stream(ctx, botruntime.RunInput{Config: cfg})
 	stored := false
 	for event := range stream {
 		data, err := json.Marshal(event)

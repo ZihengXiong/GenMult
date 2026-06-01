@@ -13,7 +13,7 @@ import (
 )
 
 func TestCodexProvider_Metadata(t *testing.T) {
-	p := NewCodexProvider(CodexConfig{}, &mockWorkspaceResolver{}, &mockStore{}, nil)
+	p := NewCodexProvider(CodexConfig{}, &mockWorkspaceResolver{}, &mockStore{}, nil, nil)
 	assert.Equal(t, "codex", p.Name())
 	assert.Contains(t, p.Capabilities(), "code")
 	assert.Contains(t, p.Capabilities(), "review")
@@ -45,7 +45,7 @@ echo '{"type":"turn.completed"}'
 	p := NewCodexProvider(CodexConfig{
 		APIKey:  "test-key-openai",
 		Sandbox: "read-only",
-	}, resolver, store, nil)
+	}, resolver, store, nil, nil)
 
 	req := orchestrator.ExecuteTaskRequest{
 		Run:       orchestrator.Run{ID: "run-2"},
@@ -96,7 +96,7 @@ exit 1
 	resolver := &mockWorkspaceResolver{WorkDir: tmpDir}
 	p := NewCodexProvider(CodexConfig{
 		APIKey: "test-key-openai",
-	}, resolver, store, nil)
+	}, resolver, store, nil, nil)
 
 	req := orchestrator.ExecuteTaskRequest{
 		Run:  orchestrator.Run{ID: "run-2"},

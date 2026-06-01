@@ -6,8 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"os"
-	"strconv"
 	"strings"
 	"time"
 
@@ -41,22 +39,24 @@ type ContentBlock struct {
 
 // ClaudeCodeProvider implements orchestrator.AgentProvider using Claude Code CLI.
 type ClaudeCodeProvider struct {
-	config ClaudeCodeConfig
-	wsInfo WorkspaceResolver
-	store  orchestrator.Store
-	logger *slog.Logger
+	config   ClaudeCodeConfig
+	wsInfo   WorkspaceResolver
+	store    orchestrator.Store
+	executor CommandExecutor
+	logger   *slog.Logger
 }
 
 // NewClaudeCodeProvider creates a new ClaudeCodeProvider.
-func NewClaudeCodeProvider(config ClaudeCodeConfig, wsInfo WorkspaceResolver, store orchestrator.Store, logger *slog.Logger) *ClaudeCodeProvider {
+func NewClaudeCodeProvider(config ClaudeCodeConfig, wsInfo WorkspaceResolver, store orchestrator.Store, executor CommandExecutor, logger *slog.Logger) *ClaudeCodeProvider {
 	if logger == nil {
 		logger = slog.Default()
 	}
 	return &ClaudeCodeProvider{
-		config: config,
-		wsInfo: wsInfo,
-		store:  store,
-		logger: logger.With(slog.String("component", "claude_code_provider")),
+		config:   config,
+		wsInfo:   wsInfo,
+		store:    store,
+		executor: executor,
+		logger:   logger.With(slog.String("component", "claude_code_provider")),
 	}
 }
 
@@ -78,79 +78,13 @@ func (p *ClaudeCodeProvider) Execute(ctx context.Context, req orchestrator.Execu
 	}
 
 	// Set up custom environment containing the API key.
-	env := append(os.Environ(), "ANTHROPIC_API_KEY="+p.config.APIKey)
-	if val := os.Getenv("ANTHROPIC_BASE_URL"); val != "" {
-		env = append(env, "ANTHROPIC_BASE_URL="+val)
-	}
+	env := ClaudeEnv(p.config)
 
 	buildArgs := func(prompt string) []string {
-		args := []string{
-			"-p", prompt,
-			"--output-format", "stream-json",
-			"--verbose",
-		}
-		if p.config.PermissionMode != "" {
-			args = append(args, "--permission-mode", p.config.PermissionMode)
-		} else {
-			args = append(args, "--permission-mode", "acceptEdits")
-		}
-		if p.config.MaxTurns > 0 {
-			args = append(args, "--max-turns", strconv.Itoa(p.config.MaxTurns))
-		} else {
-			args = append(args, "--max-turns", "15")
-		}
-		if len(p.config.AllowedTools) > 0 {
-			args = append(args, "--allowedTools", strings.Join(p.config.AllowedTools, ","))
-		}
-		if p.config.Model != "" {
-			args = append(args, "--model", p.config.Model)
-		}
-		return args
+		return ClaudeBuildArgs(p.config, prompt)
 	}
 
-	parseEvent := func(line []byte) (CLIEvent, error) {
-		var ce ClaudeEvent
-		if err := json.Unmarshal(line, &ce); err != nil {
-			return CLIEvent{}, err
-		}
-		switch ce.Type {
-		case "system":
-			return CLIEvent{Type: "init", Content: "initialized", Raw: line}, nil
-		case "assistant":
-			if ce.Message != nil {
-				var texts []string
-				var tools []string
-				for _, block := range ce.Message.Content {
-					if block.Type == "text" {
-						texts = append(texts, block.Text)
-					} else if block.Type == "tool_use" {
-						tools = append(tools, block.Name)
-					}
-				}
-				if len(tools) > 0 {
-					return CLIEvent{Type: "tool_use", Content: strings.Join(tools, ", "), Raw: line}, nil
-				}
-				if len(texts) > 0 {
-					return CLIEvent{Type: "text", Content: strings.Join(texts, ""), Raw: line}, nil
-				}
-			}
-			if ce.Content != nil {
-				var txt string
-				if err := json.Unmarshal(ce.Content, &txt); err == nil && txt != "" {
-					return CLIEvent{Type: "text", Content: txt, Raw: line}, nil
-				}
-			}
-		case "tool_result":
-			var resultTxt string
-			_ = json.Unmarshal(ce.Content, &resultTxt)
-			return CLIEvent{Type: "tool_result", Content: resultTxt, Raw: line}, nil
-		case "result":
-			var resultTxt string
-			_ = json.Unmarshal(ce.Content, &resultTxt)
-			return CLIEvent{Type: "result", Content: resultTxt, Raw: line}, nil
-		}
-		return CLIEvent{Type: ce.Type, Raw: line}, nil
-	}
+	parseEvent := ClaudeParseEvent
 
 	onEvent := func(event CLIEvent) {
 		eventType := orchestrator.EventAgentOutput
@@ -177,7 +111,6 @@ func (p *ClaudeCodeProvider) Execute(ctx context.Context, req orchestrator.Execu
 		BuildArgs:  buildArgs,
 		ParseEvent: parseEvent,
 		OnEvent:    onEvent,
-		Env:        env,
 	}, p.logger)
 
 	prompt := req.Task.Description
@@ -185,7 +118,7 @@ func (p *ClaudeCodeProvider) Execute(ctx context.Context, req orchestrator.Execu
 		prompt = req.Task.Title
 	}
 
-	output, err := runner.Run(ctx, prompt, workDir)
+	output, err := runner.Run(ctx, prompt, workDir, p.executor, env)
 	if err != nil {
 		if errors.Is(err, ErrCLINotFound) {
 			return orchestrator.ExecuteTaskResult{Retryable: false}, err

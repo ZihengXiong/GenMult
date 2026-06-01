@@ -74,7 +74,7 @@ func (m *mockStore) ListEvents(ctx context.Context, runID string, afterSeq int64
 }
 
 func TestClaudeCodeProvider_Metadata(t *testing.T) {
-	p := NewClaudeCodeProvider(ClaudeCodeConfig{}, &mockWorkspaceResolver{}, &mockStore{}, nil)
+	p := NewClaudeCodeProvider(ClaudeCodeConfig{}, &mockWorkspaceResolver{}, &mockStore{}, nil, nil)
 	assert.Equal(t, "claudecode", p.Name())
 	assert.Contains(t, p.Capabilities(), "code")
 	assert.Contains(t, p.Capabilities(), "review")
@@ -108,7 +108,7 @@ echo '{"type":"result"}'
 		PermissionMode: "bypassPermissions",
 		MaxTurns:       5,
 		AllowedTools:   []string{"WriteFile"},
-	}, resolver, store, nil)
+	}, resolver, store, nil, nil)
 
 	req := orchestrator.ExecuteTaskRequest{
 		Run:       orchestrator.Run{ID: "run-1"},
@@ -159,7 +159,7 @@ exit 1
 	resolver := &mockWorkspaceResolver{WorkDir: tmpDir}
 	p := NewClaudeCodeProvider(ClaudeCodeConfig{
 		APIKey: "bad-key",
-	}, resolver, store, nil)
+	}, resolver, store, nil, nil)
 
 	req := orchestrator.ExecuteTaskRequest{
 		Run:  orchestrator.Run{ID: "run-1"},

@@ -68,8 +68,8 @@ func NewOrchestratorService(
 	var provCfg providers.ProviderConfigs
 	provCfg.FromEnvWithDefaults()
 
-	claudeProvider := providers.NewClaudeCodeProvider(provCfg.ClaudeCode, resolver, store, log)
-	codexProvider := providers.NewCodexProvider(provCfg.Codex, resolver, store, log)
+	claudeProvider := providers.NewClaudeCodeProvider(provCfg.ClaudeCode, resolver, store, nil, log)
+	codexProvider := providers.NewCodexProvider(provCfg.Codex, resolver, store, nil, log)
 
 	registry := orch.NewProviderRegistry(
 		orch.NoopProvider{},

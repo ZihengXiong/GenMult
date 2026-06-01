@@ -163,6 +163,35 @@
 
       <Separator class="my-6" />
 
+      <!-- Agent Framework -->
+      <div>
+        <h3 class="text-sm font-medium mb-4">
+          {{ $t('bots.steps.framework') }}
+        </h3>
+        <div class="flex flex-col gap-3">
+          <Label>{{ $t('bots.framework') }}</Label>
+          <Select v-model="form.framework">
+            <SelectTrigger class="w-full">
+              <SelectValue :placeholder="$t('bots.framework')" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem
+                v-for="opt in frameworkOptions"
+                :key="opt.value"
+                :value="opt.value"
+              >
+                {{ opt.label }}
+              </SelectItem>
+            </SelectContent>
+          </Select>
+          <p class="text-xs text-muted-foreground">
+            {{ $t('bots.frameworkHelp') }}
+          </p>
+        </div>
+      </div>
+
+      <Separator class="my-6" />
+
       <!-- Model -->
       <div>
         <h3 class="text-sm font-medium mb-4">
@@ -298,10 +327,17 @@ onMounted(() => {
 
 const localWorkspaceEnabled = computed(() => capabilities.localWorkspaceEnabled)
 
+const frameworkOptions = [
+  { value: 'memoh', label: 'Memoh' },
+  { value: 'claudecode', label: 'Claude Code' },
+  { value: 'codex', label: 'Codex' },
+] as const
+
 const form = reactive({
   display_name: '',
   avatar_url: '',
   acl_preset: defaultAclPreset as string,
+  framework: 'memoh' as string,
   chat_model_id: '',
   memory_provider_id: '',
   timezone: emptyTimezoneValue,
@@ -418,6 +454,7 @@ async function handleSubmit() {
         timezone: tz,
         is_active: true,
         acl_preset: form.acl_preset,
+        framework: form.framework,
         metadata,
       },
     })
