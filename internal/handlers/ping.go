@@ -4,6 +4,8 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/labstack/echo/v4"
@@ -21,6 +23,15 @@ type PingResponse struct {
 	SnapshotSupported     bool   `json:"snapshot_supported"`
 	Version               string `json:"version"`
 	CommitHash            string `json:"commit_hash"`
+}
+
+type ValidateDirectoryRequest struct {
+	Path string `json:"path"`
+}
+
+type ValidateDirectoryResponse struct {
+	Valid bool   `json:"valid"`
+	Error string `json:"error,omitempty"`
 }
 
 type PingHandler struct {
@@ -46,6 +57,7 @@ func NewPingHandler(log *slog.Logger, rc *boot.RuntimeConfig, service ctr.Servic
 func (h *PingHandler) Register(e *echo.Echo) {
 	e.GET("/ping", h.Ping)
 	e.HEAD("/health", h.PingHead)
+	e.POST("/system/validate-directory", h.ValidateDirectory)
 }
 
 // Ping godoc
@@ -83,4 +95,30 @@ func (h *PingHandler) snapshotSupported(ctx context.Context) bool {
 	default:
 		return true
 	}
+}
+
+func (h *PingHandler) ValidateDirectory(c echo.Context) error {
+	var req ValidateDirectoryRequest
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
+
+	p := strings.TrimSpace(req.Path)
+	if p == "" {
+		return c.JSON(http.StatusOK, ValidateDirectoryResponse{Valid: false, Error: "path is empty"})
+	}
+
+	info, err := os.Stat(p)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return c.JSON(http.StatusOK, ValidateDirectoryResponse{Valid: false, Error: "directory does not exist"})
+		}
+		return c.JSON(http.StatusOK, ValidateDirectoryResponse{Valid: false, Error: err.Error()})
+	}
+
+	if !info.IsDir() {
+		return c.JSON(http.StatusOK, ValidateDirectoryResponse{Valid: false, Error: "path is not a directory"})
+	}
+
+	return c.JSON(http.StatusOK, ValidateDirectoryResponse{Valid: true})
 }

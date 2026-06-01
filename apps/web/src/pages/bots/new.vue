@@ -95,11 +95,26 @@
                   {{ $t('bots.localWorkspacePath') }}
                   <span class="text-destructive">*</span>
                 </Label>
-                <Input
-                  v-model="form.local_workspace_path"
-                  type="text"
-                  :placeholder="$t('bots.localWorkspacePathPlaceholder')"
-                />
+                <div class="relative">
+                  <Input
+                    v-model="form.local_workspace_path"
+                    type="text"
+                    :placeholder="$t('bots.localWorkspacePathPlaceholder')"
+                    :class="{ 'border-destructive': localWorkspaceError }"
+                  />
+                  <div
+                    v-if="localWorkspaceValidating"
+                    class="absolute right-3 top-2.5"
+                  >
+                    <Spinner class="size-4" />
+                  </div>
+                </div>
+                <p
+                  v-if="localWorkspaceError"
+                  class="text-xs text-destructive mt-1.5"
+                >
+                  {{ localWorkspaceError }}
+                </p>
               </div>
               <div class="rounded-md border border-warning-border bg-warning-soft px-3 py-2 text-xs text-warning-foreground">
                 {{ $t('bots.localWorkspaceWarning') }}
@@ -305,6 +320,7 @@ import { toast } from 'vue-sonner'
 import { useI18n } from 'vue-i18n'
 import { useQuery, useMutation, useQueryCache } from '@pinia/colada'
 import { getModels, getProviders, getMemoryProviders, putBotsByBotIdSettings } from '@memohai/sdk'
+import { client } from '@memohai/sdk/client'
 import { postBotsMutation, getBotsQueryKey } from '@memohai/sdk/colada'
 import { useCapabilitiesStore } from '@/store/capabilities'
 import { useAvatarInitials } from '@/composables/useAvatarInitials'
@@ -368,8 +384,41 @@ watch([() => form.display_name, () => form.workspace_backend], async ([displayNa
   }
 })
 
-watch(() => form.local_workspace_path, () => {
+const localWorkspaceError = ref('')
+const localWorkspaceValidating = ref(false)
+
+let debounceTimeout: ReturnType<typeof setTimeout> | null = null
+
+watch(() => form.local_workspace_path, (newPath) => {
   localPathTouched.value = true
+  localWorkspaceError.value = ''
+  if (form.workspace_backend !== 'local') return
+  if (!newPath.trim()) {
+    localWorkspaceError.value = t('common.required') || 'Required'
+    return
+  }
+
+  if (debounceTimeout) {
+    clearTimeout(debounceTimeout)
+  }
+
+  debounceTimeout = setTimeout(async () => {
+    localWorkspaceValidating.value = true
+    try {
+      const { data } = await client.post<{ 200: { valid: boolean; error?: string } }, { path: string }, true>({
+        url: '/system/validate-directory',
+        body: { path: newPath.trim() },
+        throwOnError: true,
+      })
+      if (data && !data.valid) {
+        localWorkspaceError.value = data.error || 'Invalid directory'
+      }
+    } catch (err: any) {
+      localWorkspaceError.value = err.message || 'Failed to validate directory'
+    } finally {
+      localWorkspaceValidating.value = false
+    }
+  }, 500)
 })
 
 const avatarDialogOpen = ref(false)
@@ -422,7 +471,11 @@ const aclDescription = computed(() => {
 const canSubmit = computed(() => {
   if (!form.display_name.trim()) return false
   if (!form.acl_preset) return false
-  if (localWorkspaceEnabled.value && form.workspace_backend === 'local' && !form.local_workspace_path.trim()) return false
+  if (localWorkspaceEnabled.value && form.workspace_backend === 'local') {
+    if (!form.local_workspace_path.trim()) return false
+    if (localWorkspaceError.value) return false
+    if (localWorkspaceValidating.value) return false
+  }
   return true
 })
 
