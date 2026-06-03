@@ -47,13 +47,17 @@ func NewService(log *slog.Logger, queries dbstore.Queries, triggerer Triggerer, 
 		location = runtimeConfig.TimezoneLocation
 	}
 	c := cron.New(cron.WithParser(parser), cron.WithLocation(location))
+	var jwtSecret string
+	if runtimeConfig != nil {
+		jwtSecret = runtimeConfig.JwtSecret
+	}
 	service := &Service{
 		queries:         queries,
 		cron:            c,
 		parser:          parser,
 		triggerer:       triggerer,
 		sessionCreator:  sessionCreator,
-		jwtSecret:       runtimeConfig.JwtSecret,
+		jwtSecret:       jwtSecret,
 		logger:          log.With(slog.String("service", "schedule")),
 		defaultLocation: location,
 		jobs:            map[string]cron.EntryID{},
