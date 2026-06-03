@@ -9,10 +9,10 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/memohai/memoh/internal/config"
-	"github.com/memohai/memoh/internal/mcp"
-	adapters "github.com/memohai/memoh/internal/memory/adapters"
-	storefs "github.com/memohai/memoh/internal/memory/storefs"
+	"github.com/ZihengXiong/GenMult/internal/config"
+	"github.com/ZihengXiong/GenMult/internal/mcp"
+	adapters "github.com/ZihengXiong/GenMult/internal/memory/adapters"
+	storefs "github.com/ZihengXiong/GenMult/internal/memory/storefs"
 )
 
 const (

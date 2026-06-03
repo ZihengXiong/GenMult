@@ -7,8 +7,8 @@ import (
 	"syscall"
 	"time"
 
-	ctr "github.com/memohai/memoh/internal/container"
-	netctl "github.com/memohai/memoh/internal/network"
+	ctr "github.com/ZihengXiong/GenMult/internal/container"
+	netctl "github.com/ZihengXiong/GenMult/internal/network"
 )
 
 type BuildSpecFunc func(netctl.AttachmentRequest) (Spec, error)

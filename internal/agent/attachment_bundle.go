@@ -1,8 +1,8 @@
 package agent
 
 import (
-	"github.com/memohai/memoh/internal/agent/tools"
-	attachmentpkg "github.com/memohai/memoh/internal/attachment"
+	"github.com/ZihengXiong/GenMult/internal/agent/tools"
+	attachmentpkg "github.com/ZihengXiong/GenMult/internal/attachment"
 )
 
 func bundleFromToolAttachment(att tools.Attachment) attachmentpkg.Bundle {

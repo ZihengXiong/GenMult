@@ -9,9 +9,9 @@ import (
 
 	sdk "github.com/memohai/twilight-ai/sdk"
 
-	agentpkg "github.com/memohai/memoh/internal/agent"
-	"github.com/memohai/memoh/internal/conversation"
-	"github.com/memohai/memoh/internal/conversation/flow/botruntime"
+	agentpkg "github.com/ZihengXiong/GenMult/internal/agent"
+	"github.com/ZihengXiong/GenMult/internal/conversation"
+	"github.com/ZihengXiong/GenMult/internal/conversation/flow/botruntime"
 )
 
 // WSStreamEvent represents a raw JSON event forwarded from the agent.

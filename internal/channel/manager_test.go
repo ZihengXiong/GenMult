@@ -3,7 +3,7 @@ package channel_test
 import (
 	"testing"
 
-	"github.com/memohai/memoh/internal/channel"
+	"github.com/ZihengXiong/GenMult/internal/channel"
 )
 
 func TestResolveTargetFromUserConfig(t *testing.T) {

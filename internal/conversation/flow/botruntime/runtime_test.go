@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	agentpkg "github.com/memohai/memoh/internal/agent"
+	agentpkg "github.com/ZihengXiong/GenMult/internal/agent"
 )
 
 type stubRuntime struct{ name string }

@@ -13,11 +13,11 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/robfig/cron/v3"
 
-	"github.com/memohai/memoh/internal/auth"
-	"github.com/memohai/memoh/internal/boot"
-	"github.com/memohai/memoh/internal/db"
-	"github.com/memohai/memoh/internal/db/postgres/sqlc"
-	dbstore "github.com/memohai/memoh/internal/db/store"
+	"github.com/ZihengXiong/GenMult/internal/auth"
+	"github.com/ZihengXiong/GenMult/internal/boot"
+	"github.com/ZihengXiong/GenMult/internal/db"
+	"github.com/ZihengXiong/GenMult/internal/db/postgres/sqlc"
+	dbstore "github.com/ZihengXiong/GenMult/internal/db/store"
 )
 
 const heartbeatTokenTTL = 10 * time.Minute

@@ -1,7 +1,7 @@
 package tools
 
 import (
-	textprune "github.com/memohai/memoh/internal/prune"
+	textprune "github.com/ZihengXiong/GenMult/internal/prune"
 )
 
 const (

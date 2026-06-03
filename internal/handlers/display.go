@@ -14,10 +14,10 @@ import (
 
 	"github.com/labstack/echo/v4"
 
-	displaypkg "github.com/memohai/memoh/internal/display"
-	"github.com/memohai/memoh/internal/workspace/bridge"
-	pb "github.com/memohai/memoh/internal/workspace/bridgepb"
-	scriptassets "github.com/memohai/memoh/scripts"
+	displaypkg "github.com/ZihengXiong/GenMult/internal/display"
+	"github.com/ZihengXiong/GenMult/internal/workspace/bridge"
+	pb "github.com/ZihengXiong/GenMult/internal/workspace/bridgepb"
+	scriptassets "github.com/ZihengXiong/GenMult/scripts"
 )
 
 type displayInfoResponse struct {

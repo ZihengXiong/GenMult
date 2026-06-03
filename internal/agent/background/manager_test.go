@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/memohai/memoh/internal/workspace/bridge"
+	"github.com/ZihengXiong/GenMult/internal/workspace/bridge"
 )
 
 // waitDrain polls DrainNotifications until the expected count is reached or timeout.

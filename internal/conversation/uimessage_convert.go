@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"strings"
 
-	messagepkg "github.com/memohai/memoh/internal/message"
-	"github.com/memohai/memoh/internal/textutil"
+	messagepkg "github.com/ZihengXiong/GenMult/internal/message"
+	"github.com/ZihengXiong/GenMult/internal/textutil"
 )
 
 const uiReplyPreviewMaxRunes = 120

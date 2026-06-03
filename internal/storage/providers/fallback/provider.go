@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/memohai/memoh/internal/storage"
+	"github.com/ZihengXiong/GenMult/internal/storage"
 )
 
 var _ storage.ContainerFileOpener = (*Provider)(nil)

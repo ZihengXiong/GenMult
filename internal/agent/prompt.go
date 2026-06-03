@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	skillset "github.com/memohai/memoh/internal/skills"
+	skillset "github.com/ZihengXiong/GenMult/internal/skills"
 )
 
 //go:embed prompts/*.md

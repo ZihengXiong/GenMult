@@ -17,10 +17,10 @@ import (
 	openairesponses "github.com/memohai/twilight-ai/provider/openai/responses"
 	sdk "github.com/memohai/twilight-ai/sdk"
 
-	memohcopilot "github.com/memohai/memoh/internal/copilot"
-	"github.com/memohai/memoh/internal/db"
-	"github.com/memohai/memoh/internal/db/postgres/sqlc"
-	"github.com/memohai/memoh/internal/oauthctx"
+	memohcopilot "github.com/ZihengXiong/GenMult/internal/copilot"
+	"github.com/ZihengXiong/GenMult/internal/db"
+	"github.com/ZihengXiong/GenMult/internal/db/postgres/sqlc"
+	"github.com/ZihengXiong/GenMult/internal/oauthctx"
 )
 
 const probeTimeout = DefaultProviderProbeTimeout

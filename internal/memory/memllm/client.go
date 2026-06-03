@@ -9,9 +9,9 @@ import (
 
 	sdk "github.com/memohai/twilight-ai/sdk"
 
-	"github.com/memohai/memoh/internal/agent"
-	adapters "github.com/memohai/memoh/internal/memory/adapters"
-	"github.com/memohai/memoh/internal/models"
+	"github.com/ZihengXiong/GenMult/internal/agent"
+	adapters "github.com/ZihengXiong/GenMult/internal/memory/adapters"
+	"github.com/ZihengXiong/GenMult/internal/models"
 )
 
 const (

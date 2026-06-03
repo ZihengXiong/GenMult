@@ -10,8 +10,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/memohai/memoh/internal/config"
-	ctr "github.com/memohai/memoh/internal/container"
+	"github.com/ZihengXiong/GenMult/internal/config"
+	ctr "github.com/ZihengXiong/GenMult/internal/container"
 )
 
 func TestLocalServiceCRUDAndInProcessBridge(t *testing.T) {

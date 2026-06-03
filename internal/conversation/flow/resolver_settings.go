@@ -6,10 +6,10 @@ import (
 	"errors"
 	"log/slog"
 
-	"github.com/memohai/memoh/internal/bots"
-	"github.com/memohai/memoh/internal/conversation/flow/botruntime"
-	"github.com/memohai/memoh/internal/db"
-	"github.com/memohai/memoh/internal/settings"
+	"github.com/ZihengXiong/GenMult/internal/bots"
+	"github.com/ZihengXiong/GenMult/internal/conversation/flow/botruntime"
+	"github.com/ZihengXiong/GenMult/internal/db"
+	"github.com/ZihengXiong/GenMult/internal/settings"
 )
 
 // SetBotRuntimes registers additional bot runtimes (e.g. claudecode, codex)

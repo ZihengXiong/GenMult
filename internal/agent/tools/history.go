@@ -11,11 +11,11 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	sdk "github.com/memohai/twilight-ai/sdk"
 
-	"github.com/memohai/memoh/internal/conversation"
-	dbpkg "github.com/memohai/memoh/internal/db"
-	"github.com/memohai/memoh/internal/db/postgres/sqlc"
-	dbstore "github.com/memohai/memoh/internal/db/store"
-	"github.com/memohai/memoh/internal/session"
+	"github.com/ZihengXiong/GenMult/internal/conversation"
+	dbpkg "github.com/ZihengXiong/GenMult/internal/db"
+	"github.com/ZihengXiong/GenMult/internal/db/postgres/sqlc"
+	dbstore "github.com/ZihengXiong/GenMult/internal/db/store"
+	"github.com/ZihengXiong/GenMult/internal/session"
 )
 
 const defaultMaxLookbackDays = 7

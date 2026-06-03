@@ -3,7 +3,7 @@ package toolapproval
 import (
 	"testing"
 
-	"github.com/memohai/memoh/internal/settings"
+	"github.com/ZihengXiong/GenMult/internal/settings"
 )
 
 func TestNeedsApprovalFileBypass(t *testing.T) {

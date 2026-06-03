@@ -1,4 +1,4 @@
-module github.com/memohai/memoh
+module github.com/ZihengXiong/GenMult
 
 go 1.25.7
 

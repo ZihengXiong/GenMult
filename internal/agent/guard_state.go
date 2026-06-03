@@ -3,7 +3,7 @@ package agent
 import (
 	"sync"
 
-	"github.com/memohai/memoh/internal/agent/tools"
+	"github.com/ZihengXiong/GenMult/internal/agent/tools"
 )
 
 type toolAbortRegistry struct {

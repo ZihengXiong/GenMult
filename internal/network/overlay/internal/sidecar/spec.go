@@ -5,7 +5,7 @@ import (
 	"encoding/hex"
 	"sort"
 
-	ctr "github.com/memohai/memoh/internal/container"
+	ctr "github.com/ZihengXiong/GenMult/internal/container"
 )
 
 const (

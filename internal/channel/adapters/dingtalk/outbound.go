@@ -5,7 +5,7 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/memohai/memoh/internal/channel"
+	"github.com/ZihengXiong/GenMult/internal/channel"
 )
 
 // buildAPIPayload converts a channel.Message and its prepared attachments to a DingTalk

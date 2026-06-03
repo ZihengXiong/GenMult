@@ -8,8 +8,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/memohai/memoh/internal/channel"
-	"github.com/memohai/memoh/internal/media"
+	"github.com/ZihengXiong/GenMult/internal/channel"
+	"github.com/ZihengXiong/GenMult/internal/media"
 )
 
 const (

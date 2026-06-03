@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/memohai/memoh/internal/channel"
+	"github.com/ZihengXiong/GenMult/internal/channel"
 )
 
 const testChannelType = channel.ChannelType("test-config")

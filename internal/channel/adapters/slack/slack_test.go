@@ -14,8 +14,8 @@ import (
 	"github.com/slack-go/slack/slackevents"
 	"github.com/slack-go/slack/socketmode"
 
-	"github.com/memohai/memoh/internal/channel"
-	"github.com/memohai/memoh/internal/media"
+	"github.com/ZihengXiong/GenMult/internal/channel"
+	"github.com/ZihengXiong/GenMult/internal/media"
 )
 
 var (

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/memohai/memoh/internal/acl"
+	"github.com/ZihengXiong/GenMult/internal/acl"
 )
 
 func (h *Handler) buildAccessGroup() *CommandGroup {

@@ -8,9 +8,9 @@ import (
 
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/memohai/memoh/internal/config"
-	"github.com/memohai/memoh/internal/db"
-	pgsqlc "github.com/memohai/memoh/internal/db/postgres/sqlc"
+	"github.com/ZihengXiong/GenMult/internal/config"
+	"github.com/ZihengXiong/GenMult/internal/db"
+	pgsqlc "github.com/ZihengXiong/GenMult/internal/db/postgres/sqlc"
 )
 
 func TestSQLiteJSONUsageAndSkillQueries(t *testing.T) {

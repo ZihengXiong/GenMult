@@ -19,7 +19,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/keepalive"
 
-	pb "github.com/memohai/memoh/internal/workspace/bridgepb"
+	pb "github.com/ZihengXiong/GenMult/internal/workspace/bridgepb"
 )
 
 const connectingTimeout = 30 * time.Second

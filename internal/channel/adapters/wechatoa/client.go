@@ -13,8 +13,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/memohai/memoh/internal/channel"
-	"github.com/memohai/memoh/internal/channel/common"
+	"github.com/ZihengXiong/GenMult/internal/channel"
+	"github.com/ZihengXiong/GenMult/internal/channel/common"
 )
 
 type apiResponse struct {

@@ -16,12 +16,12 @@ import (
 
 	sdk "github.com/memohai/twilight-ai/sdk"
 
-	dbstore "github.com/memohai/memoh/internal/db/store"
-	messagepkg "github.com/memohai/memoh/internal/message"
-	"github.com/memohai/memoh/internal/models"
-	"github.com/memohai/memoh/internal/providers"
-	sessionpkg "github.com/memohai/memoh/internal/session"
-	"github.com/memohai/memoh/internal/settings"
+	dbstore "github.com/ZihengXiong/GenMult/internal/db/store"
+	messagepkg "github.com/ZihengXiong/GenMult/internal/message"
+	"github.com/ZihengXiong/GenMult/internal/models"
+	"github.com/ZihengXiong/GenMult/internal/providers"
+	sessionpkg "github.com/ZihengXiong/GenMult/internal/session"
+	"github.com/ZihengXiong/GenMult/internal/settings"
 )
 
 // SpawnAgent is the interface the spawn tool uses to run subagent tasks.

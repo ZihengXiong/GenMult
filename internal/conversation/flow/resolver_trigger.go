@@ -11,13 +11,13 @@ import (
 
 	sdk "github.com/memohai/twilight-ai/sdk"
 
-	agentpkg "github.com/memohai/memoh/internal/agent"
-	"github.com/memohai/memoh/internal/channel/route"
-	"github.com/memohai/memoh/internal/conversation"
-	"github.com/memohai/memoh/internal/conversation/flow/botruntime"
-	"github.com/memohai/memoh/internal/heartbeat"
-	messageevent "github.com/memohai/memoh/internal/message/event"
-	"github.com/memohai/memoh/internal/schedule"
+	agentpkg "github.com/ZihengXiong/GenMult/internal/agent"
+	"github.com/ZihengXiong/GenMult/internal/channel/route"
+	"github.com/ZihengXiong/GenMult/internal/conversation"
+	"github.com/ZihengXiong/GenMult/internal/conversation/flow/botruntime"
+	"github.com/ZihengXiong/GenMult/internal/heartbeat"
+	messageevent "github.com/ZihengXiong/GenMult/internal/message/event"
+	"github.com/ZihengXiong/GenMult/internal/schedule"
 )
 
 // RouteService is the interface the resolver uses to recover route-backed

@@ -7,8 +7,8 @@ import (
 
 	sdk "github.com/memohai/twilight-ai/sdk"
 
-	"github.com/memohai/memoh/internal/channel"
-	"github.com/memohai/memoh/internal/messaging"
+	"github.com/ZihengXiong/GenMult/internal/channel"
+	"github.com/ZihengXiong/GenMult/internal/messaging"
 )
 
 type MessageProvider struct {

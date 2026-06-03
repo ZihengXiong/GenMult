@@ -11,7 +11,7 @@ import (
 
 	sdkjsonrpc "github.com/modelcontextprotocol/go-sdk/jsonrpc"
 
-	mcptools "github.com/memohai/memoh/internal/mcp"
+	mcptools "github.com/ZihengXiong/GenMult/internal/mcp"
 )
 
 // fakeMCPConnection implements sdkmcp.Connection for testing.

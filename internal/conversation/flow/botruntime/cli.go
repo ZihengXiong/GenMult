@@ -8,9 +8,9 @@ import (
 
 	sdk "github.com/memohai/twilight-ai/sdk"
 
-	agentpkg "github.com/memohai/memoh/internal/agent"
-	"github.com/memohai/memoh/internal/agenthub/providers"
-	"github.com/memohai/memoh/internal/bots"
+	agentpkg "github.com/ZihengXiong/GenMult/internal/agent"
+	"github.com/ZihengXiong/GenMult/internal/agenthub/providers"
+	"github.com/ZihengXiong/GenMult/internal/bots"
 )
 
 // WorkDirResolver resolves the host working directory for a bot's CLI runtime.

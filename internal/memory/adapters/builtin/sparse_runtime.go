@@ -9,11 +9,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/memohai/memoh/internal/config"
-	adapters "github.com/memohai/memoh/internal/memory/adapters"
-	qdrantclient "github.com/memohai/memoh/internal/memory/qdrant"
-	"github.com/memohai/memoh/internal/memory/sparse"
-	storefs "github.com/memohai/memoh/internal/memory/storefs"
+	"github.com/ZihengXiong/GenMult/internal/config"
+	adapters "github.com/ZihengXiong/GenMult/internal/memory/adapters"
+	qdrantclient "github.com/ZihengXiong/GenMult/internal/memory/qdrant"
+	"github.com/ZihengXiong/GenMult/internal/memory/sparse"
+	storefs "github.com/ZihengXiong/GenMult/internal/memory/storefs"
 )
 
 type sparseEncoder interface {

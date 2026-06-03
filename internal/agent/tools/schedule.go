@@ -8,7 +8,7 @@ import (
 
 	sdk "github.com/memohai/twilight-ai/sdk"
 
-	sched "github.com/memohai/memoh/internal/schedule"
+	sched "github.com/ZihengXiong/GenMult/internal/schedule"
 )
 
 type ScheduleProvider struct {

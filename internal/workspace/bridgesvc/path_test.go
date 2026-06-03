@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	pb "github.com/memohai/memoh/internal/workspace/bridgepb"
+	pb "github.com/ZihengXiong/GenMult/internal/workspace/bridgepb"
 )
 
 func TestLocalPathResolverMapsDataMountToWorkspaceRoot(t *testing.T) {

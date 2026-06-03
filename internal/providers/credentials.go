@@ -8,9 +8,9 @@ import (
 	"fmt"
 	"strings"
 
-	memohcopilot "github.com/memohai/memoh/internal/copilot"
-	"github.com/memohai/memoh/internal/db/postgres/sqlc"
-	"github.com/memohai/memoh/internal/models"
+	memohcopilot "github.com/ZihengXiong/GenMult/internal/copilot"
+	"github.com/ZihengXiong/GenMult/internal/db/postgres/sqlc"
+	"github.com/ZihengXiong/GenMult/internal/models"
 )
 
 const openAIAuthClaimPath = "https://api.openai.com/auth"

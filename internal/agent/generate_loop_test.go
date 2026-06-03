@@ -11,7 +11,7 @@ import (
 	"github.com/google/jsonschema-go/jsonschema"
 	sdk "github.com/memohai/twilight-ai/sdk"
 
-	agenttools "github.com/memohai/memoh/internal/agent/tools"
+	agenttools "github.com/ZihengXiong/GenMult/internal/agent/tools"
 )
 
 type staticToolProvider struct {

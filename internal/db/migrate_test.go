@@ -3,7 +3,7 @@ package db
 import (
 	"testing"
 
-	"github.com/memohai/memoh/internal/config"
+	"github.com/ZihengXiong/GenMult/internal/config"
 )
 
 func TestRunMigrateUnknownCommand(t *testing.T) {

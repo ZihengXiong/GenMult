@@ -10,10 +10,10 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/memohai/memoh/internal/channel/identities"
-	"github.com/memohai/memoh/internal/db/postgres/sqlc"
-	postgresstore "github.com/memohai/memoh/internal/db/postgres/store"
-	dbstore "github.com/memohai/memoh/internal/db/store"
+	"github.com/ZihengXiong/GenMult/internal/channel/identities"
+	"github.com/ZihengXiong/GenMult/internal/db/postgres/sqlc"
+	postgresstore "github.com/ZihengXiong/GenMult/internal/db/postgres/store"
+	dbstore "github.com/ZihengXiong/GenMult/internal/db/store"
 )
 
 func setupChannelIdentityIdentityIntegrationTest(t *testing.T) (*identities.Service, dbstore.Queries, func()) {

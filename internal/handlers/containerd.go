@@ -17,14 +17,14 @@ import (
 
 	"github.com/labstack/echo/v4"
 
-	"github.com/memohai/memoh/internal/accounts"
-	"github.com/memohai/memoh/internal/bots"
-	"github.com/memohai/memoh/internal/config"
-	ctr "github.com/memohai/memoh/internal/container"
-	displaypkg "github.com/memohai/memoh/internal/display"
-	"github.com/memohai/memoh/internal/mcp"
-	"github.com/memohai/memoh/internal/policy"
-	"github.com/memohai/memoh/internal/workspace"
+	"github.com/ZihengXiong/GenMult/internal/accounts"
+	"github.com/ZihengXiong/GenMult/internal/bots"
+	"github.com/ZihengXiong/GenMult/internal/config"
+	ctr "github.com/ZihengXiong/GenMult/internal/container"
+	displaypkg "github.com/ZihengXiong/GenMult/internal/display"
+	"github.com/ZihengXiong/GenMult/internal/mcp"
+	"github.com/ZihengXiong/GenMult/internal/policy"
+	"github.com/ZihengXiong/GenMult/internal/workspace"
 )
 
 type ContainerdHandler struct {

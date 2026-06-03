@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/memohai/memoh/internal/audio"
+	"github.com/ZihengXiong/GenMult/internal/audio"
 )
 
 func TestEdgeAdapter_TypeAndMeta(t *testing.T) {

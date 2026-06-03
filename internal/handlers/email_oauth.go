@@ -15,8 +15,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/labstack/echo/v4"
 
-	"github.com/memohai/memoh/internal/email"
-	emailgmail "github.com/memohai/memoh/internal/email/adapters/gmail"
+	"github.com/ZihengXiong/GenMult/internal/email"
+	emailgmail "github.com/ZihengXiong/GenMult/internal/email/adapters/gmail"
 )
 
 const emailOAuthCallbackPath = "/api/email/oauth/callback"

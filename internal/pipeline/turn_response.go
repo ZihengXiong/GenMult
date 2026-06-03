@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"strings"
 
-	"github.com/memohai/memoh/internal/conversation"
-	messagepkg "github.com/memohai/memoh/internal/message"
+	"github.com/ZihengXiong/GenMult/internal/conversation"
+	messagepkg "github.com/ZihengXiong/GenMult/internal/message"
 )
 
 // DecodeTurnResponseEntry converts a persisted bot message into a TR entry for

@@ -8,7 +8,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 
-	"github.com/memohai/memoh/internal/auth"
+	"github.com/ZihengXiong/GenMult/internal/auth"
 )
 
 type Server struct {

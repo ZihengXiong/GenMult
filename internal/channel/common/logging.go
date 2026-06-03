@@ -4,7 +4,7 @@ package common
 import (
 	"strings"
 
-	"github.com/memohai/memoh/internal/textutil"
+	"github.com/ZihengXiong/GenMult/internal/textutil"
 )
 
 // SummarizeText returns a truncated preview of the text, limited to 120 characters.

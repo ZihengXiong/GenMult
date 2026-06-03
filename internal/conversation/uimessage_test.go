@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	messagepkg "github.com/memohai/memoh/internal/message"
+	messagepkg "github.com/ZihengXiong/GenMult/internal/message"
 )
 
 func TestConvertMessagesToUITurnsGroupsAssistantToolAndFiltersCurrentConversationDelivery(t *testing.T) {

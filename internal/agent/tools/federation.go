@@ -7,7 +7,7 @@ import (
 
 	sdk "github.com/memohai/twilight-ai/sdk"
 
-	"github.com/memohai/memoh/internal/mcp"
+	"github.com/ZihengXiong/GenMult/internal/mcp"
 )
 
 // FederationProvider adapts a mcp.ToolSource (federated MCP connections)

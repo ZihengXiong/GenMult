@@ -8,13 +8,13 @@ import (
 
 	"github.com/labstack/echo/v4"
 
-	"github.com/memohai/memoh/internal/accounts"
-	"github.com/memohai/memoh/internal/bots"
-	"github.com/memohai/memoh/internal/compaction"
-	dbstore "github.com/memohai/memoh/internal/db/store"
-	"github.com/memohai/memoh/internal/models"
-	"github.com/memohai/memoh/internal/providers"
-	"github.com/memohai/memoh/internal/settings"
+	"github.com/ZihengXiong/GenMult/internal/accounts"
+	"github.com/ZihengXiong/GenMult/internal/bots"
+	"github.com/ZihengXiong/GenMult/internal/compaction"
+	dbstore "github.com/ZihengXiong/GenMult/internal/db/store"
+	"github.com/ZihengXiong/GenMult/internal/models"
+	"github.com/ZihengXiong/GenMult/internal/providers"
+	"github.com/ZihengXiong/GenMult/internal/settings"
 )
 
 type CompactionHandler struct {

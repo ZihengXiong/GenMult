@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/memohai/memoh/internal/channel"
+	"github.com/ZihengXiong/GenMult/internal/channel"
 )
 
 // HTTPProxyConfig holds adapter-scoped HTTP proxy settings.

@@ -3,7 +3,7 @@ package route
 import (
 	"testing"
 
-	"github.com/memohai/memoh/internal/conversation"
+	"github.com/ZihengXiong/GenMult/internal/conversation"
 )
 
 func TestDetermineConversationKindTreatsDirectAsDirect(t *testing.T) {

@@ -4,8 +4,8 @@ import (
 	"context"
 	"os"
 
-	"github.com/memohai/memoh/internal/agenthub/orchestrator"
-	"github.com/memohai/memoh/internal/workspace"
+	"github.com/ZihengXiong/GenMult/internal/agenthub/orchestrator"
+	"github.com/ZihengXiong/GenMult/internal/workspace"
 )
 
 // WorkspaceResolver resolves the subprocess working directory for CLI providers.

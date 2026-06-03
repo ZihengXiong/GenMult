@@ -7,7 +7,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/memohai/memoh/internal/textutil"
+	"github.com/ZihengXiong/GenMult/internal/textutil"
 )
 
 const (

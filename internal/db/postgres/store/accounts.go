@@ -7,9 +7,9 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/memohai/memoh/internal/db"
-	dbsqlc "github.com/memohai/memoh/internal/db/postgres/sqlc"
-	dbstore "github.com/memohai/memoh/internal/db/store"
+	"github.com/ZihengXiong/GenMult/internal/db"
+	dbsqlc "github.com/ZihengXiong/GenMult/internal/db/postgres/sqlc"
+	dbstore "github.com/ZihengXiong/GenMult/internal/db/store"
 )
 
 func (s *Store) CountAccounts(ctx context.Context) (int64, error) {

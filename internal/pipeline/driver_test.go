@@ -7,7 +7,7 @@ import (
 
 	sdk "github.com/memohai/twilight-ai/sdk"
 
-	agentpkg "github.com/memohai/memoh/internal/agent"
+	agentpkg "github.com/ZihengXiong/GenMult/internal/agent"
 )
 
 func TestExtractNewImageRefs(t *testing.T) {

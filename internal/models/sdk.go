@@ -11,7 +11,7 @@ import (
 	openairesponses "github.com/memohai/twilight-ai/provider/openai/responses"
 	sdk "github.com/memohai/twilight-ai/sdk"
 
-	memohcopilot "github.com/memohai/memoh/internal/copilot"
+	memohcopilot "github.com/ZihengXiong/GenMult/internal/copilot"
 )
 
 // SDKModelConfig holds provider and model information resolved from DB,

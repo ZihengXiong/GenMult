@@ -3,7 +3,7 @@ package flow
 import (
 	"testing"
 
-	"github.com/memohai/memoh/internal/models"
+	"github.com/ZihengXiong/GenMult/internal/models"
 )
 
 func TestMatchesModelReference_ModelID(t *testing.T) {

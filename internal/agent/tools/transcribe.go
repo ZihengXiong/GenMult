@@ -16,9 +16,9 @@ import (
 
 	sdk "github.com/memohai/twilight-ai/sdk"
 
-	audiopkg "github.com/memohai/memoh/internal/audio"
-	"github.com/memohai/memoh/internal/media"
-	"github.com/memohai/memoh/internal/settings"
+	audiopkg "github.com/ZihengXiong/GenMult/internal/audio"
+	"github.com/ZihengXiong/GenMult/internal/media"
+	"github.com/ZihengXiong/GenMult/internal/settings"
 )
 
 const mediaDataPrefix = "/data/media/"

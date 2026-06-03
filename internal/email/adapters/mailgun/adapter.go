@@ -16,7 +16,7 @@ import (
 	mg "github.com/mailgun/mailgun-go/v5"
 	"github.com/mailgun/mailgun-go/v5/events"
 
-	"github.com/memohai/memoh/internal/email"
+	"github.com/ZihengXiong/GenMult/internal/email"
 )
 
 const (

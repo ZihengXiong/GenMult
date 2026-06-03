@@ -1,9 +1,9 @@
 package overlay
 
 import (
-	netctl "github.com/memohai/memoh/internal/network"
-	"github.com/memohai/memoh/internal/network/overlay/netbird"
-	"github.com/memohai/memoh/internal/network/overlay/tailscale"
+	netctl "github.com/ZihengXiong/GenMult/internal/network"
+	"github.com/ZihengXiong/GenMult/internal/network/overlay/netbird"
+	"github.com/ZihengXiong/GenMult/internal/network/overlay/tailscale"
 )
 
 func RegisterBuiltinProviders(registry *netctl.Registry, deps ProviderDeps) error {

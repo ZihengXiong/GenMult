@@ -15,14 +15,14 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/labstack/echo/v4"
 
-	"github.com/memohai/memoh/internal/accounts"
-	"github.com/memohai/memoh/internal/agent/background"
-	"github.com/memohai/memoh/internal/bots"
-	"github.com/memohai/memoh/internal/conversation"
-	"github.com/memohai/memoh/internal/media"
-	messagepkg "github.com/memohai/memoh/internal/message"
-	messageevent "github.com/memohai/memoh/internal/message/event"
-	"github.com/memohai/memoh/internal/toolapproval"
+	"github.com/ZihengXiong/GenMult/internal/accounts"
+	"github.com/ZihengXiong/GenMult/internal/agent/background"
+	"github.com/ZihengXiong/GenMult/internal/bots"
+	"github.com/ZihengXiong/GenMult/internal/conversation"
+	"github.com/ZihengXiong/GenMult/internal/media"
+	messagepkg "github.com/ZihengXiong/GenMult/internal/message"
+	messageevent "github.com/ZihengXiong/GenMult/internal/message/event"
+	"github.com/ZihengXiong/GenMult/internal/toolapproval"
 )
 
 // MessageHandler handles bot-scoped messaging endpoints.

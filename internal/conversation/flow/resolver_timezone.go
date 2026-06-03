@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/memohai/memoh/internal/db"
-	"github.com/memohai/memoh/internal/timezone"
+	"github.com/ZihengXiong/GenMult/internal/db"
+	"github.com/ZihengXiong/GenMult/internal/timezone"
 )
 
 // resolveTimezone resolves the effective timezone for a request.

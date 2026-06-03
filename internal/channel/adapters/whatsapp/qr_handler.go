@@ -14,8 +14,8 @@ import (
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/store/sqlstore"
 
-	"github.com/memohai/memoh/internal/channel"
-	"github.com/memohai/memoh/internal/config"
+	"github.com/ZihengXiong/GenMult/internal/channel"
+	"github.com/ZihengXiong/GenMult/internal/config"
 )
 
 // QRHandler manages WhatsApp linking sessions (QR + pair-code) for the

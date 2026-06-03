@@ -18,7 +18,7 @@ import (
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 
-	"github.com/memohai/memoh/internal/email"
+	"github.com/ZihengXiong/GenMult/internal/email"
 )
 
 const ProviderName email.ProviderName = "gmail"

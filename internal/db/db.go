@@ -6,7 +6,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/memohai/memoh/internal/config"
+	"github.com/ZihengXiong/GenMult/internal/config"
 )
 
 func Open(ctx context.Context, cfg config.Config) (*pgxpool.Pool, error) {

@@ -9,9 +9,9 @@ import (
 
 	"github.com/labstack/echo/v4"
 
-	"github.com/memohai/memoh/internal/agenthub"
-	orch "github.com/memohai/memoh/internal/agenthub/orchestrator"
-	"github.com/memohai/memoh/internal/auth"
+	"github.com/ZihengXiong/GenMult/internal/agenthub"
+	orch "github.com/ZihengXiong/GenMult/internal/agenthub/orchestrator"
+	"github.com/ZihengXiong/GenMult/internal/auth"
 )
 
 type AgentHubOrchestratorHandler struct {

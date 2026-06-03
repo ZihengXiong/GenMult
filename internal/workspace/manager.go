@@ -14,16 +14,16 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/memohai/memoh/internal/config"
-	ctr "github.com/memohai/memoh/internal/container"
-	"github.com/memohai/memoh/internal/db"
-	dbsqlc "github.com/memohai/memoh/internal/db/postgres/sqlc"
-	postgresstore "github.com/memohai/memoh/internal/db/postgres/store"
-	dbstore "github.com/memohai/memoh/internal/db/store"
-	"github.com/memohai/memoh/internal/identity"
-	netctl "github.com/memohai/memoh/internal/network"
-	skillset "github.com/memohai/memoh/internal/skills"
-	"github.com/memohai/memoh/internal/workspace/bridge"
+	"github.com/ZihengXiong/GenMult/internal/config"
+	ctr "github.com/ZihengXiong/GenMult/internal/container"
+	"github.com/ZihengXiong/GenMult/internal/db"
+	dbsqlc "github.com/ZihengXiong/GenMult/internal/db/postgres/sqlc"
+	postgresstore "github.com/ZihengXiong/GenMult/internal/db/postgres/store"
+	dbstore "github.com/ZihengXiong/GenMult/internal/db/store"
+	"github.com/ZihengXiong/GenMult/internal/identity"
+	netctl "github.com/ZihengXiong/GenMult/internal/network"
+	skillset "github.com/ZihengXiong/GenMult/internal/skills"
+	"github.com/ZihengXiong/GenMult/internal/workspace/bridge"
 )
 
 const (

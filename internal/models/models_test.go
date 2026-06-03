@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/memohai/memoh/internal/models"
+	"github.com/ZihengXiong/GenMult/internal/models"
 )
 
 func intPtr(v int) *int { return &v }

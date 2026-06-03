@@ -7,7 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/memohai/memoh/internal/tui"
+	"github.com/ZihengXiong/GenMult/internal/tui"
 )
 
 func newChatCommand(ctx *cliContext) *cobra.Command {

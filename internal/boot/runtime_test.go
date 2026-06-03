@@ -3,7 +3,7 @@ package boot
 import (
 	"testing"
 
-	"github.com/memohai/memoh/internal/config"
+	"github.com/ZihengXiong/GenMult/internal/config"
 )
 
 func TestProvideRuntimeConfig_DefaultTimezone(t *testing.T) {

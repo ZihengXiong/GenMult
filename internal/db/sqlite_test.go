@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/memohai/memoh/internal/config"
+	"github.com/ZihengXiong/GenMult/internal/config"
 )
 
 func TestSQLiteFileDSNPreservesWindowsPath(t *testing.T) {

@@ -8,10 +8,10 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	dbsqlc "github.com/memohai/memoh/internal/db/postgres/sqlc"
-	"github.com/memohai/memoh/internal/mcp"
-	"github.com/memohai/memoh/internal/schedule"
-	"github.com/memohai/memoh/internal/settings"
+	dbsqlc "github.com/ZihengXiong/GenMult/internal/db/postgres/sqlc"
+	"github.com/ZihengXiong/GenMult/internal/mcp"
+	"github.com/ZihengXiong/GenMult/internal/schedule"
+	"github.com/ZihengXiong/GenMult/internal/settings"
 )
 
 // --- fake services ---

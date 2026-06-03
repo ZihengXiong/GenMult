@@ -8,8 +8,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	ctr "github.com/memohai/memoh/internal/container"
-	"github.com/memohai/memoh/internal/db"
+	ctr "github.com/ZihengXiong/GenMult/internal/container"
+	"github.com/ZihengXiong/GenMult/internal/db"
 )
 
 func withWorkspace(st BotStatus, ws WorkspaceRuntimeStatus) BotStatus {

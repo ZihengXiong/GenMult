@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/memohai/memoh/internal/heartbeat"
+	"github.com/ZihengXiong/GenMult/internal/heartbeat"
 )
 
 // HeartbeatGateway adapts heartbeat trigger calls to the chat Resolver.

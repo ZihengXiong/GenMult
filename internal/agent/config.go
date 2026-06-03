@@ -3,7 +3,7 @@ package agent
 import (
 	"log/slog"
 
-	"github.com/memohai/memoh/internal/workspace/bridge"
+	"github.com/ZihengXiong/GenMult/internal/workspace/bridge"
 )
 
 // Deps holds all service dependencies for the Agent.

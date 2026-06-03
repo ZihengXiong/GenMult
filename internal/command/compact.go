@@ -6,10 +6,10 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/memohai/memoh/internal/compaction"
-	"github.com/memohai/memoh/internal/db"
-	"github.com/memohai/memoh/internal/models"
-	"github.com/memohai/memoh/internal/providers"
+	"github.com/ZihengXiong/GenMult/internal/compaction"
+	"github.com/ZihengXiong/GenMult/internal/db"
+	"github.com/ZihengXiong/GenMult/internal/models"
+	"github.com/ZihengXiong/GenMult/internal/providers"
 )
 
 func (h *Handler) buildCompactGroup() *CommandGroup {

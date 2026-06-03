@@ -7,7 +7,7 @@ import (
 	"testing"
 	"unicode/utf8"
 
-	"github.com/memohai/memoh/internal/conversation"
+	"github.com/ZihengXiong/GenMult/internal/conversation"
 )
 
 func TestPruneMessagesForGateway_PrunesToolResultContent(t *testing.T) {

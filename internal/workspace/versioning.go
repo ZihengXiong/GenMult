@@ -13,11 +13,11 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/memohai/memoh/internal/config"
-	ctr "github.com/memohai/memoh/internal/container"
-	"github.com/memohai/memoh/internal/db"
-	dbsqlc "github.com/memohai/memoh/internal/db/postgres/sqlc"
-	"github.com/memohai/memoh/internal/workspace/bridge"
+	"github.com/ZihengXiong/GenMult/internal/config"
+	ctr "github.com/ZihengXiong/GenMult/internal/container"
+	"github.com/ZihengXiong/GenMult/internal/db"
+	dbsqlc "github.com/ZihengXiong/GenMult/internal/db/postgres/sqlc"
+	"github.com/ZihengXiong/GenMult/internal/workspace/bridge"
 )
 
 const (

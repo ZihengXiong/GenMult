@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/memohai/memoh/internal/tui/local"
+	"github.com/ZihengXiong/GenMult/internal/tui/local"
 )
 
 // DefaultProdServerURL is the local desktop-managed server endpoint.

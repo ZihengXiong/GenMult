@@ -8,9 +8,9 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	pgsqlc "github.com/memohai/memoh/internal/db/postgres/sqlc"
-	sqlitesqlc "github.com/memohai/memoh/internal/db/sqlite/sqlc"
-	dbstore "github.com/memohai/memoh/internal/db/store"
+	pgsqlc "github.com/ZihengXiong/GenMult/internal/db/postgres/sqlc"
+	sqlitesqlc "github.com/ZihengXiong/GenMult/internal/db/sqlite/sqlc"
+	dbstore "github.com/ZihengXiong/GenMult/internal/db/store"
 )
 
 var errSQLiteQueriesNotConfigured = errors.New("sqlite queries not configured")

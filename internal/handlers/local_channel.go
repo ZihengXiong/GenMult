@@ -18,16 +18,16 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/labstack/echo/v4"
 
-	"github.com/memohai/memoh/internal/accounts"
-	agentpkg "github.com/memohai/memoh/internal/agent"
-	attachmentpkg "github.com/memohai/memoh/internal/attachment"
-	"github.com/memohai/memoh/internal/bots"
-	"github.com/memohai/memoh/internal/channel"
-	"github.com/memohai/memoh/internal/channel/adapters/local"
-	"github.com/memohai/memoh/internal/conversation"
-	"github.com/memohai/memoh/internal/conversation/flow"
-	"github.com/memohai/memoh/internal/media"
-	messagepkg "github.com/memohai/memoh/internal/message"
+	"github.com/ZihengXiong/GenMult/internal/accounts"
+	agentpkg "github.com/ZihengXiong/GenMult/internal/agent"
+	attachmentpkg "github.com/ZihengXiong/GenMult/internal/attachment"
+	"github.com/ZihengXiong/GenMult/internal/bots"
+	"github.com/ZihengXiong/GenMult/internal/channel"
+	"github.com/ZihengXiong/GenMult/internal/channel/adapters/local"
+	"github.com/ZihengXiong/GenMult/internal/conversation"
+	"github.com/ZihengXiong/GenMult/internal/conversation/flow"
+	"github.com/ZihengXiong/GenMult/internal/media"
+	messagepkg "github.com/ZihengXiong/GenMult/internal/message"
 )
 
 // localSpeechSynthesizer synthesizes text to speech audio.

@@ -6,7 +6,7 @@ import (
 	"log/slog"
 	"strings"
 
-	"github.com/memohai/memoh/internal/bots"
+	"github.com/ZihengXiong/GenMult/internal/bots"
 )
 
 type Decision struct {

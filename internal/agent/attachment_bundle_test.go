@@ -3,7 +3,7 @@ package agent
 import (
 	"testing"
 
-	"github.com/memohai/memoh/internal/agent/tools"
+	"github.com/ZihengXiong/GenMult/internal/agent/tools"
 )
 
 func TestFileAttachmentFromToolAttachment_PreservesInlineBase64(t *testing.T) {

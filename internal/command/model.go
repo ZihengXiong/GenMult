@@ -6,8 +6,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/memohai/memoh/internal/models"
-	"github.com/memohai/memoh/internal/settings"
+	"github.com/ZihengXiong/GenMult/internal/models"
+	"github.com/ZihengXiong/GenMult/internal/settings"
 )
 
 func (h *Handler) buildModelGroup() *CommandGroup {

@@ -12,9 +12,9 @@ import (
 
 	"github.com/gorilla/websocket"
 
-	"github.com/memohai/memoh/internal/channel"
-	"github.com/memohai/memoh/internal/channel/common"
-	"github.com/memohai/memoh/internal/textutil"
+	"github.com/ZihengXiong/GenMult/internal/channel"
+	"github.com/ZihengXiong/GenMult/internal/channel/common"
+	"github.com/ZihengXiong/GenMult/internal/textutil"
 )
 
 const (

@@ -8,8 +8,8 @@ import (
 
 	"github.com/labstack/echo/v4"
 
-	"github.com/memohai/memoh/internal/email"
-	emailmailgun "github.com/memohai/memoh/internal/email/adapters/mailgun"
+	"github.com/ZihengXiong/GenMult/internal/email"
+	emailmailgun "github.com/ZihengXiong/GenMult/internal/email/adapters/mailgun"
 )
 
 // EmailWebhookHandler handles inbound email webhooks (Mailgun).

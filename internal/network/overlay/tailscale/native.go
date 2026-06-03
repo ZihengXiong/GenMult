@@ -7,10 +7,10 @@ import (
 	"strconv"
 	"strings"
 
-	ctr "github.com/memohai/memoh/internal/container"
-	netctl "github.com/memohai/memoh/internal/network"
-	"github.com/memohai/memoh/internal/network/overlay/internal/configutil"
-	"github.com/memohai/memoh/internal/network/overlay/internal/sidecar"
+	ctr "github.com/ZihengXiong/GenMult/internal/container"
+	netctl "github.com/ZihengXiong/GenMult/internal/network"
+	"github.com/ZihengXiong/GenMult/internal/network/overlay/internal/configutil"
+	"github.com/ZihengXiong/GenMult/internal/network/overlay/internal/sidecar"
 )
 
 type nativeDriver struct {

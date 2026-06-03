@@ -4,7 +4,7 @@ import (
 	"context"
 	"strings"
 
-	"github.com/memohai/memoh/internal/conversation"
+	"github.com/ZihengXiong/GenMult/internal/conversation"
 )
 
 // resolveDisplayName returns the best available display name for the request identity.

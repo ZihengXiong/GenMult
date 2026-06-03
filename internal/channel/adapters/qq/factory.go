@@ -3,10 +3,10 @@ package qq
 import (
 	"log/slog"
 
-	"github.com/memohai/memoh/internal/channel"
-	"github.com/memohai/memoh/internal/channel/identities"
-	"github.com/memohai/memoh/internal/channel/route"
-	"github.com/memohai/memoh/internal/media"
+	"github.com/ZihengXiong/GenMult/internal/channel"
+	"github.com/ZihengXiong/GenMult/internal/channel/identities"
+	"github.com/ZihengXiong/GenMult/internal/channel/route"
+	"github.com/ZihengXiong/GenMult/internal/media"
 )
 
 func ProvideQQAdapter(log *slog.Logger, mediaService *media.Service, identityService *identities.Service, routeService *route.DBService) channel.Adapter {

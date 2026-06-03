@@ -10,8 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/memohai/memoh/internal/conversation"
-	"github.com/memohai/memoh/internal/models"
+	"github.com/ZihengXiong/GenMult/internal/conversation"
+	"github.com/ZihengXiong/GenMult/internal/models"
 )
 
 type fakeGatewayAssetLoader struct {

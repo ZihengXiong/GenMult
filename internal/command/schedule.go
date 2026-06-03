@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/memohai/memoh/internal/schedule"
+	"github.com/ZihengXiong/GenMult/internal/schedule"
 )
 
 func (h *Handler) buildScheduleGroup() *CommandGroup {

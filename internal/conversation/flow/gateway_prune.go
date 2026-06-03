@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"strings"
 
-	"github.com/memohai/memoh/internal/conversation"
-	textprune "github.com/memohai/memoh/internal/prune"
+	"github.com/ZihengXiong/GenMult/internal/conversation"
+	textprune "github.com/ZihengXiong/GenMult/internal/prune"
 )
 
 const (

@@ -12,7 +12,7 @@ import (
 	"github.com/memohai/dingtalk-stream-sdk-go/chatbot"
 	dtsdk "github.com/memohai/dingtalk-stream-sdk-go/client"
 
-	"github.com/memohai/memoh/internal/channel"
+	"github.com/ZihengXiong/GenMult/internal/channel"
 )
 
 // DingTalkAdapter implements the Memoh channel adapter for DingTalk bots.

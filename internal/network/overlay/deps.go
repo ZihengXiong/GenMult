@@ -1,9 +1,9 @@
 package overlay
 
 import (
-	netctl "github.com/memohai/memoh/internal/network"
-	"github.com/memohai/memoh/internal/network/kubeapi"
-	"github.com/memohai/memoh/internal/network/overlay/internal/sidecar"
+	netctl "github.com/ZihengXiong/GenMult/internal/network"
+	"github.com/ZihengXiong/GenMult/internal/network/kubeapi"
+	"github.com/ZihengXiong/GenMult/internal/network/overlay/internal/sidecar"
 )
 
 type ProviderDeps struct {

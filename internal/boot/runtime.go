@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/memohai/memoh/internal/config"
-	"github.com/memohai/memoh/internal/timezone"
+	"github.com/ZihengXiong/GenMult/internal/config"
+	"github.com/ZihengXiong/GenMult/internal/timezone"
 )
 
 type RuntimeConfig struct {

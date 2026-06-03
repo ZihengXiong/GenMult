@@ -10,8 +10,8 @@ import (
 
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/memohai/memoh/internal/conversation"
-	"github.com/memohai/memoh/internal/db"
+	"github.com/ZihengXiong/GenMult/internal/conversation"
+	"github.com/ZihengXiong/GenMult/internal/db"
 )
 
 func sanitizeMessages(messages []conversation.ModelMessage) []conversation.ModelMessage {

@@ -8,9 +8,9 @@ import (
 
 	sdk "github.com/memohai/twilight-ai/sdk"
 
-	attachmentpkg "github.com/memohai/memoh/internal/attachment"
-	"github.com/memohai/memoh/internal/conversation"
-	messagepkg "github.com/memohai/memoh/internal/message"
+	attachmentpkg "github.com/ZihengXiong/GenMult/internal/attachment"
+	"github.com/ZihengXiong/GenMult/internal/conversation"
+	messagepkg "github.com/ZihengXiong/GenMult/internal/message"
 )
 
 func (r *Resolver) storeRound(ctx context.Context, req conversation.ChatRequest, messages []conversation.ModelMessage, modelID string) error {

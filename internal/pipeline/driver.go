@@ -10,10 +10,10 @@ import (
 
 	sdk "github.com/memohai/twilight-ai/sdk"
 
-	agentpkg "github.com/memohai/memoh/internal/agent"
-	"github.com/memohai/memoh/internal/channel"
-	messagepkg "github.com/memohai/memoh/internal/message"
-	sessionpkg "github.com/memohai/memoh/internal/session"
+	agentpkg "github.com/ZihengXiong/GenMult/internal/agent"
+	"github.com/ZihengXiong/GenMult/internal/channel"
+	messagepkg "github.com/ZihengXiong/GenMult/internal/message"
+	sessionpkg "github.com/ZihengXiong/GenMult/internal/session"
 )
 
 // ResolveRunConfigResult holds the output of ResolveRunConfig.

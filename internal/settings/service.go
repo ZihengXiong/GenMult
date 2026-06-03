@@ -12,12 +12,12 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/memohai/memoh/internal/acl"
-	"github.com/memohai/memoh/internal/db"
-	"github.com/memohai/memoh/internal/db/postgres/sqlc"
-	dbstore "github.com/memohai/memoh/internal/db/store"
-	netctl "github.com/memohai/memoh/internal/network"
-	tzutil "github.com/memohai/memoh/internal/timezone"
+	"github.com/ZihengXiong/GenMult/internal/acl"
+	"github.com/ZihengXiong/GenMult/internal/db"
+	"github.com/ZihengXiong/GenMult/internal/db/postgres/sqlc"
+	dbstore "github.com/ZihengXiong/GenMult/internal/db/store"
+	netctl "github.com/ZihengXiong/GenMult/internal/network"
+	tzutil "github.com/ZihengXiong/GenMult/internal/timezone"
 )
 
 type Service struct {

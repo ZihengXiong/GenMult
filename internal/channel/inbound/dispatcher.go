@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/memohai/memoh/internal/channel"
-	"github.com/memohai/memoh/internal/conversation"
+	"github.com/ZihengXiong/GenMult/internal/channel"
+	"github.com/ZihengXiong/GenMult/internal/conversation"
 )
 
 // InjectMessage is an alias for conversation.InjectMessage, re-exported so

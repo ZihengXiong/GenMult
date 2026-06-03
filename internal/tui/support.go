@@ -5,9 +5,9 @@ import (
 	"io/fs"
 	"os"
 
-	dbembed "github.com/memohai/memoh/db"
-	"github.com/memohai/memoh/internal/config"
-	dbpkg "github.com/memohai/memoh/internal/db"
+	dbembed "github.com/ZihengXiong/GenMult/db"
+	"github.com/ZihengXiong/GenMult/internal/config"
+	dbpkg "github.com/ZihengXiong/GenMult/internal/db"
 )
 
 func ProvideConfig() (config.Config, error) {

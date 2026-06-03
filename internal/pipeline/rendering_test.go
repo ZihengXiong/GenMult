@@ -3,7 +3,7 @@ package pipeline
 import (
 	"testing"
 
-	"github.com/memohai/memoh/internal/channel"
+	"github.com/ZihengXiong/GenMult/internal/channel"
 )
 
 func TestRenderMessage_ImageRefsPopulated(t *testing.T) {

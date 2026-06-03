@@ -28,8 +28,8 @@ import (
 	"k8s.io/client-go/transport/spdy"
 	metricsclient "k8s.io/metrics/pkg/client/clientset/versioned"
 
-	"github.com/memohai/memoh/internal/config"
-	containerapi "github.com/memohai/memoh/internal/container"
+	"github.com/ZihengXiong/GenMult/internal/config"
+	containerapi "github.com/ZihengXiong/GenMult/internal/container"
 )
 
 const (

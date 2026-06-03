@@ -3,7 +3,7 @@ package settings
 import (
 	"testing"
 
-	"github.com/memohai/memoh/internal/db/postgres/sqlc"
+	"github.com/ZihengXiong/GenMult/internal/db/postgres/sqlc"
 )
 
 func TestNormalizeBotSettingsReadRow_ShowToolCallsInIMDefault(t *testing.T) {

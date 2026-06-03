@@ -7,7 +7,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 
-	"github.com/memohai/memoh/internal/searchproviders"
+	"github.com/ZihengXiong/GenMult/internal/searchproviders"
 )
 
 type SearchProvidersHandler struct {

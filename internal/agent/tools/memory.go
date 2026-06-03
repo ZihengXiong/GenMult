@@ -8,9 +8,9 @@ import (
 
 	sdk "github.com/memohai/twilight-ai/sdk"
 
-	"github.com/memohai/memoh/internal/mcp"
-	memprovider "github.com/memohai/memoh/internal/memory/adapters"
-	"github.com/memohai/memoh/internal/settings"
+	"github.com/ZihengXiong/GenMult/internal/mcp"
+	memprovider "github.com/ZihengXiong/GenMult/internal/memory/adapters"
+	"github.com/ZihengXiong/GenMult/internal/settings"
 )
 
 // MemorySettingsReader returns bot settings for memory provider resolution.

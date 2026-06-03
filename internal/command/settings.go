@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/memohai/memoh/internal/settings"
+	"github.com/ZihengXiong/GenMult/internal/settings"
 )
 
 func (h *Handler) buildSettingsGroup() *CommandGroup {

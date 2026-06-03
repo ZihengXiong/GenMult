@@ -8,9 +8,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/memohai/memoh/internal/healthcheck"
-	"github.com/memohai/memoh/internal/models"
-	"github.com/memohai/memoh/internal/oauthctx"
+	"github.com/ZihengXiong/GenMult/internal/healthcheck"
+	"github.com/ZihengXiong/GenMult/internal/models"
+	"github.com/ZihengXiong/GenMult/internal/oauthctx"
 )
 
 const (

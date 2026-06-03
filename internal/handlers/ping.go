@@ -10,10 +10,10 @@ import (
 
 	"github.com/labstack/echo/v4"
 
-	"github.com/memohai/memoh/internal/boot"
-	"github.com/memohai/memoh/internal/config"
-	ctr "github.com/memohai/memoh/internal/container"
-	"github.com/memohai/memoh/internal/version"
+	"github.com/ZihengXiong/GenMult/internal/boot"
+	"github.com/ZihengXiong/GenMult/internal/config"
+	ctr "github.com/ZihengXiong/GenMult/internal/container"
+	"github.com/ZihengXiong/GenMult/internal/version"
 )
 
 type PingResponse struct {

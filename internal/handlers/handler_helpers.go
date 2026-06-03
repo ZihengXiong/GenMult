@@ -9,10 +9,10 @@ import (
 
 	"github.com/labstack/echo/v4"
 
-	"github.com/memohai/memoh/internal/accounts"
-	"github.com/memohai/memoh/internal/auth"
-	"github.com/memohai/memoh/internal/bots"
-	"github.com/memohai/memoh/internal/identity"
+	"github.com/ZihengXiong/GenMult/internal/accounts"
+	"github.com/ZihengXiong/GenMult/internal/auth"
+	"github.com/ZihengXiong/GenMult/internal/bots"
+	"github.com/ZihengXiong/GenMult/internal/identity"
 )
 
 // RequireChannelIdentityID extracts and validates the channel identity ID from the request context.

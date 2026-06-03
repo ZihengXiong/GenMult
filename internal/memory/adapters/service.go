@@ -8,11 +8,11 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/memohai/memoh/internal/config"
-	"github.com/memohai/memoh/internal/db"
-	"github.com/memohai/memoh/internal/db/postgres/sqlc"
-	dbstore "github.com/memohai/memoh/internal/db/store"
-	qdrantclient "github.com/memohai/memoh/internal/memory/qdrant"
+	"github.com/ZihengXiong/GenMult/internal/config"
+	"github.com/ZihengXiong/GenMult/internal/db"
+	"github.com/ZihengXiong/GenMult/internal/db/postgres/sqlc"
+	dbstore "github.com/ZihengXiong/GenMult/internal/db/store"
+	qdrantclient "github.com/ZihengXiong/GenMult/internal/memory/qdrant"
 )
 
 type Service struct {

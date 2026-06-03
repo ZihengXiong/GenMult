@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	adapters "github.com/memohai/memoh/internal/memory/adapters"
+	adapters "github.com/ZihengXiong/GenMult/internal/memory/adapters"
 )
 
 const (

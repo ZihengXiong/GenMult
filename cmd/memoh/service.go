@@ -8,7 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/memohai/memoh/internal/tui/local"
+	"github.com/ZihengXiong/GenMult/internal/tui/local"
 )
 
 // newServiceCommands returns the lifecycle commands that operate on

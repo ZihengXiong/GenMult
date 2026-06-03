@@ -3,7 +3,7 @@ package memllm
 import (
 	"testing"
 
-	adapters "github.com/memohai/memoh/internal/memory/adapters"
+	adapters "github.com/ZihengXiong/GenMult/internal/memory/adapters"
 )
 
 func TestParseJSONStringArray_Valid(t *testing.T) {

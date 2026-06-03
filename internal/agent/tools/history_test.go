@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/memohai/memoh/internal/conversation"
+	"github.com/ZihengXiong/GenMult/internal/conversation"
 )
 
 func TestExtractTextContentSummarizesAssistantToolCalls(t *testing.T) {

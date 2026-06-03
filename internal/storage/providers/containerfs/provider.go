@@ -11,8 +11,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	attachmentpkg "github.com/memohai/memoh/internal/attachment"
-	"github.com/memohai/memoh/internal/workspace/bridge"
+	attachmentpkg "github.com/ZihengXiong/GenMult/internal/attachment"
+	"github.com/ZihengXiong/GenMult/internal/workspace/bridge"
 )
 
 const containerMediaRoot = "media"

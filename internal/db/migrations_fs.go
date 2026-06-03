@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"io/fs"
 
-	"github.com/memohai/memoh/internal/config"
+	"github.com/ZihengXiong/GenMult/internal/config"
 )
 
 func MigrationsFSForConfig(cfg config.Config, embedded fs.FS) (fs.FS, error) {

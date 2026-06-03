@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/memohai/memoh/internal/db/postgres/sqlc"
-	"github.com/memohai/memoh/internal/models"
+	"github.com/ZihengXiong/GenMult/internal/db/postgres/sqlc"
+	"github.com/ZihengXiong/GenMult/internal/models"
 )
 
 func TestMaskAPIKey(t *testing.T) {

@@ -5,7 +5,7 @@ import (
 	"log/slog"
 	"testing"
 
-	mcpgw "github.com/memohai/memoh/internal/mcp"
+	mcpgw "github.com/ZihengXiong/GenMult/internal/mcp"
 )
 
 type testConnectionLister struct {

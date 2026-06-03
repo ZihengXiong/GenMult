@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/memohai/memoh/internal/db"
+	"github.com/ZihengXiong/GenMult/internal/db"
 )
 
 func (s *Service) Resolve(ctx context.Context, botID string) (BotOverlayConfig, error) {

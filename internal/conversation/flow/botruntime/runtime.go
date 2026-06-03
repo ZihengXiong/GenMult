@@ -8,7 +8,7 @@ package botruntime
 import (
 	"context"
 
-	agentpkg "github.com/memohai/memoh/internal/agent"
+	agentpkg "github.com/ZihengXiong/GenMult/internal/agent"
 )
 
 // RunInput is the framework-agnostic turn input. It carries the existing

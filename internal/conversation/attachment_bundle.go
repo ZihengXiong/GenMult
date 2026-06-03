@@ -1,6 +1,6 @@
 package conversation
 
-import attachmentpkg "github.com/memohai/memoh/internal/attachment"
+import attachmentpkg "github.com/ZihengXiong/GenMult/internal/attachment"
 
 // BundleFromChatAttachment converts a chat request attachment to the shared
 // internal bundle shape.

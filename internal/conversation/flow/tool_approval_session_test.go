@@ -3,7 +3,7 @@ package flow
 import (
 	"testing"
 
-	"github.com/memohai/memoh/internal/toolapproval"
+	"github.com/ZihengXiong/GenMult/internal/toolapproval"
 )
 
 func TestIsInteractiveApprovalSession(t *testing.T) {

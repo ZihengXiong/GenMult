@@ -7,8 +7,8 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
 
-	"github.com/memohai/memoh/internal/tui"
-	"github.com/memohai/memoh/internal/version"
+	"github.com/ZihengXiong/GenMult/internal/tui"
+	"github.com/ZihengXiong/GenMult/internal/version"
 )
 
 // cliContext is shared by every cobra subcommand. It carries the

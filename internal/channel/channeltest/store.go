@@ -12,7 +12,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/memohai/memoh/internal/media"
+	"github.com/ZihengXiong/GenMult/internal/media"
 )
 
 type storedAsset struct {

@@ -15,12 +15,12 @@ import (
 
 	"github.com/labstack/echo/v4"
 
-	"github.com/memohai/memoh/internal/accounts"
-	"github.com/memohai/memoh/internal/bots"
-	"github.com/memohai/memoh/internal/config"
-	"github.com/memohai/memoh/internal/mcp"
-	skillset "github.com/memohai/memoh/internal/skills"
-	"github.com/memohai/memoh/internal/workspace/bridge"
+	"github.com/ZihengXiong/GenMult/internal/accounts"
+	"github.com/ZihengXiong/GenMult/internal/bots"
+	"github.com/ZihengXiong/GenMult/internal/config"
+	"github.com/ZihengXiong/GenMult/internal/mcp"
+	skillset "github.com/ZihengXiong/GenMult/internal/skills"
+	"github.com/ZihengXiong/GenMult/internal/workspace/bridge"
 )
 
 type SupermarketHandler struct {

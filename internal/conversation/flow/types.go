@@ -3,8 +3,8 @@ package flow
 import (
 	"context"
 
-	"github.com/memohai/memoh/internal/conversation"
-	"github.com/memohai/memoh/internal/schedule"
+	"github.com/ZihengXiong/GenMult/internal/conversation"
+	"github.com/ZihengXiong/GenMult/internal/schedule"
 )
 
 // Runner defines conversation execution behavior for sync, stream, and scheduled flows.

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/memohai/memoh/internal/textutil"
+	"github.com/ZihengXiong/GenMult/internal/textutil"
 )
 
 // toolFormatter produces a structured presentation for a specific built-in

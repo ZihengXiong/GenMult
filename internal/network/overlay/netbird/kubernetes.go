@@ -10,10 +10,10 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	k8sschema "k8s.io/apimachinery/pkg/runtime/schema"
 
-	netctl "github.com/memohai/memoh/internal/network"
-	"github.com/memohai/memoh/internal/network/kubeapi"
-	"github.com/memohai/memoh/internal/network/overlay/internal/configutil"
-	"github.com/memohai/memoh/internal/network/overlay/internal/kubeoperator"
+	netctl "github.com/ZihengXiong/GenMult/internal/network"
+	"github.com/ZihengXiong/GenMult/internal/network/kubeapi"
+	"github.com/ZihengXiong/GenMult/internal/network/overlay/internal/configutil"
+	"github.com/ZihengXiong/GenMult/internal/network/overlay/internal/kubeoperator"
 )
 
 var routingPeerGVR = k8sschema.GroupVersionResource{Group: "netbird.io", Version: "v1", Resource: "nbroutingpeers"}

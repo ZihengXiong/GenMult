@@ -3,7 +3,7 @@ package tools
 import (
 	"testing"
 
-	"github.com/memohai/memoh/internal/channel"
+	"github.com/ZihengXiong/GenMult/internal/channel"
 )
 
 func TestChannelAttachmentsToToolAttachments_NormalizesLocalPath(t *testing.T) {

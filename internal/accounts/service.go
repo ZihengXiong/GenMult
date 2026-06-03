@@ -9,9 +9,9 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 
-	"github.com/memohai/memoh/internal/db"
-	dbstore "github.com/memohai/memoh/internal/db/store"
-	tzutil "github.com/memohai/memoh/internal/timezone"
+	"github.com/ZihengXiong/GenMult/internal/db"
+	dbstore "github.com/ZihengXiong/GenMult/internal/db/store"
+	tzutil "github.com/ZihengXiong/GenMult/internal/timezone"
 )
 
 // Service provides account (credential) management for users.

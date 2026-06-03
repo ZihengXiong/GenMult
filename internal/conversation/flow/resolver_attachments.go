@@ -12,9 +12,9 @@ import (
 
 	sdk "github.com/memohai/twilight-ai/sdk"
 
-	attachmentpkg "github.com/memohai/memoh/internal/attachment"
-	"github.com/memohai/memoh/internal/conversation"
-	"github.com/memohai/memoh/internal/models"
+	attachmentpkg "github.com/ZihengXiong/GenMult/internal/attachment"
+	"github.com/ZihengXiong/GenMult/internal/conversation"
+	"github.com/ZihengXiong/GenMult/internal/models"
 )
 
 const (

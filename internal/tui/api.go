@@ -15,11 +15,11 @@ import (
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
 
-	"github.com/memohai/memoh/internal/bots"
-	"github.com/memohai/memoh/internal/conversation"
-	messagepkg "github.com/memohai/memoh/internal/message"
-	"github.com/memohai/memoh/internal/session"
-	"github.com/memohai/memoh/internal/tui/local"
+	"github.com/ZihengXiong/GenMult/internal/bots"
+	"github.com/ZihengXiong/GenMult/internal/conversation"
+	messagepkg "github.com/ZihengXiong/GenMult/internal/message"
+	"github.com/ZihengXiong/GenMult/internal/session"
+	"github.com/ZihengXiong/GenMult/internal/tui/local"
 )
 
 type Client struct {

@@ -8,9 +8,9 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/memohai/memoh/internal/db"
-	sqlitesqlc "github.com/memohai/memoh/internal/db/sqlite/sqlc"
-	dbstore "github.com/memohai/memoh/internal/db/store"
+	"github.com/ZihengXiong/GenMult/internal/db"
+	sqlitesqlc "github.com/ZihengXiong/GenMult/internal/db/sqlite/sqlc"
+	dbstore "github.com/ZihengXiong/GenMult/internal/db/store"
 )
 
 func (s *Store) CountAccounts(ctx context.Context) (int64, error) {

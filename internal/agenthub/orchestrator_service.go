@@ -7,13 +7,13 @@ import (
 	"strconv"
 	"strings"
 
-	orch "github.com/memohai/memoh/internal/agenthub/orchestrator"
-	"github.com/memohai/memoh/internal/agenthub/providers"
-	"github.com/memohai/memoh/internal/config"
-	"github.com/memohai/memoh/internal/db"
-	postgresstore "github.com/memohai/memoh/internal/db/postgres/store"
-	sqlitestore "github.com/memohai/memoh/internal/db/sqlite/store"
-	"github.com/memohai/memoh/internal/workspace"
+	orch "github.com/ZihengXiong/GenMult/internal/agenthub/orchestrator"
+	"github.com/ZihengXiong/GenMult/internal/agenthub/providers"
+	"github.com/ZihengXiong/GenMult/internal/config"
+	"github.com/ZihengXiong/GenMult/internal/db"
+	postgresstore "github.com/ZihengXiong/GenMult/internal/db/postgres/store"
+	sqlitestore "github.com/ZihengXiong/GenMult/internal/db/sqlite/store"
+	"github.com/ZihengXiong/GenMult/internal/workspace"
 )
 
 type OrchestratorService struct {

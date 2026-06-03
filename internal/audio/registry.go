@@ -22,7 +22,7 @@ import (
 	volcenginespeech "github.com/memohai/twilight-ai/provider/volcengine/speech"
 	sdk "github.com/memohai/twilight-ai/sdk"
 
-	"github.com/memohai/memoh/internal/models"
+	"github.com/ZihengXiong/GenMult/internal/models"
 )
 
 type (

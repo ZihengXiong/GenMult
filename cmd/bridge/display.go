@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/memohai/memoh/internal/logger"
+	"github.com/ZihengXiong/GenMult/internal/logger"
 )
 
 const (

@@ -3,7 +3,7 @@ package flow
 import (
 	"strings"
 
-	"github.com/memohai/memoh/internal/conversation"
+	"github.com/ZihengXiong/GenMult/internal/conversation"
 )
 
 // ExtractAssistantOutputs collects assistant-role outputs from a slice of ModelMessages.

@@ -9,8 +9,8 @@ import (
 
 	"github.com/labstack/echo/v4"
 
-	skillset "github.com/memohai/memoh/internal/skills"
-	"github.com/memohai/memoh/internal/workspace"
+	skillset "github.com/ZihengXiong/GenMult/internal/skills"
+	"github.com/ZihengXiong/GenMult/internal/workspace"
 )
 
 type SkillItem struct {

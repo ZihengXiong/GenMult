@@ -7,10 +7,10 @@ import (
 	"strings"
 	"testing"
 
-	adapters "github.com/memohai/memoh/internal/memory/adapters"
-	qdrantclient "github.com/memohai/memoh/internal/memory/qdrant"
-	"github.com/memohai/memoh/internal/memory/sparse"
-	storefs "github.com/memohai/memoh/internal/memory/storefs"
+	adapters "github.com/ZihengXiong/GenMult/internal/memory/adapters"
+	qdrantclient "github.com/ZihengXiong/GenMult/internal/memory/qdrant"
+	"github.com/ZihengXiong/GenMult/internal/memory/sparse"
+	storefs "github.com/ZihengXiong/GenMult/internal/memory/storefs"
 )
 
 type fakeSparseStore struct {

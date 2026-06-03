@@ -8,8 +8,8 @@ import (
 
 	dockerclient "github.com/docker/docker/client"
 
-	"github.com/memohai/memoh/internal/config"
-	containerapi "github.com/memohai/memoh/internal/container"
+	"github.com/ZihengXiong/GenMult/internal/config"
+	containerapi "github.com/ZihengXiong/GenMult/internal/container"
 )
 
 func TestProvideServiceDockerSlot(t *testing.T) {

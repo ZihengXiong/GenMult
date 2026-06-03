@@ -11,11 +11,11 @@ import (
 
 	sdk "github.com/memohai/twilight-ai/sdk"
 
-	dbstore "github.com/memohai/memoh/internal/db/store"
-	"github.com/memohai/memoh/internal/models"
-	"github.com/memohai/memoh/internal/providers"
-	"github.com/memohai/memoh/internal/settings"
-	"github.com/memohai/memoh/internal/workspace/bridge"
+	dbstore "github.com/ZihengXiong/GenMult/internal/db/store"
+	"github.com/ZihengXiong/GenMult/internal/models"
+	"github.com/ZihengXiong/GenMult/internal/providers"
+	"github.com/ZihengXiong/GenMult/internal/settings"
+	"github.com/ZihengXiong/GenMult/internal/workspace/bridge"
 )
 
 const imageGenDir = "/data/generated-images"

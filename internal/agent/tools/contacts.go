@@ -8,7 +8,7 @@ import (
 
 	sdk "github.com/memohai/twilight-ai/sdk"
 
-	"github.com/memohai/memoh/internal/channel/route"
+	"github.com/ZihengXiong/GenMult/internal/channel/route"
 )
 
 type ContactsProvider struct {

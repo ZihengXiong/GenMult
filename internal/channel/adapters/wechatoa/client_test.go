@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/memohai/memoh/internal/channel"
+	"github.com/ZihengXiong/GenMult/internal/channel"
 )
 
 func TestBuildSendPayload_ImagePlatformKey(t *testing.T) {

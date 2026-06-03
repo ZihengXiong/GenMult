@@ -10,7 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	k8sschema "k8s.io/apimachinery/pkg/runtime/schema"
 
-	netctl "github.com/memohai/memoh/internal/network"
+	netctl "github.com/ZihengXiong/GenMult/internal/network"
 )
 
 type fakeKubeRuntime struct {

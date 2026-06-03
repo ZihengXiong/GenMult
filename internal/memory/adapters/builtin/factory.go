@@ -5,10 +5,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/memohai/memoh/internal/config"
-	dbstore "github.com/memohai/memoh/internal/db/store"
-	adapters "github.com/memohai/memoh/internal/memory/adapters"
-	storefs "github.com/memohai/memoh/internal/memory/storefs"
+	"github.com/ZihengXiong/GenMult/internal/config"
+	dbstore "github.com/ZihengXiong/GenMult/internal/db/store"
+	adapters "github.com/ZihengXiong/GenMult/internal/memory/adapters"
+	storefs "github.com/ZihengXiong/GenMult/internal/memory/storefs"
 )
 
 // BuiltinMemoryMode represents the operating mode of the built-in memory provider.

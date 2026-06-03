@@ -9,10 +9,10 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	k8sschema "k8s.io/apimachinery/pkg/runtime/schema"
 
-	netctl "github.com/memohai/memoh/internal/network"
-	"github.com/memohai/memoh/internal/network/kubeapi"
-	"github.com/memohai/memoh/internal/network/overlay/internal/configutil"
-	"github.com/memohai/memoh/internal/network/overlay/internal/kubeoperator"
+	netctl "github.com/ZihengXiong/GenMult/internal/network"
+	"github.com/ZihengXiong/GenMult/internal/network/kubeapi"
+	"github.com/ZihengXiong/GenMult/internal/network/overlay/internal/configutil"
+	"github.com/ZihengXiong/GenMult/internal/network/overlay/internal/kubeoperator"
 )
 
 var connectorGVR = k8sschema.GroupVersionResource{Group: "tailscale.com", Version: "v1alpha1", Resource: "connectors"}

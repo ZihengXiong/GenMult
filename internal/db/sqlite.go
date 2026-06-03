@@ -9,7 +9,7 @@ import (
 	// Register the pure-Go SQLite database driver.
 	_ "modernc.org/sqlite"
 
-	"github.com/memohai/memoh/internal/config"
+	"github.com/ZihengXiong/GenMult/internal/config"
 )
 
 func OpenSQLite(ctx context.Context, cfg config.SQLiteConfig) (*sql.DB, error) {

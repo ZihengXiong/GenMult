@@ -8,7 +8,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/memohai/memoh/internal/network/kubeapi"
+	"github.com/ZihengXiong/GenMult/internal/network/kubeapi"
 )
 
 const (

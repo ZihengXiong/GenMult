@@ -3,9 +3,9 @@ package builtin
 import (
 	"testing"
 
-	adapters "github.com/memohai/memoh/internal/memory/adapters"
-	qdrantclient "github.com/memohai/memoh/internal/memory/qdrant"
-	storefs "github.com/memohai/memoh/internal/memory/storefs"
+	adapters "github.com/ZihengXiong/GenMult/internal/memory/adapters"
+	qdrantclient "github.com/ZihengXiong/GenMult/internal/memory/qdrant"
+	storefs "github.com/ZihengXiong/GenMult/internal/memory/storefs"
 )
 
 func TestRuntimeHash(t *testing.T) {

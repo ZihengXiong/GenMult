@@ -12,7 +12,7 @@ import (
 
 	slackapi "github.com/slack-go/slack"
 
-	"github.com/memohai/memoh/internal/channel"
+	"github.com/ZihengXiong/GenMult/internal/channel"
 )
 
 const (

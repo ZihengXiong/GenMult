@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/memohai/memoh/internal/config"
+	"github.com/ZihengXiong/GenMult/internal/config"
 )
 
 const (

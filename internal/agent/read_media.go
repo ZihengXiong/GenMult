@@ -6,8 +6,8 @@ import (
 
 	sdk "github.com/memohai/twilight-ai/sdk"
 
-	agenttools "github.com/memohai/memoh/internal/agent/tools"
-	"github.com/memohai/memoh/internal/models"
+	agenttools "github.com/ZihengXiong/GenMult/internal/agent/tools"
+	"github.com/ZihengXiong/GenMult/internal/models"
 )
 
 func decorateReadMediaTools(model *sdk.Model, tools []sdk.Tool) ([]sdk.Tool, *readMediaDecorationState) {

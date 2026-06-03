@@ -4,8 +4,8 @@ import (
 	"context"
 	"strings"
 
-	netctl "github.com/memohai/memoh/internal/network"
-	"github.com/memohai/memoh/internal/network/overlay/internal/configutil"
+	netctl "github.com/ZihengXiong/GenMult/internal/network"
+	"github.com/ZihengXiong/GenMult/internal/network/overlay/internal/configutil"
 )
 
 func (d *nativeDriver) listNodes(ctx context.Context, botID string) ([]netctl.NodeOption, error) {

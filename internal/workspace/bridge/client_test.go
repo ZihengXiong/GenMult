@@ -13,7 +13,7 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/grpc/test/bufconn"
 
-	pb "github.com/memohai/memoh/internal/workspace/bridgepb"
+	pb "github.com/ZihengXiong/GenMult/internal/workspace/bridgepb"
 )
 
 const testBufSize = 1 << 20

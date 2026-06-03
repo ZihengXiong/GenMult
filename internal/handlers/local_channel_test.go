@@ -16,10 +16,10 @@ import (
 
 	"github.com/gorilla/websocket"
 
-	attachmentpkg "github.com/memohai/memoh/internal/attachment"
-	"github.com/memohai/memoh/internal/channel"
-	"github.com/memohai/memoh/internal/media"
-	"github.com/memohai/memoh/internal/storage"
+	attachmentpkg "github.com/ZihengXiong/GenMult/internal/attachment"
+	"github.com/ZihengXiong/GenMult/internal/channel"
+	"github.com/ZihengXiong/GenMult/internal/media"
+	"github.com/ZihengXiong/GenMult/internal/storage"
 )
 
 func TestFormatLocalStreamEvent_UsesChannelEventShape(t *testing.T) {

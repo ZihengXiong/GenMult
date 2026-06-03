@@ -8,7 +8,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 
-	"github.com/memohai/memoh/internal/email"
+	"github.com/ZihengXiong/GenMult/internal/email"
 )
 
 type EmailOutboxHandler struct {

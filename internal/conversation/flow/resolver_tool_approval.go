@@ -9,10 +9,10 @@ import (
 
 	sdk "github.com/memohai/twilight-ai/sdk"
 
-	"github.com/memohai/memoh/internal/conversation"
-	"github.com/memohai/memoh/internal/conversation/flow/botruntime"
-	"github.com/memohai/memoh/internal/models"
-	"github.com/memohai/memoh/internal/toolapproval"
+	"github.com/ZihengXiong/GenMult/internal/conversation"
+	"github.com/ZihengXiong/GenMult/internal/conversation/flow/botruntime"
+	"github.com/ZihengXiong/GenMult/internal/models"
+	"github.com/ZihengXiong/GenMult/internal/toolapproval"
 )
 
 type ToolApprovalResponseInput struct {

@@ -4,8 +4,8 @@ import (
 	"context"
 	"strings"
 
-	ctr "github.com/memohai/memoh/internal/container"
-	"github.com/memohai/memoh/internal/workspace/bridge"
+	ctr "github.com/ZihengXiong/GenMult/internal/container"
+	"github.com/ZihengXiong/GenMult/internal/workspace/bridge"
 )
 
 type RuntimeRouter struct {

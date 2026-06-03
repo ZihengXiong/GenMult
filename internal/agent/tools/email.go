@@ -10,7 +10,7 @@ import (
 
 	sdk "github.com/memohai/twilight-ai/sdk"
 
-	"github.com/memohai/memoh/internal/email"
+	"github.com/ZihengXiong/GenMult/internal/email"
 )
 
 type EmailProvider struct {

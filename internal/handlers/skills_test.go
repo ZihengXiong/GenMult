@@ -26,15 +26,15 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/memohai/memoh/internal/accounts"
-	"github.com/memohai/memoh/internal/agent"
-	"github.com/memohai/memoh/internal/bots"
-	"github.com/memohai/memoh/internal/config"
-	"github.com/memohai/memoh/internal/db/postgres/sqlc"
-	postgresstore "github.com/memohai/memoh/internal/db/postgres/store"
-	skillset "github.com/memohai/memoh/internal/skills"
-	"github.com/memohai/memoh/internal/workspace"
-	pb "github.com/memohai/memoh/internal/workspace/bridgepb"
+	"github.com/ZihengXiong/GenMult/internal/accounts"
+	"github.com/ZihengXiong/GenMult/internal/agent"
+	"github.com/ZihengXiong/GenMult/internal/bots"
+	"github.com/ZihengXiong/GenMult/internal/config"
+	"github.com/ZihengXiong/GenMult/internal/db/postgres/sqlc"
+	postgresstore "github.com/ZihengXiong/GenMult/internal/db/postgres/store"
+	skillset "github.com/ZihengXiong/GenMult/internal/skills"
+	"github.com/ZihengXiong/GenMult/internal/workspace"
+	pb "github.com/ZihengXiong/GenMult/internal/workspace/bridgepb"
 )
 
 func TestListSkillsAPIReportsEffectiveShadowedAndSourceMetadata(t *testing.T) {

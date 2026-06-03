@@ -9,7 +9,7 @@ import (
 
 	larkim "github.com/larksuite/oapi-sdk-go/v3/service/im/v1"
 
-	"github.com/memohai/memoh/internal/channel"
+	"github.com/ZihengXiong/GenMult/internal/channel"
 )
 
 // extractFeishuInbound converts a Feishu P2MessageReceiveV1 event into a channel.InboundMessage.

@@ -11,10 +11,10 @@ import (
 
 	"github.com/gorilla/websocket"
 
-	"github.com/memohai/memoh/internal/channel"
-	identitypkg "github.com/memohai/memoh/internal/channel/identities"
-	routepkg "github.com/memohai/memoh/internal/channel/route"
-	"github.com/memohai/memoh/internal/media"
+	"github.com/ZihengXiong/GenMult/internal/channel"
+	identitypkg "github.com/ZihengXiong/GenMult/internal/channel/identities"
+	routepkg "github.com/ZihengXiong/GenMult/internal/channel/route"
+	"github.com/ZihengXiong/GenMult/internal/media"
 )
 
 const (

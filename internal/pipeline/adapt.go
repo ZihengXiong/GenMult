@@ -4,7 +4,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/memohai/memoh/internal/channel"
+	"github.com/ZihengXiong/GenMult/internal/channel"
 )
 
 // AdaptInbound converts a channel.InboundMessage into a pipeline CanonicalEvent.

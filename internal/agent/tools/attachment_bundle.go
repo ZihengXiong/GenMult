@@ -1,8 +1,8 @@
 package tools
 
 import (
-	attachmentpkg "github.com/memohai/memoh/internal/attachment"
-	"github.com/memohai/memoh/internal/channel"
+	attachmentpkg "github.com/ZihengXiong/GenMult/internal/attachment"
+	"github.com/ZihengXiong/GenMult/internal/channel"
 )
 
 // toolAttachmentFromBundle converts a normalized bundle to a tools.Attachment.

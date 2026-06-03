@@ -15,10 +15,10 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/test/bufconn"
 
-	"github.com/memohai/memoh/internal/agent/background"
-	agenttools "github.com/memohai/memoh/internal/agent/tools"
-	"github.com/memohai/memoh/internal/workspace/bridge"
-	pb "github.com/memohai/memoh/internal/workspace/bridgepb"
+	"github.com/ZihengXiong/GenMult/internal/agent/background"
+	agenttools "github.com/ZihengXiong/GenMult/internal/agent/tools"
+	"github.com/ZihengXiong/GenMult/internal/workspace/bridge"
+	pb "github.com/ZihengXiong/GenMult/internal/workspace/bridgepb"
 )
 
 // ---------------------------------------------------------------------------

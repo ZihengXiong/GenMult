@@ -12,8 +12,8 @@ import (
 	"strings"
 	"time"
 
-	attachmentpkg "github.com/memohai/memoh/internal/attachment"
-	"github.com/memohai/memoh/internal/media"
+	attachmentpkg "github.com/ZihengXiong/GenMult/internal/attachment"
+	"github.com/ZihengXiong/GenMult/internal/media"
 )
 
 // sharedHTTPClient is reused across attachment downloads to benefit from connection pooling.

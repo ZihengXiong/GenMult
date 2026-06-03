@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/memohai/memoh/internal/agent/background"
-	"github.com/memohai/memoh/internal/channel/route"
-	"github.com/memohai/memoh/internal/session"
+	"github.com/ZihengXiong/GenMult/internal/agent/background"
+	"github.com/ZihengXiong/GenMult/internal/channel/route"
+	"github.com/ZihengXiong/GenMult/internal/session"
 )
 
 type fakeBackgroundSessionService struct {

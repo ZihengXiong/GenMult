@@ -9,10 +9,10 @@ import (
 
 	"github.com/labstack/echo/v4"
 
-	"github.com/memohai/memoh/internal/auth"
-	"github.com/memohai/memoh/internal/models"
-	"github.com/memohai/memoh/internal/oauthctx"
-	"github.com/memohai/memoh/internal/providers"
+	"github.com/ZihengXiong/GenMult/internal/auth"
+	"github.com/ZihengXiong/GenMult/internal/models"
+	"github.com/ZihengXiong/GenMult/internal/oauthctx"
+	"github.com/ZihengXiong/GenMult/internal/providers"
 )
 
 type ProvidersHandler struct {

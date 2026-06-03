@@ -8,11 +8,11 @@ import (
 
 	"github.com/labstack/echo/v4"
 
-	"github.com/memohai/memoh/internal/accounts"
-	"github.com/memohai/memoh/internal/acl"
-	"github.com/memohai/memoh/internal/bots"
-	"github.com/memohai/memoh/internal/channel/identities"
-	identitypkg "github.com/memohai/memoh/internal/identity"
+	"github.com/ZihengXiong/GenMult/internal/accounts"
+	"github.com/ZihengXiong/GenMult/internal/acl"
+	"github.com/ZihengXiong/GenMult/internal/bots"
+	"github.com/ZihengXiong/GenMult/internal/channel/identities"
+	identitypkg "github.com/ZihengXiong/GenMult/internal/identity"
 )
 
 type ACLHandler struct {

@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	mcpgw "github.com/memohai/memoh/internal/mcp"
+	mcpgw "github.com/ZihengXiong/GenMult/internal/mcp"
 )
 
 const cacheTTL = 5 * time.Second

@@ -3,7 +3,7 @@ package adapters
 import (
 	"context"
 
-	"github.com/memohai/memoh/internal/mcp"
+	"github.com/ZihengXiong/GenMult/internal/mcp"
 )
 
 // Provider is the unified interface for memory systems. Each provider type

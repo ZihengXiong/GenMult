@@ -15,11 +15,11 @@ import (
 	openaicodex "github.com/memohai/twilight-ai/provider/openai/codex"
 	sdk "github.com/memohai/twilight-ai/sdk"
 
-	memohcopilot "github.com/memohai/memoh/internal/copilot"
-	"github.com/memohai/memoh/internal/db"
-	"github.com/memohai/memoh/internal/db/postgres/sqlc"
-	dbstore "github.com/memohai/memoh/internal/db/store"
-	"github.com/memohai/memoh/internal/models"
+	memohcopilot "github.com/ZihengXiong/GenMult/internal/copilot"
+	"github.com/ZihengXiong/GenMult/internal/db"
+	"github.com/ZihengXiong/GenMult/internal/db/postgres/sqlc"
+	dbstore "github.com/ZihengXiong/GenMult/internal/db/store"
+	"github.com/ZihengXiong/GenMult/internal/models"
 )
 
 // Service handles provider operations.

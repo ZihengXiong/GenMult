@@ -9,8 +9,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/memohai/memoh/internal/bots"
-	"github.com/memohai/memoh/internal/tui"
+	"github.com/ZihengXiong/GenMult/internal/bots"
+	"github.com/ZihengXiong/GenMult/internal/tui"
 )
 
 func newBotsCommand(ctx *cliContext) *cobra.Command {

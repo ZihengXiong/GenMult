@@ -12,7 +12,7 @@ import (
 	"path"
 	"strings"
 
-	"github.com/memohai/memoh/internal/storage"
+	"github.com/ZihengXiong/GenMult/internal/storage"
 )
 
 // Service provides content-addressed media asset persistence.

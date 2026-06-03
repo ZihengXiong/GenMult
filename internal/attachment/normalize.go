@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/memohai/memoh/internal/media"
+	"github.com/ZihengXiong/GenMult/internal/media"
 )
 
 // MapMediaType maps attachment type strings to media types.

@@ -19,8 +19,8 @@ import (
 	sdkjsonrpc "github.com/modelcontextprotocol/go-sdk/jsonrpc"
 	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
 
-	mcptools "github.com/memohai/memoh/internal/mcp"
-	pb "github.com/memohai/memoh/internal/workspace/bridgepb"
+	mcptools "github.com/ZihengXiong/GenMult/internal/mcp"
+	pb "github.com/ZihengXiong/GenMult/internal/workspace/bridgepb"
 )
 
 // MCPStdioRequest represents a request to create an MCP stdio session.

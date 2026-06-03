@@ -12,10 +12,10 @@ import (
 
 	sdk "github.com/memohai/twilight-ai/sdk"
 
-	"github.com/memohai/memoh/internal/agent/background"
-	"github.com/memohai/memoh/internal/agent/tools"
-	"github.com/memohai/memoh/internal/models"
-	"github.com/memohai/memoh/internal/workspace/bridge"
+	"github.com/ZihengXiong/GenMult/internal/agent/background"
+	"github.com/ZihengXiong/GenMult/internal/agent/tools"
+	"github.com/ZihengXiong/GenMult/internal/models"
+	"github.com/ZihengXiong/GenMult/internal/workspace/bridge"
 )
 
 // Agent is the core agent that handles LLM interactions.

@@ -1,6 +1,6 @@
 package containerd
 
-import containerapi "github.com/memohai/memoh/internal/container"
+import containerapi "github.com/ZihengXiong/GenMult/internal/container"
 
 var (
 	ErrInvalidArgument = containerapi.ErrInvalidArgument

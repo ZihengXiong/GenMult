@@ -6,11 +6,11 @@ import (
 	"log/slog"
 	"os"
 
-	dbembed "github.com/memohai/memoh/db"
-	"github.com/memohai/memoh/internal/config"
-	"github.com/memohai/memoh/internal/db"
-	"github.com/memohai/memoh/internal/logger"
-	"github.com/memohai/memoh/internal/version"
+	dbembed "github.com/ZihengXiong/GenMult/db"
+	"github.com/ZihengXiong/GenMult/internal/config"
+	"github.com/ZihengXiong/GenMult/internal/db"
+	"github.com/ZihengXiong/GenMult/internal/logger"
+	"github.com/ZihengXiong/GenMult/internal/version"
 )
 
 func provideConfig() (config.Config, error) {

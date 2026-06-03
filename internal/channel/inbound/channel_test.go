@@ -16,17 +16,17 @@ import (
 
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/memohai/memoh/internal/acl"
-	"github.com/memohai/memoh/internal/channel"
-	"github.com/memohai/memoh/internal/channel/identities"
-	"github.com/memohai/memoh/internal/channel/route"
-	"github.com/memohai/memoh/internal/command"
-	"github.com/memohai/memoh/internal/conversation"
-	dbsqlc "github.com/memohai/memoh/internal/db/postgres/sqlc"
-	"github.com/memohai/memoh/internal/media"
-	messagepkg "github.com/memohai/memoh/internal/message"
-	pipelinepkg "github.com/memohai/memoh/internal/pipeline"
-	"github.com/memohai/memoh/internal/schedule"
+	"github.com/ZihengXiong/GenMult/internal/acl"
+	"github.com/ZihengXiong/GenMult/internal/channel"
+	"github.com/ZihengXiong/GenMult/internal/channel/identities"
+	"github.com/ZihengXiong/GenMult/internal/channel/route"
+	"github.com/ZihengXiong/GenMult/internal/command"
+	"github.com/ZihengXiong/GenMult/internal/conversation"
+	dbsqlc "github.com/ZihengXiong/GenMult/internal/db/postgres/sqlc"
+	"github.com/ZihengXiong/GenMult/internal/media"
+	messagepkg "github.com/ZihengXiong/GenMult/internal/message"
+	pipelinepkg "github.com/ZihengXiong/GenMult/internal/pipeline"
+	"github.com/ZihengXiong/GenMult/internal/schedule"
 )
 
 type fakeChatGateway struct {

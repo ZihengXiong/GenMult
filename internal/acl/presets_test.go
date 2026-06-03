@@ -11,8 +11,8 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"github.com/memohai/memoh/internal/db/postgres/sqlc"
-	postgresstore "github.com/memohai/memoh/internal/db/postgres/store"
+	"github.com/ZihengXiong/GenMult/internal/db/postgres/sqlc"
+	postgresstore "github.com/ZihengXiong/GenMult/internal/db/postgres/store"
 )
 
 func TestResolvePreset(t *testing.T) {

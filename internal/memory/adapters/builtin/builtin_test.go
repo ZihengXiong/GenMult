@@ -6,9 +6,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/memohai/memoh/internal/config"
-	adapters "github.com/memohai/memoh/internal/memory/adapters"
-	"github.com/memohai/memoh/internal/memory/sparse"
+	"github.com/ZihengXiong/GenMult/internal/config"
+	adapters "github.com/ZihengXiong/GenMult/internal/memory/adapters"
+	"github.com/ZihengXiong/GenMult/internal/memory/sparse"
 )
 
 func TestBuiltinProviderNilService(t *testing.T) {

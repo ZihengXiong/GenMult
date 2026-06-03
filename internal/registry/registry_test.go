@@ -7,9 +7,9 @@ import (
 	"log/slog"
 	"testing"
 
-	"github.com/memohai/memoh/internal/config"
-	"github.com/memohai/memoh/internal/db"
-	sqlitestore "github.com/memohai/memoh/internal/db/sqlite/store"
+	"github.com/ZihengXiong/GenMult/internal/config"
+	"github.com/ZihengXiong/GenMult/internal/db"
+	sqlitestore "github.com/ZihengXiong/GenMult/internal/db/sqlite/store"
 )
 
 func TestSyncUpdatesProviderWhenRegistryNameChanges(t *testing.T) {

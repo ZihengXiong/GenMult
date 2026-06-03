@@ -9,8 +9,8 @@ import (
 
 	"github.com/labstack/echo/v4"
 
-	"github.com/memohai/memoh/internal/agenthub"
-	"github.com/memohai/memoh/internal/auth"
+	"github.com/ZihengXiong/GenMult/internal/agenthub"
+	"github.com/ZihengXiong/GenMult/internal/auth"
 )
 
 type AgentHubHandler struct {

@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/memohai/memoh/internal/channel"
+	"github.com/ZihengXiong/GenMult/internal/channel"
 )
 
 // TestFeishuGateway_Integration runs Feishu channel integration test.

@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/memohai/memoh/internal/agenthub/orchestrator"
+	"github.com/ZihengXiong/GenMult/internal/agenthub/orchestrator"
 )
 
 func TestCodexProvider_Metadata(t *testing.T) {

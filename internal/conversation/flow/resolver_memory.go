@@ -5,8 +5,8 @@ import (
 	"log/slog"
 	"strings"
 
-	"github.com/memohai/memoh/internal/conversation"
-	memprovider "github.com/memohai/memoh/internal/memory/adapters"
+	"github.com/ZihengXiong/GenMult/internal/conversation"
+	memprovider "github.com/ZihengXiong/GenMult/internal/memory/adapters"
 )
 
 func (r *Resolver) resolveMemoryProvider(ctx context.Context, botID string) memprovider.Provider {

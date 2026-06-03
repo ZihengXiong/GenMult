@@ -4,12 +4,12 @@ import (
 	"context"
 	"log/slog"
 
-	"github.com/memohai/memoh/internal/compaction"
-	"github.com/memohai/memoh/internal/conversation"
-	"github.com/memohai/memoh/internal/models"
-	"github.com/memohai/memoh/internal/oauthctx"
-	"github.com/memohai/memoh/internal/providers"
-	"github.com/memohai/memoh/internal/settings"
+	"github.com/ZihengXiong/GenMult/internal/compaction"
+	"github.com/ZihengXiong/GenMult/internal/conversation"
+	"github.com/ZihengXiong/GenMult/internal/models"
+	"github.com/ZihengXiong/GenMult/internal/oauthctx"
+	"github.com/ZihengXiong/GenMult/internal/providers"
+	"github.com/ZihengXiong/GenMult/internal/settings"
 )
 
 func (r *Resolver) maybeCompact(ctx context.Context, req conversation.ChatRequest, _ resolvedContext, inputTokens int) {

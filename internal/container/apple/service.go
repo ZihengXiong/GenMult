@@ -12,8 +12,8 @@ import (
 	"github.com/memohai/acgo"
 	"github.com/memohai/acgo/socktainer"
 
-	"github.com/memohai/memoh/internal/config"
-	containerapi "github.com/memohai/memoh/internal/container"
+	"github.com/ZihengXiong/GenMult/internal/config"
+	containerapi "github.com/ZihengXiong/GenMult/internal/container"
 )
 
 var (

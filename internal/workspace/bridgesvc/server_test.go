@@ -9,7 +9,7 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 
-	pb "github.com/memohai/memoh/internal/workspace/bridgepb"
+	pb "github.com/ZihengXiong/GenMult/internal/workspace/bridgepb"
 )
 
 type cancelOnStdoutExecStream struct {

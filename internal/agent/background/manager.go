@@ -25,7 +25,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/memohai/memoh/internal/workspace/bridge"
+	"github.com/ZihengXiong/GenMult/internal/workspace/bridge"
 )
 
 const (

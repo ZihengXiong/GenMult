@@ -8,7 +8,7 @@ import (
 
 	"github.com/memohai/dingtalk-stream-sdk-go/chatbot"
 
-	"github.com/memohai/memoh/internal/channel"
+	"github.com/ZihengXiong/GenMult/internal/channel"
 )
 
 // sessionWebhookContext holds a cached session webhook for a received message.

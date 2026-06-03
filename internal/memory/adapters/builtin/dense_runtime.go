@@ -14,14 +14,14 @@ import (
 
 	sdk "github.com/memohai/twilight-ai/sdk"
 
-	"github.com/memohai/memoh/internal/config"
-	"github.com/memohai/memoh/internal/db"
-	dbsqlc "github.com/memohai/memoh/internal/db/postgres/sqlc"
-	dbstore "github.com/memohai/memoh/internal/db/store"
-	adapters "github.com/memohai/memoh/internal/memory/adapters"
-	qdrantclient "github.com/memohai/memoh/internal/memory/qdrant"
-	storefs "github.com/memohai/memoh/internal/memory/storefs"
-	"github.com/memohai/memoh/internal/models"
+	"github.com/ZihengXiong/GenMult/internal/config"
+	"github.com/ZihengXiong/GenMult/internal/db"
+	dbsqlc "github.com/ZihengXiong/GenMult/internal/db/postgres/sqlc"
+	dbstore "github.com/ZihengXiong/GenMult/internal/db/store"
+	adapters "github.com/ZihengXiong/GenMult/internal/memory/adapters"
+	qdrantclient "github.com/ZihengXiong/GenMult/internal/memory/qdrant"
+	storefs "github.com/ZihengXiong/GenMult/internal/memory/storefs"
+	"github.com/ZihengXiong/GenMult/internal/models"
 )
 
 const denseEmbedTimeout = models.DefaultProviderRequestTimeout

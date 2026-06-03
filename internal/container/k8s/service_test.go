@@ -18,8 +18,8 @@ import (
 	metricsclient "k8s.io/metrics/pkg/client/clientset/versioned"
 	metricsfake "k8s.io/metrics/pkg/client/clientset/versioned/fake"
 
-	"github.com/memohai/memoh/internal/config"
-	containerapi "github.com/memohai/memoh/internal/container"
+	"github.com/ZihengXiong/GenMult/internal/config"
+	containerapi "github.com/ZihengXiong/GenMult/internal/container"
 )
 
 func TestCreateContainerCreatesPVCAndPod(t *testing.T) {

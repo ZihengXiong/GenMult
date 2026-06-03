@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/memohai/memoh/internal/healthcheck"
-	"github.com/memohai/memoh/internal/mcp"
+	"github.com/ZihengXiong/GenMult/internal/healthcheck"
+	"github.com/ZihengXiong/GenMult/internal/mcp"
 )
 
 const (

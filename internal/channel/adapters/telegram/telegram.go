@@ -18,10 +18,10 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"golang.org/x/time/rate"
 
-	"github.com/memohai/memoh/internal/channel"
-	"github.com/memohai/memoh/internal/channel/common"
-	"github.com/memohai/memoh/internal/media"
-	"github.com/memohai/memoh/internal/textutil"
+	"github.com/ZihengXiong/GenMult/internal/channel"
+	"github.com/ZihengXiong/GenMult/internal/channel/common"
+	"github.com/ZihengXiong/GenMult/internal/media"
+	"github.com/ZihengXiong/GenMult/internal/textutil"
 )
 
 const (

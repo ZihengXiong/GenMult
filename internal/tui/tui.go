@@ -14,9 +14,9 @@ import (
 	"github.com/charmbracelet/glamour"
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/memohai/memoh/internal/conversation"
-	dbpkg "github.com/memohai/memoh/internal/db"
-	"github.com/memohai/memoh/internal/session"
+	"github.com/ZihengXiong/GenMult/internal/conversation"
+	dbpkg "github.com/ZihengXiong/GenMult/internal/db"
+	"github.com/ZihengXiong/GenMult/internal/session"
 )
 
 type focusArea int

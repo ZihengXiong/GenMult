@@ -14,7 +14,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/memohai/memoh/internal/channel"
+	"github.com/ZihengXiong/GenMult/internal/channel"
 )
 
 type qqClient struct {

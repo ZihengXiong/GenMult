@@ -5,7 +5,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/memohai/memoh/internal/db"
+	"github.com/ZihengXiong/GenMult/internal/db"
 )
 
 func TestDecodeConfigMap(t *testing.T) {

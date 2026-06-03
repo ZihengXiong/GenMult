@@ -15,7 +15,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/memohai/memoh/internal/media"
+	"github.com/ZihengXiong/GenMult/internal/media"
 )
 
 type assetOpener interface {

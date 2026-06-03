@@ -3,7 +3,7 @@ package flow
 import (
 	"testing"
 
-	"github.com/memohai/memoh/internal/conversation"
+	"github.com/ZihengXiong/GenMult/internal/conversation"
 )
 
 func TestBuildInteractionMetadataIncludesForwardConversation(t *testing.T) {

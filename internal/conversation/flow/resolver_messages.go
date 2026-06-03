@@ -6,7 +6,7 @@ import (
 
 	sdk "github.com/memohai/twilight-ai/sdk"
 
-	"github.com/memohai/memoh/internal/conversation"
+	"github.com/ZihengXiong/GenMult/internal/conversation"
 )
 
 // sdkMessagesToModelMessages converts SDK messages to the persistence/API format

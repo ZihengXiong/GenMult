@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"errors"
 
-	sqlitesqlc "github.com/memohai/memoh/internal/db/sqlite/sqlc"
+	sqlitesqlc "github.com/ZihengXiong/GenMult/internal/db/sqlite/sqlc"
 )
 
 type Store struct {

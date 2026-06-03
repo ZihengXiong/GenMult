@@ -9,13 +9,13 @@ import (
 
 	sdk "github.com/memohai/twilight-ai/sdk"
 
-	"github.com/memohai/memoh/internal/conversation"
-	"github.com/memohai/memoh/internal/db/postgres/sqlc"
-	messageevent "github.com/memohai/memoh/internal/message/event"
-	"github.com/memohai/memoh/internal/models"
-	"github.com/memohai/memoh/internal/oauthctx"
-	"github.com/memohai/memoh/internal/providers"
-	"github.com/memohai/memoh/internal/session"
+	"github.com/ZihengXiong/GenMult/internal/conversation"
+	"github.com/ZihengXiong/GenMult/internal/db/postgres/sqlc"
+	messageevent "github.com/ZihengXiong/GenMult/internal/message/event"
+	"github.com/ZihengXiong/GenMult/internal/models"
+	"github.com/ZihengXiong/GenMult/internal/oauthctx"
+	"github.com/ZihengXiong/GenMult/internal/providers"
+	"github.com/ZihengXiong/GenMult/internal/session"
 )
 
 const (

@@ -20,9 +20,9 @@ import (
 	"github.com/gorilla/websocket"
 	sdk "github.com/memohai/twilight-ai/sdk"
 
-	displaypkg "github.com/memohai/memoh/internal/display"
-	"github.com/memohai/memoh/internal/settings"
-	"github.com/memohai/memoh/internal/workspace/bridge"
+	displaypkg "github.com/ZihengXiong/GenMult/internal/display"
+	"github.com/ZihengXiong/GenMult/internal/settings"
+	"github.com/ZihengXiong/GenMult/internal/workspace/bridge"
 )
 
 const (

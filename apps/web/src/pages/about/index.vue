@@ -87,7 +87,7 @@
         <Separator class="mb-4" />
         <div class="space-y-1">
           <a
-            href="https://github.com/memohai/memoh"
+            href="https://github.com/ZihengXiong/GenMult"
             target="_blank"
             rel="noopener noreferrer"
             class="flex h-9 items-center gap-3 rounded-lg px-3 text-xs text-foreground hover:bg-accent transition-colors"
@@ -107,7 +107,7 @@
             <ExternalLink class="size-3 ml-auto text-muted-foreground" />
           </a>
           <a
-            href="https://github.com/memohai/memoh/issues"
+            href="https://github.com/ZihengXiong/GenMult/issues"
             target="_blank"
             rel="noopener noreferrer"
             class="flex h-9 items-center gap-3 rounded-lg px-3 text-xs text-foreground hover:bg-accent transition-colors"

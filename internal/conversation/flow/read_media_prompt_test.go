@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	agentpkg "github.com/memohai/memoh/internal/agent"
+	agentpkg "github.com/ZihengXiong/GenMult/internal/agent"
 )
 
 const imageReadHint = "also supports images: PNG, JPEG, GIF, WebP"

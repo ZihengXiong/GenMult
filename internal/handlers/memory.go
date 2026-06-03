@@ -15,13 +15,13 @@ import (
 
 	"github.com/labstack/echo/v4"
 
-	"github.com/memohai/memoh/internal/accounts"
-	"github.com/memohai/memoh/internal/bots"
-	"github.com/memohai/memoh/internal/config"
-	memprovider "github.com/memohai/memoh/internal/memory/adapters"
-	storefs "github.com/memohai/memoh/internal/memory/storefs"
-	"github.com/memohai/memoh/internal/settings"
-	"github.com/memohai/memoh/internal/workspace/bridge"
+	"github.com/ZihengXiong/GenMult/internal/accounts"
+	"github.com/ZihengXiong/GenMult/internal/bots"
+	"github.com/ZihengXiong/GenMult/internal/config"
+	memprovider "github.com/ZihengXiong/GenMult/internal/memory/adapters"
+	storefs "github.com/ZihengXiong/GenMult/internal/memory/storefs"
+	"github.com/ZihengXiong/GenMult/internal/settings"
+	"github.com/ZihengXiong/GenMult/internal/workspace/bridge"
 )
 
 // MemoryHandler handles memory CRUD operations scoped by bot.

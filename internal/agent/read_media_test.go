@@ -16,9 +16,9 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/grpc/test/bufconn"
 
-	agenttools "github.com/memohai/memoh/internal/agent/tools"
-	"github.com/memohai/memoh/internal/workspace/bridge"
-	pb "github.com/memohai/memoh/internal/workspace/bridgepb"
+	agenttools "github.com/ZihengXiong/GenMult/internal/agent/tools"
+	"github.com/ZihengXiong/GenMult/internal/workspace/bridge"
+	pb "github.com/ZihengXiong/GenMult/internal/workspace/bridgepb"
 )
 
 const agentReadMediaTestBufSize = 1 << 20

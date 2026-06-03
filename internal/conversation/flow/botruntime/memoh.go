@@ -3,8 +3,8 @@ package botruntime
 import (
 	"context"
 
-	agentpkg "github.com/memohai/memoh/internal/agent"
-	"github.com/memohai/memoh/internal/bots"
+	agentpkg "github.com/ZihengXiong/GenMult/internal/agent"
+	"github.com/ZihengXiong/GenMult/internal/bots"
 )
 
 // memohRuntime is the built-in framework. It is a thin pass-through to the

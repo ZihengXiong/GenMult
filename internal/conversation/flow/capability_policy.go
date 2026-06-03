@@ -3,7 +3,7 @@ package flow
 import (
 	"strings"
 
-	"github.com/memohai/memoh/internal/models"
+	"github.com/ZihengXiong/GenMult/internal/models"
 )
 
 const (

@@ -121,7 +121,7 @@ build_archive() {
   CGO_ENABLED=0 GOOS="$TARGET_OS" GOARCH="$TARGET_ARCH" \
     go build \
     -trimpath \
-    -ldflags "-s -w -X github.com/memohai/memoh/internal/version.Version=${VERSION} -X github.com/memohai/memoh/internal/version.CommitHash=${COMMIT_HASH} -X github.com/memohai/memoh/internal/version.BuildTime=${BUILD_TIME}" \
+    -ldflags "-s -w -X github.com/ZihengXiong/GenMult/internal/version.Version=${VERSION} -X github.com/ZihengXiong/GenMult/internal/version.CommitHash=${COMMIT_HASH} -X github.com/ZihengXiong/GenMult/internal/version.BuildTime=${BUILD_TIME}" \
     -o "$target_dir/$binary_name" \
     "$ROOT_DIR/cmd/memoh"
 

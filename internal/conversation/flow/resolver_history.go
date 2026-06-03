@@ -7,10 +7,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/memohai/memoh/internal/conversation"
-	"github.com/memohai/memoh/internal/db"
-	messagepkg "github.com/memohai/memoh/internal/message"
-	pipelinepkg "github.com/memohai/memoh/internal/pipeline"
+	"github.com/ZihengXiong/GenMult/internal/conversation"
+	"github.com/ZihengXiong/GenMult/internal/db"
+	messagepkg "github.com/ZihengXiong/GenMult/internal/message"
+	pipelinepkg "github.com/ZihengXiong/GenMult/internal/pipeline"
 )
 
 type messageWithUsage struct {

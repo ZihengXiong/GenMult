@@ -12,8 +12,8 @@ import (
 
 	"github.com/labstack/echo/v4"
 
-	audiopkg "github.com/memohai/memoh/internal/audio"
-	"github.com/memohai/memoh/internal/models"
+	audiopkg "github.com/ZihengXiong/GenMult/internal/audio"
+	"github.com/ZihengXiong/GenMult/internal/models"
 )
 
 type AudioHandler struct {

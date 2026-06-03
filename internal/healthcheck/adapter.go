@@ -3,7 +3,7 @@ package healthcheck
 import (
 	"context"
 
-	"github.com/memohai/memoh/internal/bots"
+	"github.com/ZihengXiong/GenMult/internal/bots"
 )
 
 // RuntimeCheckerAdapter bridges Checker to bots.RuntimeChecker.

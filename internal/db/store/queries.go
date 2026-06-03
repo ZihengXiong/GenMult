@@ -6,7 +6,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	dbsqlc "github.com/memohai/memoh/internal/db/postgres/sqlc"
+	dbsqlc "github.com/ZihengXiong/GenMult/internal/db/postgres/sqlc"
 )
 
 // Queries is the transitional database interface implemented by sqlc-backed stores.
