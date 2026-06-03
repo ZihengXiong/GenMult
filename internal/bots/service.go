@@ -372,6 +372,7 @@ func (s *Service) enqueueCreateLifecycle(ctx context.Context, botID string) {
 					slog.String("bot_id", botID),
 					slog.Any("error", err),
 				)
+				return
 			}
 		}
 
