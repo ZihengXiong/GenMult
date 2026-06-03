@@ -15,9 +15,10 @@ import (
 
 // CodexEvent represents a raw JSON line output from the Codex CLI stream.
 type CodexEvent struct {
-	Type  string     `json:"type"`
-	Item  *CodexItem `json:"item,omitempty"`
-	Error *string    `json:"error,omitempty"`
+	Type    string     `json:"type"`
+	Item    *CodexItem `json:"item,omitempty"`
+	Summary string     `json:"summary,omitempty"`
+	Error   *string    `json:"error,omitempty"`
 }
 
 // CodexItem represents an item completion payload inside CodexEvent.
@@ -63,6 +64,10 @@ func (p *CodexProvider) Capabilities() []string {
 
 // Execute starts the Codex subprocess to fulfill a task.
 func (p *CodexProvider) Execute(ctx context.Context, req orchestrator.ExecuteTaskRequest) (orchestrator.ExecuteTaskResult, error) {
+	if p.config.APIKey == "" {
+		return orchestrator.ExecuteTaskResult{Retryable: false}, fmt.Errorf("%w: OPENAI_API_KEY is not set", ErrAPIKeyMissing)
+	}
+
 	workDir, err := p.wsInfo.ResolveWorkDir(ctx, req)
 	if err != nil {
 		return orchestrator.ExecuteTaskResult{Retryable: false}, fmt.Errorf("failed to resolve workspace directory: %w", err)

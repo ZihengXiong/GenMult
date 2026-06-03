@@ -29,15 +29,13 @@ func (f WorkDirResolverFunc) ResolveWorkDir(ctx context.Context, botID string) (
 // cliRuntime drives a CLI-backed framework (claudecode, codex) for a single
 // conversational turn. It reuses providers.CLIRunner plus the shared
 // arg/parse/env helpers, and emits agent.StreamEvent so the resolver's existing
-// persistence path works unchanged. This is a first-cut runtime: it streams
-// assistant text and produces a terminal snapshot; richer tool-call event
-// mapping is deferred.
+// persistence path works unchanged.
 type cliRuntime struct {
 	name       string
 	binaryName string
 	buildArgs  func(prompt string) []string
 	parseEvent func(line []byte) (providers.CLIEvent, error)
-	env        []string
+	buildEnv   func() []string
 	resolver   WorkDirResolver
 	logger     *slog.Logger
 }
@@ -52,7 +50,7 @@ func NewClaudeCodeRuntime(cfg providers.ClaudeCodeConfig, resolver WorkDirResolv
 		binaryName: "claude",
 		buildArgs:  func(prompt string) []string { return providers.ClaudeBuildArgs(cfg, prompt) },
 		parseEvent: providers.ClaudeParseEvent,
-		env:        providers.ClaudeEnv(cfg),
+		buildEnv:   func() []string { return providers.ClaudeEnv(cfg) },
 		resolver:   resolver,
 		logger:     logger.With(slog.String("component", "claudecode_runtime")),
 	}
@@ -68,7 +66,7 @@ func NewCodexRuntime(cfg providers.CodexConfig, resolver WorkDirResolver, logger
 		binaryName: "codex",
 		buildArgs:  func(prompt string) []string { return providers.CodexBuildArgs(cfg, prompt) },
 		parseEvent: providers.CodexParseEvent,
-		env:        providers.CodexEnv(cfg),
+		buildEnv:   func() []string { return providers.CodexEnv(cfg) },
 		resolver:   resolver,
 		logger:     logger.With(slog.String("component", "codex_runtime")),
 	}
@@ -105,8 +103,17 @@ func (c *cliRuntime) Stream(ctx context.Context, in RunInput) <-chan agentpkg.St
 		send(agentpkg.StreamEvent{Type: agentpkg.EventAgentStart})
 
 		text, err := c.run(ctx, in, func(ev providers.CLIEvent) {
-			if ev.Type == "text" && ev.Content != "" {
-				send(agentpkg.StreamEvent{Type: agentpkg.EventTextDelta, Delta: ev.Content})
+			switch ev.Type {
+			case "text":
+				if ev.Content != "" {
+					send(agentpkg.StreamEvent{Type: agentpkg.EventTextDelta, Delta: ev.Content})
+				}
+			case "tool_use":
+				send(agentpkg.StreamEvent{Type: agentpkg.EventToolCallStart, ToolName: ev.Content})
+			case "tool_result":
+				send(agentpkg.StreamEvent{Type: agentpkg.EventToolCallEnd, Result: ev.Content})
+			case "error":
+				send(agentpkg.StreamEvent{Type: agentpkg.EventError, Error: ev.Content})
 			}
 		})
 		if err != nil {
@@ -145,7 +152,7 @@ func (c *cliRuntime) run(ctx context.Context, in RunInput, onEvent func(provider
 		ParseEvent: c.parseEvent,
 		OnEvent:    onEvent,
 	}, c.logger)
-	return runner.Run(ctx, promptFor(in), workDir, nil, c.env)
+	return runner.Run(ctx, promptFor(in), workDir, nil, c.buildEnv())
 }
 
 // terminalEvent builds the terminal agent_end event carrying the assistant

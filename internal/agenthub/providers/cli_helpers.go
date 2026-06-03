@@ -14,13 +14,16 @@ import (
 // duplicating the provider-specific contracts.
 
 // ClaudeEnv returns the environment for the Claude Code CLI: the current
-// process environment plus the configured API key and optional base URL.
+// process environment with the configured API key and optional base URL
+// set (replacing any existing values).
 func ClaudeEnv(cfg ClaudeCodeConfig) []string {
-	env := append(os.Environ(), "ANTHROPIC_API_KEY="+cfg.APIKey)
-	if val := os.Getenv("ANTHROPIC_BASE_URL"); val != "" {
-		env = append(env, "ANTHROPIC_BASE_URL="+val)
+	overrides := map[string]string{
+		"ANTHROPIC_API_KEY": cfg.APIKey,
 	}
-	return env
+	if val := os.Getenv("ANTHROPIC_BASE_URL"); val != "" {
+		overrides["ANTHROPIC_BASE_URL"] = val
+	}
+	return buildEnv(overrides)
 }
 
 // ClaudeBuildArgs builds the Claude Code CLI arguments for a prompt.
@@ -33,7 +36,7 @@ func ClaudeBuildArgs(cfg ClaudeCodeConfig, prompt string) []string {
 	if cfg.PermissionMode != "" {
 		args = append(args, "--permission-mode", cfg.PermissionMode)
 	} else {
-		args = append(args, "--permission-mode", "acceptEdits")
+		args = append(args, "--permission-mode", "auto-edit")
 	}
 	if cfg.MaxTurns > 0 {
 		args = append(args, "--max-turns", strconv.Itoa(cfg.MaxTurns))
@@ -96,13 +99,38 @@ func ClaudeParseEvent(line []byte) (CLIEvent, error) {
 }
 
 // CodexEnv returns the environment for the Codex CLI: the current process
-// environment plus the configured API key and optional base URL.
+// environment with the configured API key and optional base URL
+// set (replacing any existing values).
 func CodexEnv(cfg CodexConfig) []string {
-	env := append(os.Environ(), "OPENAI_API_KEY="+cfg.APIKey)
-	if val := os.Getenv("OPENAI_BASE_URL"); val != "" {
-		env = append(env, "OPENAI_BASE_URL="+val)
+	overrides := map[string]string{
+		"OPENAI_API_KEY": cfg.APIKey,
 	}
-	return env
+	if val := os.Getenv("OPENAI_BASE_URL"); val != "" {
+		overrides["OPENAI_BASE_URL"] = val
+	}
+	return buildEnv(overrides)
+}
+
+// buildEnv returns os.Environ() with the given keys replaced (or appended).
+func buildEnv(overrides map[string]string) []string {
+	base := os.Environ()
+	out := make([]string, 0, len(base)+len(overrides))
+	seen := make(map[string]bool, len(overrides))
+	for _, entry := range base {
+		key, _, _ := strings.Cut(entry, "=")
+		if _, ok := overrides[key]; ok {
+			out = append(out, key+"="+overrides[key])
+			seen[key] = true
+		} else {
+			out = append(out, entry)
+		}
+	}
+	for key, val := range overrides {
+		if !seen[key] {
+			out = append(out, key+"="+val)
+		}
+	}
+	return out
 }
 
 // CodexBuildArgs builds the Codex CLI arguments for a prompt.
@@ -145,7 +173,11 @@ func CodexParseEvent(line []byte) (CLIEvent, error) {
 			}
 		}
 	case "turn.completed":
-		return CLIEvent{Type: "result", Content: "", Raw: line}, nil
+		content := ce.Summary
+		if content == "" && ce.Item != nil {
+			content = ce.Item.Content
+		}
+		return CLIEvent{Type: "result", Content: content, Raw: line}, nil
 	case "error":
 		content := "unknown codex error"
 		if ce.Error != nil {

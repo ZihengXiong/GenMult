@@ -192,13 +192,12 @@ func agentsFromRoom(room Room) []orch.AgentDescriptor {
 		provider := "noop"
 		name := id
 		lc := strings.ToLower(id)
-		if strings.Contains(lc, "codex") {
-			provider = "codex"
-			name = "Codex"
-		}
 		if strings.Contains(lc, "claude") {
 			provider = "claudecode"
 			name = "Claude Code"
+		} else if strings.Contains(lc, "codex") {
+			provider = "codex"
+			name = "Codex"
 		}
 		out = append(out, orch.AgentDescriptor{
 			ID:           id,

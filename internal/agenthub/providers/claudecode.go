@@ -72,6 +72,10 @@ func (p *ClaudeCodeProvider) Capabilities() []string {
 
 // Execute starts the Claude Code subprocess to fulfill a task.
 func (p *ClaudeCodeProvider) Execute(ctx context.Context, req orchestrator.ExecuteTaskRequest) (orchestrator.ExecuteTaskResult, error) {
+	if p.config.APIKey == "" {
+		return orchestrator.ExecuteTaskResult{Retryable: false}, fmt.Errorf("%w: ANTHROPIC_API_KEY is not set", ErrAPIKeyMissing)
+	}
+
 	workDir, err := p.wsInfo.ResolveWorkDir(ctx, req)
 	if err != nil {
 		return orchestrator.ExecuteTaskResult{Retryable: false}, fmt.Errorf("failed to resolve workspace directory: %w", err)

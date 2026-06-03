@@ -11,4 +11,7 @@ var (
 
 	// ErrRateLimit is returned when the CLI reports a rate-limiting error.
 	ErrRateLimit = errors.New("CLI rate limit exceeded")
+
+	// ErrAPIKeyMissing is returned when the provider's API key is empty.
+	ErrAPIKeyMissing = errors.New("API key not configured")
 )
