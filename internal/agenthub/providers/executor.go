@@ -129,8 +129,9 @@ type hostExecHandle struct {
 	cmd        *exec.Cmd
 	chunksChan chan ExecChunk
 	wg         sync.WaitGroup
-	waitErr    error
 	waitOnce   sync.Once
+	waitExitCode int
+	waitErr      error
 }
 
 // Chunks returns the channel where stdout and stderr are pushed.
@@ -143,13 +144,14 @@ func (h *hostExecHandle) Wait() (int, error) {
 	h.wg.Wait()
 	h.waitOnce.Do(func() {
 		h.waitErr = h.cmd.Wait()
+		if h.waitErr != nil {
+			if exitErr, ok := h.waitErr.(*exec.ExitError); ok {
+				h.waitExitCode = exitErr.ExitCode()
+			} else {
+				h.waitExitCode = -1
+			}
+		}
 		close(h.chunksChan)
 	})
-	if h.waitErr != nil {
-		if exitErr, ok := h.waitErr.(*exec.ExitError); ok {
-			return exitErr.ExitCode(), h.waitErr
-		}
-		return -1, h.waitErr
-	}
-	return 0, nil
+	return h.waitExitCode, h.waitErr
 }
