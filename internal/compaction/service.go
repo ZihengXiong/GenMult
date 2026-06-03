@@ -284,10 +284,10 @@ func splitByRatio(messages []sqlc.ListUncompactedMessagesBySessionRow, totalInpu
 	}
 
 	accumulated := 0
-	cutoff := len(messages)
+	cutoff := 0
 	for i := len(messages) - 1; i >= 0; i-- {
 		accumulated += estimateRowTokens(messages[i])
-		if accumulated >= keepTokens {
+		if accumulated > keepTokens {
 			cutoff = i + 1
 			break
 		}
@@ -295,9 +295,6 @@ func splitByRatio(messages []sqlc.ListUncompactedMessagesBySessionRow, totalInpu
 
 	if cutoff <= 0 {
 		return nil
-	}
-	if cutoff >= len(messages) {
-		return messages
 	}
 	return messages[:cutoff]
 }
