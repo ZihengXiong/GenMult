@@ -72,9 +72,9 @@ func NewOrchestratorService(
 	codexProvider := providers.NewCodexProvider(provCfg.Codex, resolver, store, nil, log)
 
 	registry := orch.NewProviderRegistry(
-		orch.NoopProvider{},
 		claudeProvider,
 		codexProvider,
+		orch.NoopProvider{},
 	)
 
 	orchestrator := orch.NewService(store, orch.NewRulePlanner(), registry, log, orch.Config{
