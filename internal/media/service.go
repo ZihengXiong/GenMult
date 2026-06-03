@@ -68,7 +68,8 @@ func (s *Service) Ingest(ctx context.Context, input IngestInput) (Asset, error) 
 	routingKey := path.Join(input.BotID, storageKey)
 
 	// Filesystem dedup: if the file already exists, skip write.
-	if _, openErr := s.provider.Open(ctx, routingKey); openErr == nil {
+	if rc, openErr := s.provider.Open(ctx, routingKey); openErr == nil {
+		_ = rc.Close()
 		return Asset{
 			ContentHash: contentHash,
 			BotID:       input.BotID,
