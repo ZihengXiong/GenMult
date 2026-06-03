@@ -227,9 +227,9 @@ func (s *SQLStore) GetRun(ctx context.Context, runID string) (Run, error) {
 		return Run{}, ErrInvalidInput
 	}
 	var (
-		run                          Run
-		status                       string
-		metadataRaw                  []byte
+		run                      Run
+		status                   string
+		metadataRaw              []byte
 		createdAtMS, updatedAtMS int64
 	)
 	if s.dialect == dialectPostgres {
@@ -761,13 +761,13 @@ func (s *SQLStore) placeholder(i int) string {
 	return "?"
 }
 
-type scanner interface { Scan(dest ...any) error }
+type scanner interface{ Scan(dest ...any) error }
 
 func scanTaskPG(s scanner) (Task, error) {
 	var (
-		task Task
-		status string
-		metadataRaw []byte
+		task                                Task
+		status                              string
+		metadataRaw                         []byte
 		timeoutMS, createdAtMS, updatedAtMS int64
 	)
 	if err := s.Scan(&task.ID, &task.RunID, &task.ParentTaskID, &task.Title, &task.Description, &task.AssignedAgentID, &task.ProviderName, &task.Priority, &status, &timeoutMS, &task.MaxRetries, &task.AttemptCount, &task.IdempotencyKey, &metadataRaw, &createdAtMS, &updatedAtMS); err != nil {
@@ -783,9 +783,9 @@ func scanTaskPG(s scanner) (Task, error) {
 
 func scanTaskSQLite(s scanner) (Task, error) {
 	var (
-		task Task
-		status string
-		metadataText string
+		task                                Task
+		status                              string
+		metadataText                        string
 		timeoutMS, createdAtMS, updatedAtMS int64
 	)
 	if err := s.Scan(&task.ID, &task.RunID, &task.ParentTaskID, &task.Title, &task.Description, &task.AssignedAgentID, &task.ProviderName, &task.Priority, &status, &timeoutMS, &task.MaxRetries, &task.AttemptCount, &task.IdempotencyKey, &metadataText, &createdAtMS, &updatedAtMS); err != nil {
@@ -801,11 +801,11 @@ func scanTaskSQLite(s scanner) (Task, error) {
 
 func scanAttemptPG(s scanner) (TaskAttempt, error) {
 	var (
-		attempt TaskAttempt
-		status string
+		attempt             TaskAttempt
+		status              string
 		inputRaw, outputRaw []byte
-		startedAtMS int64
-		finishedAtMS sql.NullInt64
+		startedAtMS         int64
+		finishedAtMS        sql.NullInt64
 	)
 	if err := s.Scan(&attempt.ID, &attempt.TaskID, &attempt.RunID, &attempt.AttemptNo, &attempt.ProviderName, &attempt.AgentID, &status, &inputRaw, &outputRaw, &attempt.ErrorMessage, &attempt.Retryable, &startedAtMS, &finishedAtMS, &attempt.IdempotencyKey); err != nil {
 		return TaskAttempt{}, mapNotFound(err)
@@ -823,11 +823,11 @@ func scanAttemptPG(s scanner) (TaskAttempt, error) {
 
 func scanAttemptSQLite(s scanner) (TaskAttempt, error) {
 	var (
-		attempt TaskAttempt
+		attempt                       TaskAttempt
 		status, inputText, outputText string
-		startedAtMS int64
-		finishedAtMS sql.NullInt64
-		retryableInt int64
+		startedAtMS                   int64
+		finishedAtMS                  sql.NullInt64
+		retryableInt                  int64
 	)
 	if err := s.Scan(&attempt.ID, &attempt.TaskID, &attempt.RunID, &attempt.AttemptNo, &attempt.ProviderName, &attempt.AgentID, &status, &inputText, &outputText, &attempt.ErrorMessage, &retryableInt, &startedAtMS, &finishedAtMS, &attempt.IdempotencyKey); err != nil {
 		return TaskAttempt{}, mapNotFound(err)
@@ -846,9 +846,9 @@ func scanAttemptSQLite(s scanner) (TaskAttempt, error) {
 
 func scanEventPG(s scanner) (RunEvent, error) {
 	var (
-		e RunEvent
-		eType string
-		payloadRaw []byte
+		e           RunEvent
+		eType       string
+		payloadRaw  []byte
 		createdAtMS int64
 	)
 	if err := s.Scan(&e.ID, &e.RunID, &e.TaskID, &e.Seq, &eType, &payloadRaw, &createdAtMS); err != nil {
@@ -862,9 +862,9 @@ func scanEventPG(s scanner) (RunEvent, error) {
 
 func scanEventSQLite(s scanner) (RunEvent, error) {
 	var (
-		e RunEvent
+		e                  RunEvent
 		eType, payloadText string
-		createdAtMS int64
+		createdAtMS        int64
 	)
 	if err := s.Scan(&e.ID, &e.RunID, &e.TaskID, &e.Seq, &eType, &payloadText, &createdAtMS); err != nil {
 		return RunEvent{}, mapNotFound(err)

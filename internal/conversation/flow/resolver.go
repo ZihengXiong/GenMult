@@ -25,6 +25,7 @@ import (
 	"github.com/memohai/memoh/internal/channel"
 	"github.com/memohai/memoh/internal/compaction"
 	"github.com/memohai/memoh/internal/conversation"
+	"github.com/memohai/memoh/internal/conversation/flow/botruntime"
 	"github.com/memohai/memoh/internal/db/postgres/sqlc"
 	dbstore "github.com/memohai/memoh/internal/db/store"
 	memprovider "github.com/memohai/memoh/internal/memory/adapters"
@@ -73,6 +74,7 @@ type botChannelConfigReader interface {
 // Resolver orchestrates chat with the internal agent.
 type Resolver struct {
 	agent             *agentpkg.Agent
+	runtimes          *botruntime.Registry
 	modelsService     *models.Service
 	queries           dbstore.Queries
 	memoryRegistry    *memprovider.Registry
@@ -140,6 +142,7 @@ func NewResolver(
 
 	return &Resolver{
 		agent:            a,
+		runtimes:         botruntime.NewRegistry(botruntime.NewMemohRuntime(a)),
 		modelsService:    modelsService,
 		queries:          queries,
 		conversationSvc:  conversationSvc,
@@ -472,7 +475,8 @@ func (r *Resolver) Chat(ctx context.Context, req conversation.ChatRequest) (conv
 	cfg := rc.runConfig
 	cfg = r.prepareRunConfig(ctx, cfg)
 
-	result, err := r.agent.Generate(ctx, cfg)
+	rt := r.runtimeForBot(ctx, cfg.Identity.BotID)
+	result, err := rt.Generate(ctx, botruntime.RunInput{Config: cfg})
 	if err != nil {
 		return conversation.ChatResponse{}, err
 	}

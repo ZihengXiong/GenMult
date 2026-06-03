@@ -46,6 +46,7 @@ type Bot struct {
 	CreatedAt              pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt              pgtype.Timestamptz `json:"updated_at"`
 	AclDefaultEffect       string             `json:"acl_default_effect"`
+	Framework              string             `json:"framework"`
 }
 
 type BotAclRule struct {

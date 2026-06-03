@@ -29,6 +29,7 @@ func newBotsCreateCommand(ctx *cliContext) *cobra.Command {
 	var displayName string
 	var avatarURL string
 	var timezone string
+	var framework string
 	var inactive bool
 
 	cmd := &cobra.Command{
@@ -44,7 +45,7 @@ func newBotsCreateCommand(ctx *cliContext) *cobra.Command {
 			requestCtx, cancel := context.WithTimeout(cmd.Context(), 30*time.Second)
 			defer cancel()
 
-			req := buildCreateBotRequest(displayName, avatarURL, timezone, inactive)
+			req := buildCreateBotRequest(displayName, avatarURL, timezone, framework, inactive)
 
 			bot, err := client.CreateBot(requestCtx, req)
 			if err != nil {
@@ -59,6 +60,7 @@ func newBotsCreateCommand(ctx *cliContext) *cobra.Command {
 	cmd.Flags().StringVar(&displayName, "name", "", "Bot display name")
 	cmd.Flags().StringVar(&avatarURL, "avatar-url", "", "Bot avatar URL")
 	cmd.Flags().StringVar(&timezone, "timezone", "", "Bot timezone")
+	cmd.Flags().StringVar(&framework, "framework", "", "Agent framework backing the bot: memoh (default), claudecode, or codex")
 	cmd.Flags().BoolVar(&inactive, "inactive", false, "Create the bot in inactive state")
 	_ = cmd.MarkFlagRequired("name")
 
@@ -116,10 +118,11 @@ func localClient(ctx context.Context, cli *cliContext) (*tui.Client, error) {
 	return tui.NewLocalClient(requestCtx)
 }
 
-func buildCreateBotRequest(displayName, avatarURL, timezone string, inactive bool) bots.CreateBotRequest {
+func buildCreateBotRequest(displayName, avatarURL, timezone, framework string, inactive bool) bots.CreateBotRequest {
 	req := bots.CreateBotRequest{
 		DisplayName: strings.TrimSpace(displayName),
 		AvatarURL:   strings.TrimSpace(avatarURL),
+		Framework:   strings.TrimSpace(framework),
 	}
 	if strings.TrimSpace(timezone) != "" {
 		tz := strings.TrimSpace(timezone)

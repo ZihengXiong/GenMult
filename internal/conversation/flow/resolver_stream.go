@@ -11,6 +11,7 @@ import (
 
 	agentpkg "github.com/memohai/memoh/internal/agent"
 	"github.com/memohai/memoh/internal/conversation"
+	"github.com/memohai/memoh/internal/conversation/flow/botruntime"
 )
 
 // WSStreamEvent represents a raw JSON event forwarded from the agent.
@@ -109,7 +110,8 @@ func (r *Resolver) StreamChat(ctx context.Context, req conversation.ChatRequest)
 		idleCtx, idleCancel := withIdleTimeout(ctx)
 		defer idleCancel.Stop()
 
-		eventCh := r.agent.Stream(idleCtx, cfg)
+		rt := r.runtimeForBot(ctx, cfg.Identity.BotID)
+		eventCh := rt.Stream(idleCtx, botruntime.RunInput{Config: cfg})
 		stored := false
 		clientGone := false
 		var lastSnapshot terminalSnapshot
@@ -258,7 +260,8 @@ func (r *Resolver) StreamChatWS(
 	idleCtx, idleCancel := withIdleTimeout(streamCtx)
 	defer idleCancel.Stop()
 
-	agentEventCh := r.agent.Stream(idleCtx, cfg)
+	rt := r.runtimeForBot(streamCtx, cfg.Identity.BotID)
+	agentEventCh := rt.Stream(idleCtx, botruntime.RunInput{Config: cfg})
 	modelID := rc.model.ID
 	stored := false
 	clientGone := false

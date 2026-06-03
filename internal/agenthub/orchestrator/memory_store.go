@@ -13,15 +13,15 @@ import (
 // MemoryStore is a concurrency-safe Store implementation for tests and local
 // development. Production should implement Store with sqlc-backed persistence.
 type MemoryStore struct {
-	mu           sync.RWMutex
-	runs         map[string]Run
-	tasks        map[string]Task
-	tasksByRun   map[string][]string
-	depsByRun    map[string][]TaskDependency
-	attempts     map[string]TaskAttempt
+	mu            sync.RWMutex
+	runs          map[string]Run
+	tasks         map[string]Task
+	tasksByRun    map[string][]string
+	depsByRun     map[string][]TaskDependency
+	attempts      map[string]TaskAttempt
 	attemptsByRun map[string][]string
-	eventsByRun  map[string][]RunEvent
-	seqByRun     map[string]int64
+	eventsByRun   map[string][]RunEvent
+	seqByRun      map[string]int64
 }
 
 func NewMemoryStore() *MemoryStore {

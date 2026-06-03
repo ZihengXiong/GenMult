@@ -1,12 +1,10 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import tailwindcss from '@tailwindcss/vite'
-import { createRequire } from 'module'
 import { fileURLToPath } from 'url'
 
 // https://vite.dev/config/
-export default defineConfig(({ command }) => {
-  const require = createRequire(import.meta.url)
+export default defineConfig(async ({ command }) => {
   const defaultPort = 8082
   const defaultHost = '127.0.0.1'
   const defaultApiBaseUrl = process.env.VITE_API_URL ?? 'http://localhost:8080'
@@ -20,7 +18,7 @@ export default defineConfig(({ command }) => {
 
   if (command !== 'build') {
     try {
-      const { loadConfig, getBaseUrl } = require('@memohai/config') as {
+      const { loadConfig, getBaseUrl } = await import('@memohai/config') as unknown as {
         loadConfig: (path: string) => {
           web?: { port?: number; host?: string }
         }
@@ -29,14 +27,17 @@ export default defineConfig(({ command }) => {
       let config
       try {
         config = loadConfig(configPath)
-      } catch {
+      } catch (err) {
+        console.warn(`[Vite Config] Failed to load config from ${configPath}, using fallback app.docker.toml: ${err.message}`)
         config = loadConfig('../../conf/app.docker.toml')
       }
       port = config.web?.port ?? defaultPort
       host = config.web?.host ?? defaultHost
       baseUrl = configuredProxyTarget || getBaseUrl(config)
-    } catch {
-      // Fall back to env/default values when config.toml is unavailable.
+      console.log(`[Vite Config] Proxying /api to config target: ${baseUrl}`)
+    } catch (err) {
+      console.warn('[Vite Config] Fallback triggered! Failed to import @memohai/config:', err)
+      console.log(`[Vite Config] Proxying /api to fallback target: ${baseUrl}`)
     }
   }
 
