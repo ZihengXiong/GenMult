@@ -623,7 +623,16 @@ func agentKey(task Task) string {
 func cloneMap(in map[string]any) map[string]any {
 	out := make(map[string]any, len(in))
 	for k, v := range in {
-		out[k] = v
+		switch val := v.(type) {
+		case map[string]any:
+			out[k] = cloneMap(val)
+		case []any:
+			cp := make([]any, len(val))
+			copy(cp, val)
+			out[k] = cp
+		default:
+			out[k] = v
+		}
 	}
 	return out
 }
