@@ -29,7 +29,14 @@ func canTransitionTask(from, to TaskStatus) bool {
 	}
 	if isTerminalTaskStatus(from) {
 		// failed can be retried by moving it back to ready when the retry budget allows.
-		return from == TaskStatusFailed && to == TaskStatusReady
+		if from == TaskStatusFailed && to == TaskStatusReady {
+			return true
+		}
+		// blocked can be unblocked when upstream dependencies are resolved.
+		if from == TaskStatusBlocked && (to == TaskStatusReady || to == TaskStatusPending) {
+			return true
+		}
+		return false
 	}
 	switch from {
 	case "":

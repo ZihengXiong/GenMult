@@ -434,7 +434,7 @@ func (s *Service) markRunnableTasks(ctx context.Context, runID string) (int, err
 	}
 	changed := 0
 	for _, task := range tasks {
-		if task.Status != TaskStatusPending {
+		if task.Status != TaskStatusPending && task.Status != TaskStatusBlocked {
 			continue
 		}
 		blocked := false
@@ -450,12 +450,14 @@ func (s *Service) markRunnableTasks(ctx context.Context, runID string) (int, err
 			}
 		}
 		if blocked {
-			updated, err := s.store.UpdateTaskStatus(ctx, task.ID, TaskStatusBlocked)
-			if err != nil {
-				return changed, err
+			if task.Status != TaskStatusBlocked {
+				updated, err := s.store.UpdateTaskStatus(ctx, task.ID, TaskStatusBlocked)
+				if err != nil {
+					return changed, err
+				}
+				_, _ = s.appendEvent(ctx, runID, updated.ID, EventTaskBlocked, nil)
+				changed++
 			}
-			_, _ = s.appendEvent(ctx, runID, updated.ID, EventTaskBlocked, nil)
-			changed++
 			continue
 		}
 		if ready {
