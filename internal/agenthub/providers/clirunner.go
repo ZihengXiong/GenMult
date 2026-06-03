@@ -95,8 +95,10 @@ func (r *CLIRunner) Run(ctx context.Context, prompt string, workDir string, exec
 				break
 			}
 
-			// Extract line and advance buffer.
-			line := data[:idx]
+			// Extract line and advance buffer. Copy the slice because
+			// lineBuffer.Next invalidates the backing array on future writes.
+			line := make([]byte, idx)
+			copy(line, data[:idx])
 			lineBuffer.Next(idx + 1)
 
 			if len(bytes.TrimSpace(line)) == 0 {
@@ -123,7 +125,7 @@ func (r *CLIRunner) Run(ctx context.Context, prompt string, workDir string, exec
 
 	// Process any leftover content after stream closes.
 	if lineBuffer.Len() > 0 {
-		line := lineBuffer.Bytes()
+		line := append([]byte(nil), lineBuffer.Bytes()...)
 		if len(bytes.TrimSpace(line)) > 0 {
 			event, err := r.config.ParseEvent(line)
 			if err == nil {
