@@ -6,9 +6,10 @@ type ProviderDefinition struct {
 	ClientType string            `yaml:"client_type"`
 	Icon       string            `yaml:"icon,omitempty"`
 	BaseURL    string            `yaml:"base_url,omitempty"`
-	Config     map[string]any    `yaml:"config,omitempty"`
-	Models     []ModelDefinition `yaml:"models"`
-	Source     string            `yaml:"-"`
+	Config       map[string]any    `yaml:"config,omitempty"`
+	EnvFallbacks map[string][]string `yaml:"env_fallbacks,omitempty"`
+	Models       []ModelDefinition `yaml:"models"`
+	Source       string            `yaml:"-"`
 }
 
 // ModelDefinition describes a model within a provider definition.

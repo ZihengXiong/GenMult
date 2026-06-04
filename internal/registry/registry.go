@@ -83,14 +83,7 @@ func Sync(ctx context.Context, logger *slog.Logger, queries dbstore.Queries, def
 		}
 
 		providerCfg := providerConfigFromDefinition(def)
-		providerConfigJSON, err := json.Marshal(providerCfg)
-		if err != nil {
-			logger.Warn("registry: failed to marshal provider config",
-				slog.String("name", def.Name), slog.Any("error", err))
-			continue
-		}
-
-		provider, err := syncProvider(ctx, queries, providerIndex, usedProviders, def, icon, providerCfg, providerConfigJSON)
+		provider, err := syncProvider(ctx, queries, providerIndex, usedProviders, def, icon, providerCfg)
 		if err != nil {
 			logger.Warn("registry: failed to upsert provider", slog.String("name", def.Name), slog.Any("error", err))
 			continue
@@ -188,10 +181,11 @@ func syncProvider(
 	def ProviderDefinition,
 	icon pgtype.Text,
 	registryCfg map[string]any,
-	registryConfigJSON []byte,
 ) (sqlc.Provider, error) {
 	if existing, ok := matchExistingProvider(idx, used, def, registryCfg); ok {
-		configJSON, err := json.Marshal(mergeRegistryProviderConfig(registryCfg, parseJSONMap(existing.Config)))
+		merged := mergeRegistryProviderConfig(registryCfg, parseJSONMap(existing.Config))
+		applyEnvFallbacks(merged, def.EnvFallbacks)
+		configJSON, err := json.Marshal(merged)
 		if err != nil {
 			return sqlc.Provider{}, fmt.Errorf("marshal merged provider config: %w", err)
 		}
@@ -210,11 +204,21 @@ func syncProvider(
 		})
 	}
 
+	merged := make(map[string]any, len(registryCfg))
+	for k, v := range registryCfg {
+		merged[k] = v
+	}
+	applyEnvFallbacks(merged, def.EnvFallbacks)
+	configJSON, err := json.Marshal(merged)
+	if err != nil {
+		return sqlc.Provider{}, fmt.Errorf("marshal created provider config: %w", err)
+	}
+
 	created, err := queries.UpsertRegistryProvider(ctx, sqlc.UpsertRegistryProviderParams{
 		Name:       def.Name,
 		ClientType: def.ClientType,
 		Icon:       icon,
-		Config:     registryConfigJSON,
+		Config:     configJSON,
 	})
 	if err != nil {
 		return sqlc.Provider{}, err
@@ -403,6 +407,22 @@ func configString(cfg map[string]any, key string) string {
 	}
 	value, _ := cfg[key].(string)
 	return value
+}
+
+func applyEnvFallbacks(cfg map[string]any, fallbacks map[string][]string) {
+	if len(fallbacks) == 0 {
+		return
+	}
+	for key, envs := range fallbacks {
+		if strings.TrimSpace(configString(cfg, key)) == "" {
+			for _, envKey := range envs {
+				if v := os.Getenv(envKey); v != "" {
+					cfg[key] = v
+					break
+				}
+			}
+		}
+	}
 }
 
 func normalizedBaseURL(value string) string {

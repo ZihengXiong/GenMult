@@ -35,9 +35,9 @@ func (f WorkDirResolverFunc) ResolveWorkDir(ctx context.Context, botID string) (
 type cliRuntime struct {
 	name       string
 	binaryName string
-	buildArgs  func(prompt string) []string
+	buildArgs  func(in RunInput, prompt string) []string
 	parseEvent func(line []byte) (providers.CLIEvent, error)
-	buildEnv   func(apiKey string) []string
+	buildEnv   func(in RunInput, apiKey string) []string
 	resolveKey func(ctx context.Context) (string, error)
 	resolver   WorkDirResolver
 	logger     *slog.Logger
@@ -51,10 +51,13 @@ func NewClaudeCodeRuntime(cfg providers.ClaudeCodeConfig, resolveKey func(ctx co
 	return &cliRuntime{
 		name:       bots.FrameworkClaudeCode,
 		binaryName: "claude",
-		buildArgs:  func(prompt string) []string { return providers.ClaudeBuildArgs(cfg, prompt) },
+		buildArgs: func(in RunInput, prompt string) []string {
+			localCfg := mergeClaudeCodeConfig(cfg, in.Config.ProviderExt["claudecode"])
+			return providers.ClaudeBuildArgs(localCfg, prompt)
+		},
 		parseEvent: providers.ClaudeParseEvent,
-		buildEnv: func(apiKey string) []string {
-			localCfg := cfg
+		buildEnv: func(in RunInput, apiKey string) []string {
+			localCfg := mergeClaudeCodeConfig(cfg, in.Config.ProviderExt["claudecode"])
 			if apiKey != "" {
 				localCfg.APIKey = apiKey
 			}
@@ -74,10 +77,13 @@ func NewCodexRuntime(cfg providers.CodexConfig, resolveKey func(ctx context.Cont
 	return &cliRuntime{
 		name:       bots.FrameworkCodex,
 		binaryName: "codex",
-		buildArgs:  func(prompt string) []string { return providers.CodexBuildArgs(cfg, prompt) },
+		buildArgs: func(in RunInput, prompt string) []string {
+			localCfg := mergeCodexConfig(cfg, in.Config.ProviderExt["codex"])
+			return providers.CodexBuildArgs(localCfg, prompt)
+		},
 		parseEvent: providers.CodexParseEvent,
-		buildEnv: func(apiKey string) []string {
-			localCfg := cfg
+		buildEnv: func(in RunInput, apiKey string) []string {
+			localCfg := mergeCodexConfig(cfg, in.Config.ProviderExt["codex"])
 			if apiKey != "" {
 				localCfg.APIKey = apiKey
 			}
@@ -186,11 +192,59 @@ func (c *cliRuntime) run(ctx context.Context, in RunInput, onEvent func(provider
 	}
 	runner := providers.NewCLIRunner(providers.CLIRunnerConfig{
 		BinaryName: c.binaryName,
-		BuildArgs:  c.buildArgs,
+		BuildArgs:  func(prompt string) []string { return c.buildArgs(in, prompt) },
 		ParseEvent: c.parseEvent,
 		OnEvent:    onEvent,
 	}, c.logger)
-	return runner.Run(ctx, promptFor(in), workDir, nil, c.buildEnv(apiKey))
+	return runner.Run(ctx, promptFor(in), workDir, nil, c.buildEnv(in, apiKey))
+}
+
+func mergeClaudeCodeConfig(base providers.ClaudeCodeConfig, ext any) providers.ClaudeCodeConfig {
+	if ext == nil {
+		return base
+	}
+	b, err := json.Marshal(ext)
+	if err != nil {
+		return base
+	}
+	var overlay providers.ClaudeCodeConfig
+	if err := json.Unmarshal(b, &overlay); err != nil {
+		return base
+	}
+	if overlay.Model != "" {
+		base.Model = overlay.Model
+	}
+	if overlay.PermissionMode != "" {
+		base.PermissionMode = overlay.PermissionMode
+	}
+	if overlay.MaxTurns > 0 {
+		base.MaxTurns = overlay.MaxTurns
+	}
+	if len(overlay.AllowedTools) > 0 {
+		base.AllowedTools = overlay.AllowedTools
+	}
+	return base
+}
+
+func mergeCodexConfig(base providers.CodexConfig, ext any) providers.CodexConfig {
+	if ext == nil {
+		return base
+	}
+	b, err := json.Marshal(ext)
+	if err != nil {
+		return base
+	}
+	var overlay providers.CodexConfig
+	if err := json.Unmarshal(b, &overlay); err != nil {
+		return base
+	}
+	if overlay.Model != "" {
+		base.Model = overlay.Model
+	}
+	if overlay.Sandbox != "" {
+		base.Sandbox = overlay.Sandbox
+	}
+	return base
 }
 
 // terminalEvent builds the terminal agent_end event carrying the assistant

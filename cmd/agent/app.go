@@ -419,7 +419,8 @@ func buildCLIBotRuntimes(log *slog.Logger, queries dbstore.Queries, wsManager *w
 
 	resolveWorkDir := botruntime.WorkDirResolverFunc(func(ctx context.Context, botID string) (string, error) {
 		if wsManager != nil && botID != "" {
-			if info, err := wsManager.WorkspaceInfo(ctx, botID); err == nil && info.DefaultWorkDir != "" {
+			if info, err := wsManager.WorkspaceInfo(ctx, botID); err == nil &&
+				info.Backend == bridge.WorkspaceBackendLocal && info.DefaultWorkDir != "" {
 				return info.DefaultWorkDir, nil
 			}
 		}

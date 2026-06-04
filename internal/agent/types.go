@@ -75,6 +75,7 @@ type RunConfig struct {
 	Skills             []SkillEntry
 	LoopDetection      LoopDetectionConfig
 	Retry              RetryConfig
+	ProviderExt        map[string]any
 
 	// PromptCacheTTL controls prompt caching for this run. Empty or
 	// unrecognized values default to 5m. Use "1h" for the long-cache tier
