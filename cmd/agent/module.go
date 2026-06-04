@@ -30,6 +30,7 @@ import (
 	"github.com/ZihengXiong/GenMult/internal/schedule"
 	"github.com/ZihengXiong/GenMult/internal/searchproviders"
 	"github.com/ZihengXiong/GenMult/internal/settings"
+	"github.com/ZihengXiong/GenMult/internal/supermarket"
 	"github.com/ZihengXiong/GenMult/internal/toolapproval"
 )
 
@@ -69,6 +70,7 @@ func options() fx.Option {
 			provideProvidersService,
 			searchproviders.NewService,
 			policy.NewService,
+			supermarket.NewRegistry,
 			mcp.NewConnectionService,
 			conversation.NewService,
 			identities.NewService,

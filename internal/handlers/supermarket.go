@@ -1,31 +1,24 @@
 package handlers
 
 import (
-	"archive/tar"
-	"compress/gzip"
-	"encoding/json"
-	"errors"
 	"fmt"
-	"io"
 	"log/slog"
 	"net/http"
 	"path"
 	"strings"
-	"time"
 
 	"github.com/labstack/echo/v4"
 
 	"github.com/ZihengXiong/GenMult/internal/accounts"
 	"github.com/ZihengXiong/GenMult/internal/bots"
-	"github.com/ZihengXiong/GenMult/internal/config"
 	"github.com/ZihengXiong/GenMult/internal/mcp"
 	skillset "github.com/ZihengXiong/GenMult/internal/skills"
+	"github.com/ZihengXiong/GenMult/internal/supermarket"
 	"github.com/ZihengXiong/GenMult/internal/workspace/bridge"
 )
 
 type SupermarketHandler struct {
-	baseURL        string
-	httpClient     *http.Client
+	registry       *supermarket.Registry
 	mcpService     *mcp.ConnectionService
 	containers     bridge.Provider
 	botService     *bots.Service
@@ -35,15 +28,14 @@ type SupermarketHandler struct {
 
 func NewSupermarketHandler(
 	log *slog.Logger,
-	cfg config.Config,
+	registry *supermarket.Registry,
 	mcpService *mcp.ConnectionService,
 	containers bridge.Provider,
 	botService *bots.Service,
 	accountService *accounts.Service,
 ) *SupermarketHandler {
 	return &SupermarketHandler{
-		baseURL:        cfg.Supermarket.GetBaseURL(),
-		httpClient:     &http.Client{Timeout: 30 * time.Second},
+		registry:       registry,
 		mcpService:     mcpService,
 		containers:     containers,
 		botService:     botService,
@@ -77,32 +69,6 @@ func (h *SupermarketHandler) requireBotAccess(c echo.Context) (string, error) {
 	return botID, nil
 }
 
-// proxy forwards a GET request to the supermarket and streams the JSON response back.
-func (h *SupermarketHandler) proxy(c echo.Context, upstreamPath string) error {
-	url := h.baseURL + upstreamPath
-	if qs := c.QueryString(); qs != "" {
-		url += "?" + qs
-	}
-
-	req, err := http.NewRequestWithContext(c.Request().Context(), http.MethodGet, url, nil)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-	}
-	req.Header.Set("Accept", "application/json")
-
-	resp, err := h.httpClient.Do(req) //nolint:gosec // URL constructed from trusted config
-	if err != nil {
-		h.logger.Error("supermarket proxy failed", slog.String("url", url), slog.Any("error", err))
-		return echo.NewHTTPError(http.StatusBadGateway, "supermarket unreachable")
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	c.Response().Header().Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-	c.Response().WriteHeader(resp.StatusCode)
-	_, _ = io.Copy(c.Response(), resp.Body)
-	return nil
-}
-
 // ListMcps godoc
 // @Summary List MCPs from supermarket
 // @Tags supermarket
@@ -112,10 +78,16 @@ func (h *SupermarketHandler) proxy(c echo.Context, upstreamPath string) error {
 // @Param page query int false "Page number"
 // @Param limit query int false "Items per page"
 // @Success 200 {object} SupermarketMcpListResponse
-// @Failure 502 {object} ErrorResponse
 // @Router /supermarket/mcps [get].
 func (h *SupermarketHandler) ListMcps(c echo.Context) error {
-	return h.proxy(c, "/api/mcps")
+	q := c.QueryParam("q")
+	tag := c.QueryParam("tag")
+	transport := c.QueryParam("transport")
+	page := queryInt(c, "page", 1)
+	limit := queryInt(c, "limit", 20)
+
+	result := h.registry.ListMcps(q, tag, transport, page, limit)
+	return c.JSON(http.StatusOK, result)
 }
 
 // GetMcp godoc
@@ -124,11 +96,14 @@ func (h *SupermarketHandler) ListMcps(c echo.Context) error {
 // @Param id path string true "MCP ID"
 // @Success 200 {object} SupermarketMcpEntry
 // @Failure 404 {object} ErrorResponse
-// @Failure 502 {object} ErrorResponse
 // @Router /supermarket/mcps/{id} [get].
 func (h *SupermarketHandler) GetMcp(c echo.Context) error {
 	id := c.Param("id")
-	return h.proxy(c, "/api/mcps/"+id)
+	entry, ok := h.registry.GetMcp(id)
+	if !ok {
+		return echo.NewHTTPError(http.StatusNotFound, fmt.Sprintf("MCP %q not found", id))
+	}
+	return c.JSON(http.StatusOK, entry)
 }
 
 // ListSkills godoc
@@ -139,10 +114,15 @@ func (h *SupermarketHandler) GetMcp(c echo.Context) error {
 // @Param page query int false "Page number"
 // @Param limit query int false "Items per page"
 // @Success 200 {object} SupermarketSkillListResponse
-// @Failure 502 {object} ErrorResponse
 // @Router /supermarket/skills [get].
 func (h *SupermarketHandler) ListSkills(c echo.Context) error {
-	return h.proxy(c, "/api/skills")
+	q := c.QueryParam("q")
+	tag := c.QueryParam("tag")
+	page := queryInt(c, "page", 1)
+	limit := queryInt(c, "limit", 20)
+
+	result := h.registry.ListSkills(q, tag, page, limit)
+	return c.JSON(http.StatusOK, result)
 }
 
 // GetSkill godoc
@@ -151,21 +131,24 @@ func (h *SupermarketHandler) ListSkills(c echo.Context) error {
 // @Param id path string true "Skill ID"
 // @Success 200 {object} SupermarketSkillEntry
 // @Failure 404 {object} ErrorResponse
-// @Failure 502 {object} ErrorResponse
 // @Router /supermarket/skills/{id} [get].
 func (h *SupermarketHandler) GetSkill(c echo.Context) error {
 	id := c.Param("id")
-	return h.proxy(c, "/api/skills/"+id)
+	entry, ok := h.registry.GetSkill(id)
+	if !ok {
+		return echo.NewHTTPError(http.StatusNotFound, fmt.Sprintf("skill %q not found", id))
+	}
+	return c.JSON(http.StatusOK, entry)
 }
 
 // ListTags godoc
 // @Summary List all tags from supermarket
 // @Tags supermarket
 // @Success 200 {object} SupermarketTagsResponse
-// @Failure 502 {object} ErrorResponse
 // @Router /supermarket/tags [get].
 func (h *SupermarketHandler) ListTags(c echo.Context) error {
-	return h.proxy(c, "/api/tags")
+	result := h.registry.ListTags()
+	return c.JSON(http.StatusOK, result)
 }
 
 // --- Install endpoints ---
@@ -189,7 +172,6 @@ type InstallSkillRequest struct {
 // @Success 200 {object} mcp.Connection
 // @Failure 400 {object} ErrorResponse
 // @Failure 404 {object} ErrorResponse
-// @Failure 502 {object} ErrorResponse
 // @Router /bots/{bot_id}/supermarket/install-mcp [post].
 func (h *SupermarketHandler) InstallMcp(c echo.Context) error {
 	botID, err := h.requireBotAccess(c)
@@ -205,12 +187,12 @@ func (h *SupermarketHandler) InstallMcp(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "mcp_id is required")
 	}
 
-	entry, err := h.fetchMcpEntry(c, req.McpID)
-	if err != nil {
-		return err
+	entry, ok := h.registry.GetMcp(req.McpID)
+	if !ok {
+		return echo.NewHTTPError(http.StatusNotFound, fmt.Sprintf("MCP %q not found", req.McpID))
 	}
 
-	upsert := h.mcpEntryToUpsert(entry, req.Env)
+	upsert := mcpEntryToUpsert(entry, req.Env)
 	conn, err := h.mcpService.Create(c.Request().Context(), botID, upsert)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -226,7 +208,6 @@ func (h *SupermarketHandler) InstallMcp(c echo.Context) error {
 // @Success 200 {object} map[string]bool
 // @Failure 400 {object} ErrorResponse
 // @Failure 404 {object} ErrorResponse
-// @Failure 502 {object} ErrorResponse
 // @Router /bots/{bot_id}/supermarket/install-skill [post].
 func (h *SupermarketHandler) InstallSkill(c echo.Context) error {
 	botID, err := h.requireBotAccess(c)
@@ -246,80 +227,29 @@ func (h *SupermarketHandler) InstallSkill(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid skill_id")
 	}
 
+	files, err := h.registry.GetSkillFiles(skillID)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusNotFound, fmt.Sprintf("skill %q not found", skillID))
+	}
+
 	ctx := c.Request().Context()
 	client, err := h.containers.MCPClient(ctx, botID)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("container not reachable: %v", err))
 	}
 
-	downloadURL := h.baseURL + "/api/skills/" + skillID + "/download"
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, downloadURL, nil)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-	}
-	resp, err := h.httpClient.Do(httpReq) //nolint:gosec // URL constructed from trusted config
-	if err != nil {
-		h.logger.Error("supermarket skill download failed", slog.String("url", downloadURL), slog.Any("error", err))
-		return echo.NewHTTPError(http.StatusBadGateway, "supermarket unreachable")
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode == http.StatusNotFound {
-		return echo.NewHTTPError(http.StatusNotFound, fmt.Sprintf("skill %q not found in supermarket", skillID))
-	}
-	if resp.StatusCode != http.StatusOK {
-		return echo.NewHTTPError(http.StatusBadGateway, fmt.Sprintf("supermarket returned status %d", resp.StatusCode))
-	}
-
-	gz, err := gzip.NewReader(resp.Body)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadGateway, "invalid gzip response from supermarket")
-	}
-	defer func() { _ = gz.Close() }()
-
 	skillDir := path.Join(skillset.ManagedDir(), skillID)
 	if err := client.Mkdir(ctx, skillDir); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("mkdir failed: %v", err))
 	}
 
-	tr := tar.NewReader(gz)
 	filesWritten := 0
-	for {
-		hdr, err := tr.Next()
-		if errors.Is(err, io.EOF) {
-			break
-		}
-		if err != nil {
-			return echo.NewHTTPError(http.StatusBadGateway, fmt.Sprintf("invalid tar: %v", err))
-		}
-		if hdr.Typeflag != tar.TypeReg {
-			continue
-		}
-
-		relativePath := strings.TrimPrefix(hdr.Name, skillID+"/")
-		if relativePath == "" || strings.Contains(relativePath, "..") {
-			continue
-		}
-
-		content, err := io.ReadAll(tr)
-		if err != nil {
-			return echo.NewHTTPError(http.StatusBadGateway, fmt.Sprintf("read tar entry failed: %v", err))
-		}
-
-		filePath := path.Join(skillDir, relativePath)
-		dir := path.Dir(filePath)
-		if dir != skillDir {
-			_ = client.Mkdir(ctx, dir)
-		}
-
+	for name, content := range files {
+		filePath := path.Join(skillDir, name)
 		if err := client.WriteFile(ctx, filePath, content); err != nil {
-			return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("write file %s failed: %v", relativePath, err))
+			return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("write file %s failed: %v", name, err))
 		}
 		filesWritten++
-	}
-
-	if filesWritten == 0 {
-		return echo.NewHTTPError(http.StatusBadGateway, "skill archive was empty")
 	}
 
 	return c.JSON(http.StatusOK, map[string]any{"ok": true, "files_written": filesWritten})
@@ -389,36 +319,7 @@ type SupermarketTagsResponse struct {
 
 // --- Internal helpers ---
 
-func (h *SupermarketHandler) fetchMcpEntry(c echo.Context, mcpID string) (SupermarketMcpEntry, error) {
-	url := h.baseURL + "/api/mcps/" + mcpID
-	req, err := http.NewRequestWithContext(c.Request().Context(), http.MethodGet, url, nil)
-	if err != nil {
-		return SupermarketMcpEntry{}, echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-	}
-	req.Header.Set("Accept", "application/json")
-
-	resp, err := h.httpClient.Do(req) //nolint:gosec // URL constructed from trusted config
-	if err != nil {
-		h.logger.Error("supermarket fetch failed", slog.String("url", url), slog.Any("error", err))
-		return SupermarketMcpEntry{}, echo.NewHTTPError(http.StatusBadGateway, "supermarket unreachable")
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode == http.StatusNotFound {
-		return SupermarketMcpEntry{}, echo.NewHTTPError(http.StatusNotFound, fmt.Sprintf("MCP %q not found in supermarket", mcpID))
-	}
-	if resp.StatusCode != http.StatusOK {
-		return SupermarketMcpEntry{}, echo.NewHTTPError(http.StatusBadGateway, fmt.Sprintf("supermarket returned status %d", resp.StatusCode))
-	}
-
-	var entry SupermarketMcpEntry
-	if err := json.NewDecoder(resp.Body).Decode(&entry); err != nil {
-		return SupermarketMcpEntry{}, echo.NewHTTPError(http.StatusBadGateway, "invalid JSON from supermarket")
-	}
-	return entry, nil
-}
-
-func (*SupermarketHandler) mcpEntryToUpsert(entry SupermarketMcpEntry, envOverrides map[string]string) mcp.UpsertRequest {
+func mcpEntryToUpsert(entry supermarket.McpEntry, envOverrides map[string]string) mcp.UpsertRequest {
 	headers := make(map[string]string, len(entry.Headers))
 	for _, hdr := range entry.Headers {
 		headers[hdr.Key] = hdr.DefaultValue
@@ -442,4 +343,16 @@ func (*SupermarketHandler) mcpEntryToUpsert(entry SupermarketMcpEntry, envOverri
 		Env:       env,
 		Transport: entry.Transport,
 	}
+}
+
+func queryInt(c echo.Context, key string, defaultVal int) int {
+	val := c.QueryParam(key)
+	if val == "" {
+		return defaultVal
+	}
+	var n int
+	if _, err := fmt.Sscanf(val, "%d", &n); err != nil || n <= 0 {
+		return defaultVal
+	}
+	return n
 }
