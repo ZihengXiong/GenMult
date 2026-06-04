@@ -264,6 +264,14 @@ func (s *Service) dispatchReadyTasks(ctx context.Context, run Run) error {
 			runningPerAgent[agentKey(task)]++
 		}
 	}
+
+	s.logger.Info("dispatchReadyTasks checking ready tasks",
+		slog.String("run_id", run.ID),
+		slog.Int("total_tasks", len(tasks)),
+		slog.Int("ready_tasks", len(ready)),
+		slog.Int("running_total", runningTotal),
+	)
+
 	if len(ready) == 0 {
 		return ErrNoExecutableTasks
 	}
@@ -292,6 +300,11 @@ func (s *Service) dispatchReadyTasks(ctx context.Context, run Run) error {
 			provider, ok = s.registry.Resolve("")
 		}
 		if !ok {
+			s.logger.Error("provider not found in registry",
+				slog.String("run_id", run.ID),
+				slog.String("task_id", task.ID),
+				slog.String("provider_name", task.ProviderName),
+			)
 			return ErrProviderNotFound
 		}
 		runningTask, err := s.store.UpdateTaskStatus(ctx, task.ID, TaskStatusRunning)
@@ -299,17 +312,40 @@ func (s *Service) dispatchReadyTasks(ctx context.Context, run Run) error {
 			if err == ErrInvalidTransition {
 				continue
 			}
+			s.logger.Error("failed to update task status to running",
+				slog.String("run_id", run.ID),
+				slog.String("task_id", task.ID),
+				slog.Any("error", err),
+			)
 			return err
 		}
 		runningTask, err = s.store.IncrementTaskAttempt(ctx, runningTask.ID)
 		if err != nil {
+			s.logger.Error("failed to increment task attempt",
+				slog.String("run_id", run.ID),
+				slog.String("task_id", task.ID),
+				slog.Any("error", err),
+			)
 			return err
 		}
 		attempt, err := s.createAttempt(ctx, run, runningTask, provider)
 		if err != nil {
+			s.logger.Error("failed to create task attempt",
+				slog.String("run_id", run.ID),
+				slog.String("task_id", task.ID),
+				slog.Any("error", err),
+			)
 			return err
 		}
 		_, _ = s.appendEvent(ctx, run.ID, runningTask.ID, EventTaskDispatched, map[string]any{"attempt_id": attempt.ID, "attempt_no": attempt.AttemptNo, "provider_name": attempt.ProviderName, "agent_id": attempt.AgentID})
+		
+		s.logger.Info("dispatching task to provider",
+			slog.String("run_id", run.ID),
+			slog.String("task_id", task.ID),
+			slog.String("provider", provider.Name()),
+			slog.Int("attempt_no", attempt.AttemptNo),
+		)
+
 		dispatched++
 		runningPerAgent[key]++
 		if s.config.DispatchAsync {
@@ -355,18 +391,43 @@ func (s *Service) executeAttempt(ctx context.Context, run Run, task Task, attemp
 	execCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
+	s.logger.Info("executing task attempt",
+		slog.String("run_id", run.ID),
+		slog.String("task_id", task.ID),
+		slog.String("attempt_id", attempt.ID),
+		slog.String("provider", provider.Name()),
+	)
+
 	attempts, _ := s.store.ListAttempts(ctx, run.ID)
 	deps, _ := s.store.ListDependencies(ctx, run.ID)
 	upstream := successfulAttemptsForDependencies(task, deps, attempts)
 	result, err := provider.Execute(execCtx, ExecuteTaskRequest{Run: run, Task: task, AttemptNo: attempt.AttemptNo, Upstream: upstream})
 	if execCtx.Err() == context.DeadlineExceeded {
+		s.logger.Warn("task attempt timed out",
+			slog.String("run_id", run.ID),
+			slog.String("task_id", task.ID),
+			slog.String("attempt_id", attempt.ID),
+			slog.Duration("timeout", timeout),
+		)
 		_ = s.completeTaskAttempt(context.WithoutCancel(ctx), run, task, attempt, AttemptStatusTimedOut, nil, "task timed out", true)
 		return
 	}
 	if err != nil {
+		s.logger.Error("task attempt execution error",
+			slog.String("run_id", run.ID),
+			slog.String("task_id", task.ID),
+			slog.String("attempt_id", attempt.ID),
+			slog.Any("error", err),
+			slog.Bool("retryable", result.Retryable),
+		)
 		_ = s.completeTaskAttempt(context.WithoutCancel(ctx), run, task, attempt, AttemptStatusFailed, nil, err.Error(), result.Retryable)
 		return
 	}
+	s.logger.Info("task attempt completed successfully",
+		slog.String("run_id", run.ID),
+		slog.String("task_id", task.ID),
+		slog.String("attempt_id", attempt.ID),
+	)
 	output := cloneMap(result.Output)
 	if result.Summary != "" {
 		output["summary"] = result.Summary

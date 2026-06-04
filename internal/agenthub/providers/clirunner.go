@@ -67,6 +67,11 @@ func (r *CLIRunner) Run(ctx context.Context, prompt string, workDir string, exec
 
 	handle, err := executor.Start(ctx, req)
 	if err != nil {
+		r.logger.Error("failed to start execution",
+			slog.String("binary", r.config.BinaryName),
+			slog.String("work_dir", workDir),
+			slog.Any("error", err),
+		)
 		return "", fmt.Errorf("failed to start execution: %w", err)
 	}
 

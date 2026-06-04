@@ -474,8 +474,6 @@ func (r *Resolver) Chat(ctx context.Context, req conversation.ChatRequest) (conv
 	go r.maybeGenerateSessionTitle(context.WithoutCancel(ctx), req, req.Query)
 
 	cfg := rc.runConfig
-	cfg = r.prepareRunConfig(ctx, cfg)
-
 	rt := r.runtimeForBot(ctx, cfg.Identity.BotID)
 	if rt.Name() == bots.FrameworkMemoh {
 		cfg = r.prepareRunConfig(ctx, cfg)
@@ -542,6 +540,11 @@ func (r *Resolver) buildBaseRunConfig(ctx context.Context, p baseRunConfigParams
 	if framework != bots.FrameworkMemoh {
 		_, err := r.checkProviderAvailable(ctx, framework)
 		if err != nil {
+			slog.Error("Check provider available failed in buildBaseRunConfig",
+				slog.String("bot_id", p.BotID),
+				slog.String("framework", framework),
+				slog.Any("error", err),
+			)
 			return agentpkg.RunConfig{}, models.GetResponse{}, sqlc.Provider{}, err
 		}
 

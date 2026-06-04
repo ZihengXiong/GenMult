@@ -105,8 +105,6 @@ func (r *Resolver) StreamChat(ctx context.Context, req conversation.ChatRequest)
 		go r.maybeGenerateSessionTitle(context.WithoutCancel(ctx), streamReq, streamReq.Query)
 
 		cfg := rc.runConfig
-		cfg = r.prepareRunConfig(ctx, cfg)
-
 		rt := r.runtimeForBot(ctx, cfg.Identity.BotID)
 		if rt.Name() == bots.FrameworkMemoh {
 			cfg = r.prepareRunConfig(ctx, cfg)
@@ -258,8 +256,6 @@ func (r *Resolver) StreamChatWS(
 	}()
 
 	cfg := rc.runConfig
-	cfg = r.prepareRunConfig(streamCtx, cfg)
-
 	rt := r.runtimeForBot(streamCtx, cfg.Identity.BotID)
 	if rt.Name() == bots.FrameworkMemoh {
 		cfg = r.prepareRunConfig(streamCtx, cfg)

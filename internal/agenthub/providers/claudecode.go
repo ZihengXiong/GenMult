@@ -81,6 +81,12 @@ func (p *ClaudeCodeProvider) Execute(ctx context.Context, req orchestrator.Execu
 		return orchestrator.ExecuteTaskResult{Retryable: false}, fmt.Errorf("failed to resolve workspace directory: %w", err)
 	}
 
+	p.logger.Info("starting Claude Code task execution",
+		slog.String("task_id", req.Task.ID),
+		slog.String("run_id", req.Run.ID),
+		slog.String("work_dir", workDir),
+	)
+
 	// Set up custom environment containing the API key.
 	env := ClaudeEnv(p.config)
 
@@ -124,6 +130,11 @@ func (p *ClaudeCodeProvider) Execute(ctx context.Context, req orchestrator.Execu
 
 	output, err := runner.Run(ctx, prompt, workDir, p.executor, env)
 	if err != nil {
+		p.logger.Error("Claude Code execution failed",
+			slog.String("task_id", req.Task.ID),
+			slog.String("run_id", req.Run.ID),
+			slog.Any("error", err),
+		)
 		if errors.Is(err, ErrCLINotFound) {
 			return orchestrator.ExecuteTaskResult{Retryable: false}, err
 		}
@@ -137,6 +148,11 @@ func (p *ClaudeCodeProvider) Execute(ctx context.Context, req orchestrator.Execu
 		}
 		return orchestrator.ExecuteTaskResult{Retryable: true}, err
 	}
+
+	p.logger.Info("Claude Code task execution completed successfully",
+		slog.String("task_id", req.Task.ID),
+		slog.String("run_id", req.Run.ID),
+	)
 
 	return orchestrator.ExecuteTaskResult{
 		Output:    map[string]any{"raw_output": output},

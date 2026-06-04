@@ -409,6 +409,19 @@
                 </div>
               </div>
             </article>
+
+            <!-- thinking indicator -->
+            <article
+              v-if="isAgentReplying"
+              class="flex gap-3 items-center text-sm text-muted-foreground animate-pulse"
+            >
+              <span class="flex size-8 shrink-0 items-center justify-center rounded-md border border-border bg-muted/50">
+                <Spinner class="size-3.5" />
+              </span>
+              <div class="flex items-center gap-2">
+                <span>Agent 正在思考中...</span>
+              </div>
+            </article>
           </div>
 
           <section class="sticky bottom-0 mt-5 bg-background/95 pb-4 pt-2 backdrop-blur">
@@ -674,10 +687,11 @@ import { useMutation, useQuery, useQueryCache } from '@pinia/colada'
 import { getBotsQuery } from '@memohai/sdk/colada'
 import type { BotsBot } from '@memohai/sdk'
 import { client } from '@memohai/sdk/client'
-import { Button } from '@memohai/ui'
+import { Button, Spinner } from '@memohai/ui'
 import { connectWebSocket, createSession, type UIMessage, type UIStreamEvent } from '@/composables/api/useChat'
 import { visibleBots } from '@/utils/bots'
 import {
+  AlertCircle,
   AtSign,
   Bot,
   Boxes,
@@ -1397,6 +1411,7 @@ function messageToTimelineEvent(message: AgentHubMessage): TimelineEvent {
 }
 
 function messageIcon(message: AgentHubMessage): Component {
+  if (message.kind === 'error') return AlertCircle
   if (message.kind === 'member') return Users
   if (message.kind === 'room') return Network
   if (message.kind === 'task') return Workflow
@@ -1411,6 +1426,9 @@ function messageIcon(message: AgentHubMessage): Component {
 }
 
 function messageTone(message: AgentHubMessage) {
+  if (message.kind === 'error') {
+    return 'border-red-500/30 bg-red-500/10 text-red-700 dark:text-red-300'
+  }
   if (message.sender_id === 'codex' || message.kind === 'execution') {
     return 'border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-300'
   }
@@ -1431,6 +1449,8 @@ function messageTone(message: AgentHubMessage) {
 
 function messageKindLabel(kind: string) {
   switch (kind) {
+    case 'error':
+      return '错误'
     case 'room':
       return '群聊'
     case 'member':
