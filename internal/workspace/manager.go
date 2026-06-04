@@ -322,9 +322,10 @@ func (m *Manager) buildWorkspaceContainerSpec(ctx context.Context, botID string,
 		return ctr.ContainerSpec{}, err
 	}
 	skillEnv := skillset.ContainerEnv(skillRoots)
-	env := make([]string, 0, len(tzEnv)+1+len(skillEnv))
+	env := make([]string, 0, len(tzEnv)+2+len(skillEnv))
 	env = append(env, tzEnv...)
 	env = append(env, "BRIDGE_SOCKET_PATH=/run/memoh/bridge.sock")
+	env = append(env, "PATH=/opt/memoh/toolkit/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin")
 	if m.botDisplayEnabled(ctx, botID) {
 		env = append(env,
 			"MEMOH_DISPLAY_ENABLED=true",

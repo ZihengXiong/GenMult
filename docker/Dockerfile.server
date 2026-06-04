@@ -67,10 +67,7 @@ WORKDIR /app
 
 # containerd runtime
 RUN apk add --no-cache containerd containerd-ctr
-# Node.js + Claude Code CLI (required for claudecode bot runtime)
-RUN apk add --no-cache nodejs npm \
-    && npm install -g @anthropic-ai/claude-code --ignore-scripts \
-    && npm cache clean --force
+
 # CNI plugins + iptables (for workspace container networking)
 RUN apk add --no-cache ca-certificates tzdata wget cni-plugins iptables \
       gstreamer-tools gst-plugins-base gst-plugins-good gst-plugins-bad gst-plugins-ugly \

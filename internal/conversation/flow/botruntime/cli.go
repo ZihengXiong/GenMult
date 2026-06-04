@@ -23,6 +23,9 @@ type WorkDirResolver interface {
 // WorkDirResolverFunc adapts a function to WorkDirResolver.
 type WorkDirResolverFunc func(ctx context.Context, botID string) (string, error)
 
+// ExecutorFactory creates a CommandExecutor for a specific bot's context.
+type ExecutorFactory func(ctx context.Context, botID string) (providers.CommandExecutor, error)
+
 // ResolveWorkDir implements WorkDirResolver.
 func (f WorkDirResolverFunc) ResolveWorkDir(ctx context.Context, botID string) (string, error) {
 	return f(ctx, botID)
@@ -40,11 +43,12 @@ type cliRuntime struct {
 	buildEnv   func(in RunInput, apiKey string) []string
 	resolveKey func(ctx context.Context) (string, error)
 	resolver   WorkDirResolver
+	executor   ExecutorFactory
 	logger     *slog.Logger
 }
 
 // NewClaudeCodeRuntime builds the claudecode BotRuntime.
-func NewClaudeCodeRuntime(cfg providers.ClaudeCodeConfig, resolveKey func(ctx context.Context) (string, error), resolver WorkDirResolver, logger *slog.Logger) BotRuntime {
+func NewClaudeCodeRuntime(cfg providers.ClaudeCodeConfig, resolveKey func(ctx context.Context) (string, error), resolver WorkDirResolver, execFac ExecutorFactory, logger *slog.Logger) BotRuntime {
 	if logger == nil {
 		logger = slog.Default()
 	}
@@ -65,12 +69,13 @@ func NewClaudeCodeRuntime(cfg providers.ClaudeCodeConfig, resolveKey func(ctx co
 		},
 		resolveKey: resolveKey,
 		resolver:   resolver,
+		executor:   execFac,
 		logger:     logger.With(slog.String("component", "claudecode_runtime")),
 	}
 }
 
 // NewCodexRuntime builds the codex BotRuntime.
-func NewCodexRuntime(cfg providers.CodexConfig, resolveKey func(ctx context.Context) (string, error), resolver WorkDirResolver, logger *slog.Logger) BotRuntime {
+func NewCodexRuntime(cfg providers.CodexConfig, resolveKey func(ctx context.Context) (string, error), resolver WorkDirResolver, execFac ExecutorFactory, logger *slog.Logger) BotRuntime {
 	if logger == nil {
 		logger = slog.Default()
 	}
@@ -91,6 +96,7 @@ func NewCodexRuntime(cfg providers.CodexConfig, resolveKey func(ctx context.Cont
 		},
 		resolveKey: resolveKey,
 		resolver:   resolver,
+		executor:   execFac,
 		logger:     logger.With(slog.String("component", "codex_runtime")),
 	}
 }
@@ -196,7 +202,14 @@ func (c *cliRuntime) run(ctx context.Context, in RunInput, onEvent func(provider
 		ParseEvent: c.parseEvent,
 		OnEvent:    onEvent,
 	}, c.logger)
-	return runner.Run(ctx, promptFor(in), workDir, nil, c.buildEnv(in, apiKey))
+	var executor providers.CommandExecutor
+	if c.executor != nil {
+		executor, err = c.executor(ctx, in.Config.Identity.BotID)
+		if err != nil {
+			return "", err
+		}
+	}
+	return runner.Run(ctx, promptFor(in), workDir, executor, c.buildEnv(in, apiKey))
 }
 
 func mergeClaudeCodeConfig(base providers.ClaudeCodeConfig, ext any) providers.ClaudeCodeConfig {

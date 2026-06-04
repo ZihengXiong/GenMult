@@ -1,7 +1,9 @@
 <template>
   <div class="space-y-6 mt-4 pt-4 border-t border-border">
     <div>
-      <h3 class="text-lg font-medium">Claude Code Settings</h3>
+      <h3 class="text-lg font-medium">
+        Claude Code Settings
+      </h3>
       <p class="text-sm text-muted-foreground">
         Configuration options specific to the Claude Code CLI framework.
       </p>
@@ -14,12 +16,20 @@
           <SelectValue placeholder="Select Claude Model" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="sonnet">Claude 3.7 Sonnet (Default)</SelectItem>
-          <SelectItem value="opus">Claude 3 Opus</SelectItem>
-          <SelectItem value="haiku">Claude 3.5 Haiku</SelectItem>
+          <SelectItem value="sonnet">
+            Claude 3.7 Sonnet (Default)
+          </SelectItem>
+          <SelectItem value="opus">
+            Claude 3 Opus
+          </SelectItem>
+          <SelectItem value="haiku">
+            Claude 3.5 Haiku
+          </SelectItem>
         </SelectContent>
       </Select>
-      <p class="text-xs text-muted-foreground">Overrides the global default model for this bot.</p>
+      <p class="text-xs text-muted-foreground">
+        Overrides the global default model for this bot.
+      </p>
     </div>
 
     <div class="space-y-2">
@@ -29,24 +39,43 @@
           <SelectValue placeholder="Select Permission Mode" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="auto-edit">Auto Edit (Default)</SelectItem>
-          <SelectItem value="auto-accept">Auto Accept (Risky)</SelectItem>
-          <SelectItem value="interactive">Interactive</SelectItem>
+          <SelectItem value="auto">
+            Auto Edit (Default)
+          </SelectItem>
+          <SelectItem value="auto-accept">
+            Auto Accept (Risky)
+          </SelectItem>
+          <SelectItem value="interactive">
+            Interactive
+          </SelectItem>
         </SelectContent>
       </Select>
-      <p class="text-xs text-muted-foreground">Determines how Claude Code handles tool execution approvals.</p>
+      <p class="text-xs text-muted-foreground">
+        Determines how Claude Code handles tool execution approvals.
+      </p>
     </div>
 
     <div class="space-y-2">
       <Label>Max Turns</Label>
-      <Input type="number" v-model.number="config.max_turns" placeholder="15" />
-      <p class="text-xs text-muted-foreground">Maximum number of conversation turns allowed per run.</p>
+      <Input
+        v-model.number="config.max_turns"
+        type="number"
+        placeholder="15"
+      />
+      <p class="text-xs text-muted-foreground">
+        Maximum number of conversation turns allowed per run.
+      </p>
     </div>
 
     <div class="space-y-2">
       <Label>Allowed Tools</Label>
-      <Input v-model="allowedToolsStr" placeholder="e.g. Bash(git *), Bash(npm run lint)" />
-      <p class="text-xs text-muted-foreground">Comma-separated list of tool signatures to automatically allow.</p>
+      <Input
+        v-model="allowedToolsStr"
+        placeholder="e.g. Bash(git *), Bash(npm run lint)"
+      />
+      <p class="text-xs text-muted-foreground">
+        Comma-separated list of tool signatures to automatically allow.
+      </p>
     </div>
   </div>
 </template>
@@ -63,7 +92,7 @@ import {
   SelectItem
 } from '@memohai/ui'
 
-const config = defineModel<Record<string, any>>({ default: () => ({}) })
+const config = defineModel<Record<string, unknown>>({ default: () => ({}) })
 
 const allowedToolsStr = computed({
   get() {

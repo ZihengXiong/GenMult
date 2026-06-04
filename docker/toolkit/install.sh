@@ -452,5 +452,46 @@ install_pinned_npm node-musl
 
 install_uv
 
+# Claude Code CLI
+# --force: bypass platform checks when building on macOS for Linux containers.
+# The toolkit's node/npm are Linux binaries; fall back to system npm on macOS.
+if [ -f "$OUTDIR/node-glibc/bin/npm" ] || [ -f "$OUTDIR/node-musl/bin/npm" ]; then
+  NPMBIN="$OUTDIR/node-glibc/bin/npm"
+  [ -f "$OUTDIR/node-musl/bin/npm" ] && NPMBIN="$OUTDIR/node-musl/bin/npm"
+  if ! "$NPMBIN" --version >/dev/null 2>&1; then
+    NPMBIN="$(command -v npm 2>/dev/null || true)"
+  fi
+  if [ -n "$NPMBIN" ]; then
+    mkdir -p "$OUTDIR/claude-cli"
+    echo "{}" > "$OUTDIR/claude-cli/package.json"
+    HOME=/tmp "$NPMBIN" install \
+      --prefix "$OUTDIR/claude-cli" \
+      --no-save --force \
+      @anthropic-ai/claude-code \
+      @anthropic-ai/claude-code-linux-arm64 \
+      @anthropic-ai/claude-code-linux-arm64-musl \
+      @anthropic-ai/claude-code-linux-x64 \
+      @anthropic-ai/claude-code-linux-x64-musl 2>/dev/null || true
+  fi
+fi
+
+# Codex CLI
+if [ -f "$OUTDIR/node-glibc/bin/npm" ] || [ -f "$OUTDIR/node-musl/bin/npm" ]; then
+  NPMBIN="$OUTDIR/node-glibc/bin/npm"
+  [ -f "$OUTDIR/node-musl/bin/npm" ] && NPMBIN="$OUTDIR/node-musl/bin/npm"
+  if ! "$NPMBIN" --version >/dev/null 2>&1; then
+    NPMBIN="$(command -v npm 2>/dev/null || true)"
+  fi
+  if [ -n "$NPMBIN" ]; then
+    mkdir -p "$OUTDIR/codex-cli"
+    echo "{}" > "$OUTDIR/codex-cli/package.json"
+    HOME=/tmp "$NPMBIN" install \
+      --prefix "$OUTDIR/codex-cli" \
+      --no-save --force \
+      @openai/codex 2>/dev/null || true
+  fi
+fi
+
 echo "Toolkit installed to $OUTDIR"
 install_display_bundle
+

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"time"
 )
 
 // CLIRunnerConfig controls subprocess behavior.
@@ -63,6 +64,7 @@ func (r *CLIRunner) Run(ctx context.Context, prompt string, workDir string, exec
 		Args:    args,
 		WorkDir: workDir,
 		Env:     env,
+		Timeout: 2 * time.Hour,
 	}
 
 	handle, err := executor.Start(ctx, req)
@@ -86,6 +88,7 @@ func (r *CLIRunner) Run(ctx context.Context, prompt string, workDir string, exec
 
 	// 4. Stream processing loop with cross-chunk buffering.
 	for chunk := range handle.Chunks() {
+		r.logger.Debug("received chunk", slog.String("stream", chunk.Stream), slog.String("data", string(chunk.Data)))
 		if chunk.Stream == "stderr" {
 			stderrBuilder.Write(chunk.Data)
 			continue
@@ -159,6 +162,8 @@ func (r *CLIRunner) Run(ctx context.Context, prompt string, workDir string, exec
 		}
 		return "", fmt.Errorf("CLI exit error (code %d): %w (stderr: %s)", exitCode, waitErr, stderrStr)
 	}
+
+	r.logger.Info("CLI execution finished", slog.Int("exit_code", exitCode), slog.String("stderr", stderrStr), slog.String("stdout", outputBuilder.String()))
 
 	return outputBuilder.String(), nil
 }

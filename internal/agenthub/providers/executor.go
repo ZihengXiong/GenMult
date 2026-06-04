@@ -2,6 +2,7 @@ package providers
 
 import (
 	"context"
+	"os"
 	"os/exec"
 	"sync"
 	"time"
@@ -57,15 +58,23 @@ func (e *HostExecutor) Start(ctx context.Context, req ExecRequest) (ExecHandle, 
 
 	cmd := exec.CommandContext(ctx, binPath, req.Args...)
 	cmd.Dir = req.WorkDir
-	cmd.Env = req.Env
+	if len(req.Env) > 0 {
+		cmd.Env = append(os.Environ(), req.Env...)
+	}
 
+	stdinPipe, err := cmd.StdinPipe()
+	if err != nil {
+		return nil, err
+	}
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
+		_ = stdinPipe.Close()
 		return nil, err
 	}
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
 		_ = stdout.Close()
+		_ = stdinPipe.Close()
 		return nil, err
 	}
 

@@ -419,12 +419,11 @@ func buildCLIBotRuntimes(log *slog.Logger, queries dbstore.Queries, wsManager *w
 
 	resolveWorkDir := botruntime.WorkDirResolverFunc(func(ctx context.Context, botID string) (string, error) {
 		if wsManager != nil && botID != "" {
-			if info, err := wsManager.WorkspaceInfo(ctx, botID); err == nil &&
-				info.Backend == bridge.WorkspaceBackendLocal && info.DefaultWorkDir != "" {
+			if info, err := wsManager.WorkspaceInfo(ctx, botID); err == nil && info.DefaultWorkDir != "" {
 				return info.DefaultWorkDir, nil
 			}
 		}
-		return os.Getwd()
+		return "/", nil
 	})
 
 	resolveKey := func(framework string) func(ctx context.Context) (string, error) {
@@ -433,9 +432,20 @@ func buildCLIBotRuntimes(log *slog.Logger, queries dbstore.Queries, wsManager *w
 		}
 	}
 
+	execFac := botruntime.ExecutorFactory(func(ctx context.Context, botID string) (agenthubproviders.CommandExecutor, error) {
+		if wsManager == nil {
+			return agenthubproviders.NewHostExecutor(), nil
+		}
+		client, err := wsManager.MCPClient(ctx, botID)
+		if err != nil {
+			return nil, err
+		}
+		return agenthubproviders.NewBridgeExecutor(client), nil
+	})
+
 	return []botruntime.BotRuntime{
-		botruntime.NewClaudeCodeRuntime(cfgs.ClaudeCode, resolveKey(bots.FrameworkClaudeCode), resolveWorkDir, log),
-		botruntime.NewCodexRuntime(cfgs.Codex, resolveKey(bots.FrameworkCodex), resolveWorkDir, log),
+		botruntime.NewClaudeCodeRuntime(cfgs.ClaudeCode, resolveKey(bots.FrameworkClaudeCode), resolveWorkDir, execFac, log),
+		botruntime.NewCodexRuntime(cfgs.Codex, resolveKey(bots.FrameworkCodex), resolveWorkDir, execFac, log),
 	}
 }
 

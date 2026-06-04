@@ -33,7 +33,7 @@ func (c *ProviderConfigs) FromEnvWithDefaults() {
 		c.ClaudeCode.APIKey = os.Getenv("ANTHROPIC_API_KEY")
 	}
 	if c.ClaudeCode.PermissionMode == "" {
-		c.ClaudeCode.PermissionMode = "auto-edit"
+		c.ClaudeCode.PermissionMode = "auto"
 	}
 	if c.ClaudeCode.MaxTurns <= 0 {
 		if val := os.Getenv("CLAUDE_MAX_TURNS"); val != "" {

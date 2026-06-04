@@ -696,7 +696,7 @@ func (h *ContainerdHandler) startContainerdMCPCommandSession(ctx context.Context
 	command := buildShellCommand(req)
 
 	// Create bidirectional exec stream
-	execStream, err := client.ExecStream(ctx, command, strings.TrimSpace(req.Cwd), 0)
+	execStream, err := client.ExecStream(ctx, command, strings.TrimSpace(req.Cwd), 0, nil)
 	if err != nil {
 		return nil, err
 	}
