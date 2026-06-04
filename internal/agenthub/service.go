@@ -27,21 +27,22 @@ type Service struct {
 }
 
 type Room struct {
-	ID          string         `json:"id"`
-	Name        string         `json:"name"`
-	ShortName   string         `json:"short_name"`
-	Subtitle    string         `json:"subtitle"`
-	Summary     string         `json:"summary"`
-	Members     int            `json:"members"`
-	Attention   int            `json:"attention"`
-	Privacy     string         `json:"privacy"`
-	Live        string         `json:"live"`
-	Accent      string         `json:"accent"`
-	StatusClass string         `json:"status_class"`
-	AgentIDs    []string       `json:"agent_ids"`
-	Metadata    map[string]any `json:"metadata,omitempty"`
-	CreatedAt   time.Time      `json:"created_at"`
-	UpdatedAt   time.Time      `json:"updated_at"`
+	ID                  string         `json:"id"`
+	Name                string         `json:"name"`
+	ShortName           string         `json:"short_name"`
+	Subtitle            string         `json:"subtitle"`
+	Summary             string         `json:"summary"`
+	Members             int            `json:"members"`
+	Attention           int            `json:"attention"`
+	Privacy             string         `json:"privacy"`
+	Live                string         `json:"live"`
+	Accent              string         `json:"accent"`
+	StatusClass         string         `json:"status_class"`
+	AgentIDs            []string       `json:"agent_ids"`
+	OrchestratorAgentID string         `json:"orchestrator_agent_id"`
+	Metadata            map[string]any `json:"metadata,omitempty"`
+	CreatedAt           time.Time      `json:"created_at"`
+	UpdatedAt           time.Time      `json:"updated_at"`
 }
 
 type ListRoomsResponse struct {
@@ -66,18 +67,19 @@ type ListMessagesResponse struct {
 }
 
 type UpsertRoomRequest struct {
-	Name        string         `json:"name"`
-	ShortName   string         `json:"short_name"`
-	Subtitle    string         `json:"subtitle"`
-	Summary     string         `json:"summary"`
-	Members     int            `json:"members"`
-	Attention   int            `json:"attention"`
-	Privacy     string         `json:"privacy"`
-	Live        string         `json:"live"`
-	Accent      string         `json:"accent"`
-	StatusClass string         `json:"status_class"`
-	AgentIDs    []string       `json:"agent_ids"`
-	Metadata    map[string]any `json:"metadata"`
+	Name                string         `json:"name"`
+	ShortName           string         `json:"short_name"`
+	Subtitle            string         `json:"subtitle"`
+	Summary             string         `json:"summary"`
+	Members             int            `json:"members"`
+	Attention           int            `json:"attention"`
+	Privacy             string         `json:"privacy"`
+	Live                string         `json:"live"`
+	Accent              string         `json:"accent"`
+	StatusClass         string         `json:"status_class"`
+	AgentIDs            []string       `json:"agent_ids"`
+	OrchestratorAgentID string         `json:"orchestrator_agent_id"`
+	Metadata            map[string]any `json:"metadata"`
 }
 
 type AddAgentRequest struct {
@@ -150,17 +152,18 @@ func (s *Service) Create(ctx context.Context, ownerUserID string, req UpsertRoom
 		return Room{}, errors.New("name is required")
 	}
 	row, err := s.queries.CreateAgentHubRoom(ctx, dbsqlc.CreateAgentHubRoomParams{
-		OwnerUserID: ownerID,
-		Name:        req.Name,
-		ShortName:   req.ShortName,
-		Subtitle:    req.Subtitle,
-		Summary:     req.Summary,
-		Privacy:     req.Privacy,
-		Live:        req.Live,
-		Accent:      req.Accent,
-		StatusClass: req.StatusClass,
-		Attention:   int32(req.Attention),
-		Metadata:    metadataBytes(req),
+		OwnerUserID:         ownerID,
+		Name:                req.Name,
+		ShortName:           req.ShortName,
+		Subtitle:            req.Subtitle,
+		Summary:             req.Summary,
+		Privacy:             req.Privacy,
+		Live:                req.Live,
+		Accent:              req.Accent,
+		StatusClass:         req.StatusClass,
+		Attention:           int32(req.Attention),
+		Metadata:            metadataBytes(req),
+		OrchestratorAgentID: req.OrchestratorAgentID,
 	})
 	if err != nil {
 		return Room{}, err
@@ -193,18 +196,19 @@ func (s *Service) Update(ctx context.Context, ownerUserID, roomID string, req Up
 		return Room{}, errors.New("name is required")
 	}
 	_, err = s.queries.UpdateAgentHubRoom(ctx, dbsqlc.UpdateAgentHubRoomParams{
-		ID:          roomUUID,
-		OwnerUserID: ownerID,
-		Name:        req.Name,
-		ShortName:   req.ShortName,
-		Subtitle:    req.Subtitle,
-		Summary:     req.Summary,
-		Privacy:     req.Privacy,
-		Live:        req.Live,
-		Accent:      req.Accent,
-		StatusClass: req.StatusClass,
-		Attention:   int32(req.Attention),
-		Metadata:    metadataBytes(req),
+		ID:                  roomUUID,
+		OwnerUserID:         ownerID,
+		Name:                req.Name,
+		ShortName:           req.ShortName,
+		Subtitle:            req.Subtitle,
+		Summary:             req.Summary,
+		Privacy:             req.Privacy,
+		Live:                req.Live,
+		Accent:              req.Accent,
+		StatusClass:         req.StatusClass,
+		Attention:           int32(req.Attention),
+		Metadata:            metadataBytes(req),
+		OrchestratorAgentID: req.OrchestratorAgentID,
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -399,6 +403,7 @@ func normalizeRoomRequest(req UpsertRoomRequest) UpsertRoomRequest {
 	req.Live = strings.TrimSpace(req.Live)
 	req.Accent = strings.TrimSpace(req.Accent)
 	req.StatusClass = strings.TrimSpace(req.StatusClass)
+	req.OrchestratorAgentID = strings.TrimSpace(req.OrchestratorAgentID)
 	if req.ShortName == "" {
 		req.ShortName = roomShortName(req.Name)
 	}
@@ -470,21 +475,22 @@ func roomFromRow(row dbsqlc.AgentHubRoom, agentIDs []string) Room {
 		}
 	}
 	return Room{
-		ID:          uuidString(row.ID),
-		Name:        row.Name,
-		ShortName:   row.ShortName,
-		Subtitle:    row.Subtitle,
-		Summary:     row.Summary,
-		Members:     members,
-		Attention:   int(row.Attention),
-		Privacy:     row.Privacy,
-		Live:        row.Live,
-		Accent:      row.Accent,
-		StatusClass: row.StatusClass,
-		AgentIDs:    normalizedAgentIDs(agentIDs),
-		Metadata:    metadata,
-		CreatedAt:   dbpkg.TimeFromPg(row.CreatedAt),
-		UpdatedAt:   dbpkg.TimeFromPg(row.UpdatedAt),
+		ID:                  uuidString(row.ID),
+		Name:                row.Name,
+		ShortName:           row.ShortName,
+		Subtitle:            row.Subtitle,
+		Summary:             row.Summary,
+		Members:             members,
+		Attention:           int(row.Attention),
+		Privacy:             row.Privacy,
+		Live:                row.Live,
+		Accent:              row.Accent,
+		StatusClass:         row.StatusClass,
+		AgentIDs:            normalizedAgentIDs(agentIDs),
+		OrchestratorAgentID: row.OrchestratorAgentID,
+		Metadata:            metadata,
+		CreatedAt:           dbpkg.TimeFromPg(row.CreatedAt),
+		UpdatedAt:           dbpkg.TimeFromPg(row.UpdatedAt),
 	}
 }
 

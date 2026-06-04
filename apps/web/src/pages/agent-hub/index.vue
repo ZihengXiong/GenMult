@@ -113,6 +113,19 @@
               class="mb-2 h-8 w-full rounded-md border border-border bg-card px-2 text-xs outline-none focus:border-primary"
               placeholder="群聊名称"
             >
+            <select
+              v-model="newRoomOrchestratorAgentId"
+              class="mb-2 h-8 w-full rounded-md border border-border bg-card px-2 text-xs outline-none focus:border-primary"
+            >
+              <option value="">(选择群聊主 Agent)</option>
+              <option
+                v-for="agent in agents"
+                :key="`select-agent-${agent.id}`"
+                :value="agent.id"
+              >
+                {{ agent.name }} ({{ agent.kind }})
+              </option>
+            </select>
             <textarea
               v-model="newRoomSummary"
               class="min-h-18 w-full resize-none rounded-md border border-border bg-card px-2 py-1.5 text-xs leading-5 outline-none focus:border-primary"
@@ -514,7 +527,7 @@
             <div
               v-for="agent in selectedRoomAgents"
               :key="`room-agent-${agent.id}`"
-              class="flex items-center gap-2 rounded-md border px-2 py-1.5 transition-colors"
+              class="group/item flex items-center gap-2 rounded-md border px-2 py-1.5 transition-colors cursor-pointer"
               :class="selectedAgentId === agent.id ? 'border-primary/25 bg-primary/5' : 'border-border bg-background'"
               @click="selectedAgentId = agent.id"
             >
@@ -528,6 +541,27 @@
                 />
               </span>
               <span class="min-w-0 flex-1 truncate text-xs">{{ agent.name }}</span>
+              
+              <!-- crown for current main agent -->
+              <span
+                v-if="selectedRoom?.orchestratorAgentId === agent.id"
+                class="flex shrink-0 items-center gap-0.5 rounded bg-emerald-500/10 px-1 py-0.5 text-[9px] font-medium text-emerald-600 dark:text-emerald-400"
+                title="当前是主 Agent"
+              >
+                <Crown class="size-2.5" />
+                主
+              </span>
+              <!-- click to designate as main agent -->
+              <button
+                v-else
+                type="button"
+                class="opacity-0 group-hover/item:opacity-100 flex shrink-0 items-center gap-0.5 rounded bg-muted hover:bg-emerald-500/10 hover:text-emerald-600 px-1 py-0.5 text-[9px] font-medium text-muted-foreground transition-all"
+                title="设为主 Agent"
+                @click.stop="setRoomOrchestrator(selectedRoom, agent.id)"
+              >
+                设为主
+              </button>
+
               <button
                 type="button"
                 class="flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
@@ -671,6 +705,7 @@ import {
   Workflow,
   Wrench,
   X,
+  Crown,
 } from 'lucide-vue-next'
 
 type ActivityId = 'rooms' | 'agents' | 'tasks' | 'skills' | 'mcp'
@@ -688,6 +723,7 @@ interface RoomItem {
   accent: string
   statusClass: string
   agentIds: string[]
+  orchestratorAgentId?: string
 }
 
 interface AgentHubRoom {
@@ -703,6 +739,7 @@ interface AgentHubRoom {
   accent: string
   status_class: string
   agent_ids: string[]
+  orchestrator_agent_id?: string
 }
 
 interface AgentHubRoomList {
@@ -774,6 +811,7 @@ const searchQuery = ref('')
 const isCreatingRoom = ref(false)
 const newRoomName = ref('')
 const newRoomSummary = ref('')
+const newRoomOrchestratorAgentId = ref('')
 const composerText = ref('')
 const ROOM_STORAGE_KEY = 'memoh.agenthub.rooms.v1'
 const ROOM_MIGRATION_KEY = 'memoh.agenthub.rooms.migrated.v1'
@@ -976,7 +1014,11 @@ const memohAgents = computed<AgentItem[]>(() =>
       return {
         id: `bot:${bot.id ?? bot.display_name}`,
         name,
-        kind: isPeppaAgentName(name) ? '主 Agent · Memoh Bot' : 'Memoh Bot',
+        kind: bot.framework === 'claudecode'
+          ? 'Claude Code Bot'
+          : bot.framework === 'codex'
+          ? 'Codex Bot'
+          : isPeppaAgentName(name) ? '主 Agent · Memoh Bot' : 'Memoh Bot',
         status: bot.status === 'creating' || bot.status === 'deleting' ? 'busy' : 'online',
         icon: Bot,
         tone: isPeppaAgentName(name)
@@ -989,11 +1031,16 @@ const memohAgents = computed<AgentItem[]>(() =>
 )
 
 const agents = computed(() => [...baseAgents, ...memohAgents.value])
-const mainAgent = computed(() =>
-  memohAgents.value.find((agent) => isPeppaAgentName(agent.name))
-  ?? memohAgents.value[0]
-  ?? baseAgents[0],
-)
+const mainAgent = computed(() => {
+  const room = selectedRoom.value
+  if (room && room.orchestratorAgentId) {
+    const found = agents.value.find((agent) => agent.id === room.orchestratorAgentId)
+    if (found) return found
+  }
+  return memohAgents.value.find((agent) => isPeppaAgentName(agent.name))
+    ?? memohAgents.value[0]
+    ?? baseAgents[0]
+})
 
 const selectedRoom = computed(() =>
   rooms.value.find((room) => room.id === selectedRoomId.value) ?? rooms.value[0],
@@ -1295,6 +1342,7 @@ function agentHubRoomToItem(room: AgentHubRoom): RoomItem {
     accent: room.accent,
     statusClass: room.status_class,
     agentIds: [...new Set(room.agent_ids)],
+    orchestratorAgentId: room.orchestrator_agent_id || '',
   }
 }
 
@@ -1311,6 +1359,7 @@ function roomItemToPayload(room: RoomItem) {
     accent: room.accent,
     status_class: room.statusClass,
     agent_ids: room.agentIds,
+    orchestrator_agent_id: room.orchestratorAgentId || '',
   }
 }
 
@@ -1452,6 +1501,40 @@ function cancelCreateRoom() {
   isCreatingRoom.value = false
   newRoomName.value = ''
   newRoomSummary.value = ''
+  newRoomOrchestratorAgentId.value = ''
+}
+
+const { mutateAsync: updateRoomMutation } = useMutation({
+  mutation: (room: RoomItem) =>
+    updateAgentHubRoom(room),
+  onSettled: () => queryCache.invalidateQueries({ key: AGENT_HUB_ROOMS_KEY }),
+})
+
+async function updateAgentHubRoom(room: RoomItem): Promise<AgentHubRoom> {
+  const { data } = await client.request<{ 200: AgentHubRoom }, unknown, true>({
+    method: 'PUT',
+    url: '/agent-hub/rooms/{room_id}',
+    path: { room_id: room.id },
+    body: roomItemToPayload(room),
+    headers: { 'Content-Type': 'application/json' },
+    throwOnError: true,
+  })
+  return data
+}
+
+async function setRoomOrchestrator(room: RoomItem | undefined, agentId: string) {
+  if (!room) return
+  const updated = { ...room, orchestratorAgentId: agentId }
+  if (isPersistedRoomId(room.id)) {
+    try {
+      const result = await updateRoomMutation(updated)
+      replaceRoom(result)
+    } catch (error) {
+      console.error('Failed to update room orchestrator:', error)
+    }
+  } else {
+    rooms.value = rooms.value.map((r) => r.id === room.id ? updated : r)
+  }
 }
 
 async function createRoom() {
@@ -1471,6 +1554,7 @@ async function createRoom() {
     accent: 'bg-slate-700',
     statusClass: 'bg-slate-500',
     agentIds: selectedAgent.value ? [selectedAgent.value.id] : [],
+    orchestratorAgentId: newRoomOrchestratorAgentId.value,
   }
 
   try {
@@ -1568,7 +1652,7 @@ async function requestMainAgentReply(roomId: string, roomName: string, prompt: s
         sender_name: 'AgentHub',
         kind: 'error',
         title: '没有可执行的主 Agent',
-        body: '还没有找到可以执行回复的 Memoh bot。请先创建或接入一个机器人。',
+        body: '还没有找到可以执行回复的 Agent。请先创建或接入一个机器人。',
       },
     })
     return

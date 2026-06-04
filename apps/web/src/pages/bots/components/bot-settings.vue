@@ -1,6 +1,6 @@
 <template>
   <div class="max-w-2xl mx-auto space-y-6">
-    <template v-if="!bot || bot.framework === 'memoh'">
+    <template v-if="bot?.framework === 'memoh'">
     <!-- Chat Model -->
     <div class="space-y-2">
       <Label>{{ $t('bots.settings.chatModel') }}</Label>
@@ -167,6 +167,11 @@
       </div>
     </div>
     </template>
+
+    <BotClaudecodeSettings
+      v-if="bot?.framework === 'claudecode'"
+      v-model="overlayConfigClaudecode"
+    />
 
     <!-- Search Provider -->
     <div class="space-y-2">
@@ -360,6 +365,7 @@ import {
 } from '@memohai/ui'
 import { Lightbulb, ChevronDown } from 'lucide-vue-next'
 import { reactive, computed, ref, watch } from 'vue'
+import BotClaudecodeSettings from './bot-claudecode-settings.vue'
 import { useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
 import { useI18n } from 'vue-i18n'
@@ -538,6 +544,19 @@ const form = reactive({
   reasoning_effort: 'medium',
   show_tool_calls_in_im: false,
   display_enabled: false,
+  overlay_config: {} as Record<string, any>,
+})
+
+const overlayConfigClaudecode = computed({
+  get() {
+    if (!form.overlay_config.claudecode) {
+      form.overlay_config.claudecode = {}
+    }
+    return form.overlay_config.claudecode
+  },
+  set(val) {
+    form.overlay_config.claudecode = val
+  }
 })
 
 const selectedMemoryProvider = computed(() =>
@@ -679,6 +698,7 @@ watch(settings, (val) => {
     form.reasoning_effort = val.reasoning_effort || 'medium'
     form.show_tool_calls_in_im = val.show_tool_calls_in_im ?? false
     form.display_enabled = val.display_enabled ?? false
+    form.overlay_config = JSON.parse(JSON.stringify(val.overlay_config ?? {}))
   }
 }, { immediate: true })
 
@@ -703,6 +723,7 @@ const hasSettingsChanges = computed(() => {
     || form.reasoning_effort !== (s.reasoning_effort || 'medium')
     || form.show_tool_calls_in_im !== (s.show_tool_calls_in_im ?? false)
     || form.display_enabled !== (s.display_enabled ?? false)
+    || JSON.stringify(form.overlay_config) !== JSON.stringify(s.overlay_config ?? {})
   )
 })
 
