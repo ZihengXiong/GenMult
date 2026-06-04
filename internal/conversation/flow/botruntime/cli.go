@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"strings"
+	"time"
 
 	sdk "github.com/memohai/twilight-ai/sdk"
 
@@ -73,6 +74,8 @@ func NewCodexRuntime(cfg providers.CodexConfig, resolver WorkDirResolver, logger
 }
 
 func (c *cliRuntime) Name() string { return c.name }
+
+func (c *cliRuntime) IdleTimeout() time.Duration { return 10 * time.Minute }
 
 // promptFor composes the CLI prompt from the run input. The system preamble is
 // prepended when present so the framework has the same high-level instructions

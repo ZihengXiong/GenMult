@@ -54,6 +54,19 @@ echo "Building bridge binary..."
 (cd /workspace && go build -o /opt/memoh/runtime/bridge ./cmd/bridge)
 echo "Bridge binary ready."
 
+# ---- Create claude and codex CLI wrappers ----
+cat << 'EOF' > /usr/local/bin/claude
+#!/bin/sh
+exec npx -y @anthropic-ai/claude-code "$@"
+EOF
+chmod +x /usr/local/bin/claude
+
+cat << 'EOF' > /usr/local/bin/codex
+#!/bin/sh
+exec npx -y @openai/codex "$@"
+EOF
+chmod +x /usr/local/bin/codex
+
 echo "Starting server..."
 
 trap 'kill ${SERVER_PID:-0} 2>/dev/null || true; kill ${CONTAINERD_PID:-0} 2>/dev/null || true; wait' TERM INT

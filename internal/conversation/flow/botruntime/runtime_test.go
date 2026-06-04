@@ -3,6 +3,7 @@ package botruntime
 import (
 	"context"
 	"testing"
+	"time"
 
 	agentpkg "github.com/ZihengXiong/GenMult/internal/agent"
 )
@@ -18,6 +19,7 @@ func (s stubRuntime) Stream(context.Context, RunInput) <-chan agentpkg.StreamEve
 func (s stubRuntime) Generate(context.Context, RunInput) (*agentpkg.GenerateResult, error) {
 	return &agentpkg.GenerateResult{}, nil
 }
+func (s stubRuntime) IdleTimeout() time.Duration { return 0 }
 
 func TestRegistryResolve(t *testing.T) {
 	memoh := stubRuntime{name: "memoh"}

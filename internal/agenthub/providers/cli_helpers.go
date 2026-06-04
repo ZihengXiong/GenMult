@@ -138,6 +138,7 @@ func CodexBuildArgs(cfg CodexConfig, prompt string) []string {
 	args := []string{
 		"exec",
 		"--json",
+		"--skip-git-repo-check",
 	}
 	if cfg.Sandbox != "" {
 		args = append(args, "--sandbox", cfg.Sandbox)

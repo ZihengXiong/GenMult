@@ -310,10 +310,10 @@ func (r *Resolver) deliverBackgroundNotifications(ctx context.Context, botID, se
 	// should go through the same execution path as normal user messages.
 	cfg = r.prepareRunConfig(ctx, cfg)
 
-	idleCtx, idleCancel := withIdleTimeout(ctx)
+	rt := r.runtimeForBot(ctx, cfg.Identity.BotID)
+	idleCtx, idleCancel := withIdleTimeout(ctx, rt.IdleTimeout())
 	defer idleCancel.Stop()
 
-	rt := r.runtimeForBot(ctx, cfg.Identity.BotID)
 	eventCh := rt.Stream(idleCtx, botruntime.RunInput{Config: cfg})
 	converter := conversation.NewUIMessageStreamConverter()
 	var text strings.Builder

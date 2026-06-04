@@ -44,6 +44,19 @@ if ! ctr version >/dev/null 2>&1; then
 fi
 echo "containerd is running (pid $CONTAINERD_PID)"
 
+# ---- Create claude and codex CLI wrappers ----
+cat << 'EOF' > /usr/local/bin/claude
+#!/bin/sh
+exec npx -y @anthropic-ai/claude-code "$@"
+EOF
+chmod +x /usr/local/bin/claude
+
+cat << 'EOF' > /usr/local/bin/codex
+#!/bin/sh
+exec npx -y @openai/codex "$@"
+EOF
+chmod +x /usr/local/bin/codex
+
 echo "containerd is ready, starting memoh-server..."
 
 # ---- Start server (foreground, trap signals for graceful shutdown) ----
