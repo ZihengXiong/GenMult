@@ -477,6 +477,10 @@ func (r *Resolver) Chat(ctx context.Context, req conversation.ChatRequest) (conv
 	cfg = r.prepareRunConfig(ctx, cfg)
 
 	rt := r.runtimeForBot(ctx, cfg.Identity.BotID)
+	if rt.Name() == bots.FrameworkMemoh {
+		cfg = r.prepareRunConfig(ctx, cfg)
+	}
+
 	result, err := rt.Generate(ctx, botruntime.RunInput{Config: cfg})
 	if err != nil {
 		return conversation.ChatResponse{}, err
