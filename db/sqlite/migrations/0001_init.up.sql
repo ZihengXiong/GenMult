@@ -238,6 +238,7 @@ CREATE TABLE IF NOT EXISTS agent_hub_rooms (
   status_class TEXT NOT NULL DEFAULT 'bg-slate-500',
   attention INTEGER NOT NULL DEFAULT 0,
   metadata TEXT NOT NULL DEFAULT '{}',
+  orchestrator_agent_id TEXT NOT NULL DEFAULT '',
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );

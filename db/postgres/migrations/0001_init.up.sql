@@ -246,6 +246,7 @@ CREATE TABLE IF NOT EXISTS agent_hub_rooms (
   status_class TEXT NOT NULL DEFAULT 'bg-slate-500',
   attention INTEGER NOT NULL DEFAULT 0,
   metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+  orchestrator_agent_id TEXT NOT NULL DEFAULT '',
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );

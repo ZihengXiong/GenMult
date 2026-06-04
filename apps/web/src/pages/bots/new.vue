@@ -48,6 +48,40 @@
 
       <Separator class="my-6" />
 
+      <!-- Agent Framework (placed early so subsequent sections adapt) -->
+      <div>
+        <h3 class="text-sm font-medium mb-4">
+          {{ $t('bots.steps.framework') }}
+          <span class="text-destructive">*</span>
+        </h3>
+        <div class="flex flex-col gap-3">
+          <Label>{{ $t('bots.framework') }}</Label>
+          <Select v-model="form.framework">
+            <SelectTrigger class="w-full">
+              <SelectValue :placeholder="$t('bots.frameworkPlaceholder') || $t('bots.framework')" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem
+                v-for="opt in frameworkOptions"
+                :key="opt.value"
+                :value="opt.value"
+              >
+                <div class="flex flex-col">
+                  <span>{{ opt.label }}</span>
+                  <span class="text-xs text-muted-foreground">{{ opt.description }}</span>
+                </div>
+              </SelectItem>
+            </SelectContent>
+          </Select>
+          <p class="text-xs text-muted-foreground">
+            {{ $t('bots.frameworkHelp') }}
+          </p>
+        </div>
+      </div>
+
+      <Separator class="my-6" />
+
+
       <!-- Workspace (conditional) -->
       <template v-if="localWorkspaceEnabled">
         <div>
@@ -178,36 +212,9 @@
 
       <Separator class="my-6" />
 
-      <!-- Agent Framework -->
-      <div>
-        <h3 class="text-sm font-medium mb-4">
-          {{ $t('bots.steps.framework') }}
-        </h3>
-        <div class="flex flex-col gap-3">
-          <Label>{{ $t('bots.framework') }}</Label>
-          <Select v-model="form.framework">
-            <SelectTrigger class="w-full">
-              <SelectValue :placeholder="$t('bots.framework')" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem
-                v-for="opt in frameworkOptions"
-                :key="opt.value"
-                :value="opt.value"
-              >
-                {{ opt.label }}
-              </SelectItem>
-            </SelectContent>
-          </Select>
-          <p class="text-xs text-muted-foreground">
-            {{ $t('bots.frameworkHelp') }}
-          </p>
-        </div>
-      </div>
+      <!-- Model (only for memoh framework) -->
+      <template v-if="form.framework === 'memoh'">
 
-      <Separator class="my-6" />
-
-      <!-- Model -->
       <div>
         <h3 class="text-sm font-medium mb-4">
           {{ $t('bots.steps.model') }}
@@ -242,6 +249,7 @@
           :placeholder="$t('common.none')"
         />
       </div>
+      </template>
 
       <Separator class="my-6" />
 
@@ -344,16 +352,16 @@ onMounted(() => {
 const localWorkspaceEnabled = computed(() => capabilities.localWorkspaceEnabled)
 
 const frameworkOptions = [
-  { value: 'memoh', label: 'Memoh' },
-  { value: 'claudecode', label: 'Claude Code' },
-  { value: 'codex', label: 'Codex' },
+  { value: 'memoh', label: 'Memoh', description: '内置 AI Agent，支持模型、记忆、工具调用' },
+  { value: 'claudecode', label: 'Claude Code', description: 'Anthropic CLI Agent，自带模型和工具链' },
+  { value: 'codex', label: 'Codex', description: 'OpenAI CLI Agent，自带模型和工具链' },
 ] as const
 
 const form = reactive({
   display_name: '',
   avatar_url: '',
   acl_preset: defaultAclPreset as string,
-  framework: 'memoh' as string,
+  framework: '' as string,
   chat_model_id: '',
   memory_provider_id: '',
   timezone: emptyTimezoneValue,
@@ -470,6 +478,7 @@ const aclDescription = computed(() => {
 // Validation
 const canSubmit = computed(() => {
   if (!form.display_name.trim()) return false
+  if (!form.framework) return false
   if (!form.acl_preset) return false
   if (localWorkspaceEnabled.value && form.workspace_backend === 'local') {
     if (!form.local_workspace_path.trim()) return false

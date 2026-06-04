@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	sdk "github.com/memohai/twilight-ai/sdk"
 
 	agentpkg "github.com/ZihengXiong/GenMult/internal/agent"
@@ -36,13 +37,14 @@ type cliRuntime struct {
 	binaryName string
 	buildArgs  func(prompt string) []string
 	parseEvent func(line []byte) (providers.CLIEvent, error)
-	buildEnv   func() []string
+	buildEnv   func(apiKey string) []string
+	resolveKey func(ctx context.Context) (string, error)
 	resolver   WorkDirResolver
 	logger     *slog.Logger
 }
 
 // NewClaudeCodeRuntime builds the claudecode BotRuntime.
-func NewClaudeCodeRuntime(cfg providers.ClaudeCodeConfig, resolver WorkDirResolver, logger *slog.Logger) BotRuntime {
+func NewClaudeCodeRuntime(cfg providers.ClaudeCodeConfig, resolveKey func(ctx context.Context) (string, error), resolver WorkDirResolver, logger *slog.Logger) BotRuntime {
 	if logger == nil {
 		logger = slog.Default()
 	}
@@ -51,14 +53,21 @@ func NewClaudeCodeRuntime(cfg providers.ClaudeCodeConfig, resolver WorkDirResolv
 		binaryName: "claude",
 		buildArgs:  func(prompt string) []string { return providers.ClaudeBuildArgs(cfg, prompt) },
 		parseEvent: providers.ClaudeParseEvent,
-		buildEnv:   func() []string { return providers.ClaudeEnv(cfg) },
+		buildEnv: func(apiKey string) []string {
+			localCfg := cfg
+			if apiKey != "" {
+				localCfg.APIKey = apiKey
+			}
+			return providers.ClaudeEnv(localCfg)
+		},
+		resolveKey: resolveKey,
 		resolver:   resolver,
 		logger:     logger.With(slog.String("component", "claudecode_runtime")),
 	}
 }
 
 // NewCodexRuntime builds the codex BotRuntime.
-func NewCodexRuntime(cfg providers.CodexConfig, resolver WorkDirResolver, logger *slog.Logger) BotRuntime {
+func NewCodexRuntime(cfg providers.CodexConfig, resolveKey func(ctx context.Context) (string, error), resolver WorkDirResolver, logger *slog.Logger) BotRuntime {
 	if logger == nil {
 		logger = slog.Default()
 	}
@@ -67,7 +76,14 @@ func NewCodexRuntime(cfg providers.CodexConfig, resolver WorkDirResolver, logger
 		binaryName: "codex",
 		buildArgs:  func(prompt string) []string { return providers.CodexBuildArgs(cfg, prompt) },
 		parseEvent: providers.CodexParseEvent,
-		buildEnv:   func() []string { return providers.CodexEnv(cfg) },
+		buildEnv: func(apiKey string) []string {
+			localCfg := cfg
+			if apiKey != "" {
+				localCfg.APIKey = apiKey
+			}
+			return providers.CodexEnv(localCfg)
+		},
+		resolveKey: resolveKey,
 		resolver:   resolver,
 		logger:     logger.With(slog.String("component", "codex_runtime")),
 	}
@@ -105,16 +121,28 @@ func (c *cliRuntime) Stream(ctx context.Context, in RunInput) <-chan agentpkg.St
 
 		send(agentpkg.StreamEvent{Type: agentpkg.EventAgentStart})
 
+		var activeToolCallID string
+
 		text, err := c.run(ctx, in, func(ev providers.CLIEvent) {
 			switch ev.Type {
-			case "text":
+			case "text", "result":
 				if ev.Content != "" {
 					send(agentpkg.StreamEvent{Type: agentpkg.EventTextDelta, Delta: ev.Content})
 				}
 			case "tool_use":
-				send(agentpkg.StreamEvent{Type: agentpkg.EventToolCallStart, ToolName: ev.Content})
+				activeToolCallID = uuid.NewString()
+				send(agentpkg.StreamEvent{
+					Type:       agentpkg.EventToolCallStart,
+					ToolName:   ev.Content,
+					ToolCallID: activeToolCallID,
+				})
 			case "tool_result":
-				send(agentpkg.StreamEvent{Type: agentpkg.EventToolCallEnd, Result: ev.Content})
+				send(agentpkg.StreamEvent{
+					Type:       agentpkg.EventToolCallEnd,
+					Result:     ev.Content,
+					ToolCallID: activeToolCallID,
+				})
+				activeToolCallID = ""
 			case "error":
 				send(agentpkg.StreamEvent{Type: agentpkg.EventError, Error: ev.Content})
 			}
@@ -149,13 +177,20 @@ func (c *cliRuntime) run(ctx context.Context, in RunInput, onEvent func(provider
 	if err != nil {
 		return "", err
 	}
+	var apiKey string
+	if c.resolveKey != nil {
+		apiKey, err = c.resolveKey(ctx)
+		if err != nil {
+			return "", err
+		}
+	}
 	runner := providers.NewCLIRunner(providers.CLIRunnerConfig{
 		BinaryName: c.binaryName,
 		BuildArgs:  c.buildArgs,
 		ParseEvent: c.parseEvent,
 		OnEvent:    onEvent,
 	}, c.logger)
-	return runner.Run(ctx, promptFor(in), workDir, nil, c.buildEnv())
+	return runner.Run(ctx, promptFor(in), workDir, nil, c.buildEnv(apiKey))
 }
 
 // terminalEvent builds the terminal agent_end event carrying the assistant

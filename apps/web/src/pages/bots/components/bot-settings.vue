@@ -1,5 +1,6 @@
 <template>
   <div class="max-w-2xl mx-auto space-y-6">
+    <template v-if="!bot || bot.framework === 'memoh'">
     <!-- Chat Model -->
     <div class="space-y-2">
       <Label>{{ $t('bots.settings.chatModel') }}</Label>
@@ -165,6 +166,7 @@
         </div>
       </div>
     </div>
+    </template>
 
     <!-- Search Provider -->
     <div class="space-y-2">

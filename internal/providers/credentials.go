@@ -10,6 +10,7 @@ import (
 
 	memohcopilot "github.com/ZihengXiong/GenMult/internal/copilot"
 	"github.com/ZihengXiong/GenMult/internal/db/postgres/sqlc"
+	dbstore "github.com/ZihengXiong/GenMult/internal/db/store"
 	"github.com/ZihengXiong/GenMult/internal/models"
 )
 
@@ -82,3 +83,47 @@ func codexAccountIDFromToken(token string) (string, error) {
 	}
 	return accountID, nil
 }
+
+// ResolveAPIKeyForFramework resolves the API key of the active provider matching the given framework ("claudecode" or "codex").
+func ResolveAPIKeyForFramework(ctx context.Context, queries dbstore.Queries, framework string) (string, error) {
+	providersList, err := queries.ListProviders(ctx)
+	if err != nil {
+		return "", fmt.Errorf("list providers: %w", err)
+	}
+
+	var match *sqlc.Provider
+	for _, p := range providersList {
+		if !p.Enable {
+			continue
+		}
+		if framework == "claudecode" && p.ClientType == string(models.ClientTypeAnthropicMessages) {
+			pCopy := p
+			match = &pCopy
+			break
+		}
+		if framework == "codex" && (p.ClientType == string(models.ClientTypeOpenAICompletions) || p.ClientType == string(models.ClientTypeOpenAIResponses)) {
+			pCopy := p
+			match = &pCopy
+			break
+		}
+	}
+
+	if match == nil {
+		switch framework {
+		case "claudecode":
+			return "", errors.New("anthropic provider not configured or disabled in database")
+		case "codex":
+			return "", errors.New("openai provider not configured or disabled in database")
+		}
+		return "", fmt.Errorf("provider for framework %q not configured", framework)
+	}
+
+	s := NewService(nil, queries, "")
+	creds, err := s.ResolveModelCredentials(ctx, *match)
+	if err != nil || creds.APIKey == "" {
+		return "", fmt.Errorf("provider configured but API key is missing or invalid: %w", err)
+	}
+
+	return creds.APIKey, nil
+}
+

@@ -373,7 +373,7 @@ func injectToolProviders(a *agentpkg.Agent, msgService *message.DBService, provi
 
 func provideChatResolver(log *slog.Logger, a *agentpkg.Agent, modelsService *models.Service, queries dbstore.Queries, chatService *conversation.Service, msgService *message.DBService, settingsService *settings.Service, accountService *accounts.Service, mediaService *media.Service, containerdHandler *handlers.ContainerdHandler, memoryRegistry *memprovider.Registry, channelStore *channel.Store, routeService *route.DBService, sessionService *sessionpkg.Service, eventHub *event.Hub, compactionService *compaction.Service, pipeline *pipelinepkg.Pipeline, rc *boot.RuntimeConfig, bgManager *background.Manager, toolApproval *toolapproval.Service, wsManager *workspace.Manager) *flow.Resolver {
 	resolver := flow.NewResolver(log, modelsService, queries, chatService, msgService, settingsService, accountService, a, rc.TimezoneLocation, 120*time.Second)
-	resolver.SetBotRuntimes(buildCLIBotRuntimes(log, wsManager)...)
+	resolver.SetBotRuntimes(buildCLIBotRuntimes(log, queries, wsManager)...)
 	resolver.SetMemoryRegistry(memoryRegistry)
 	resolver.SetSkillLoader(&skillLoaderAdapter{handler: containerdHandler})
 	resolver.SetGatewayAssetLoader(&gatewayAssetLoaderAdapter{media: mediaService})
@@ -413,7 +413,7 @@ func provideChatResolver(log *slog.Logger, a *agentpkg.Agent, modelsService *mod
 // buildCLIBotRuntimes constructs the CLI-backed bot runtimes (claudecode,
 // codex). Provider config is sourced from environment defaults; the work dir is
 // resolved per-bot from the workspace manager.
-func buildCLIBotRuntimes(log *slog.Logger, wsManager *workspace.Manager) []botruntime.BotRuntime {
+func buildCLIBotRuntimes(log *slog.Logger, queries dbstore.Queries, wsManager *workspace.Manager) []botruntime.BotRuntime {
 	var cfgs agenthubproviders.ProviderConfigs
 	cfgs.FromEnvWithDefaults()
 
@@ -426,9 +426,15 @@ func buildCLIBotRuntimes(log *slog.Logger, wsManager *workspace.Manager) []botru
 		return os.Getwd()
 	})
 
+	resolveKey := func(framework string) func(ctx context.Context) (string, error) {
+		return func(ctx context.Context) (string, error) {
+			return providers.ResolveAPIKeyForFramework(ctx, queries, framework)
+		}
+	}
+
 	return []botruntime.BotRuntime{
-		botruntime.NewClaudeCodeRuntime(cfgs.ClaudeCode, resolveWorkDir, log),
-		botruntime.NewCodexRuntime(cfgs.Codex, resolveWorkDir, log),
+		botruntime.NewClaudeCodeRuntime(cfgs.ClaudeCode, resolveKey(bots.FrameworkClaudeCode), resolveWorkDir, log),
+		botruntime.NewCodexRuntime(cfgs.Codex, resolveKey(bots.FrameworkCodex), resolveWorkDir, log),
 	}
 }
 

@@ -31,6 +31,7 @@ import (
 	memprovider "github.com/ZihengXiong/GenMult/internal/memory/adapters"
 	messagepkg "github.com/ZihengXiong/GenMult/internal/message"
 	messageevent "github.com/ZihengXiong/GenMult/internal/message/event"
+	"github.com/ZihengXiong/GenMult/internal/bots"
 	"github.com/ZihengXiong/GenMult/internal/models"
 	"github.com/ZihengXiong/GenMult/internal/oauthctx"
 	pipelinepkg "github.com/ZihengXiong/GenMult/internal/pipeline"
@@ -531,6 +532,47 @@ func (r *Resolver) buildBaseRunConfig(ctx context.Context, p baseRunConfigParams
 	chatID := p.ChatID
 	if chatID == "" {
 		chatID = p.BotID
+	}
+
+	framework := r.loadBotFramework(ctx, p.BotID)
+	if framework != bots.FrameworkMemoh {
+		_, err := r.checkProviderAvailable(ctx, framework)
+		if err != nil {
+			return agentpkg.RunConfig{}, models.GetResponse{}, sqlc.Provider{}, err
+		}
+
+		chatModel := models.GetResponse{
+			ModelID: "placeholder",
+			Model: models.Model{
+				Type: models.ModelTypeChat,
+			},
+		}
+		provider := sqlc.Provider{
+			ClientType: string(models.ClientTypeOpenAICompletions),
+		}
+		sdkModel := models.NewSDKChatModel(models.SDKModelConfig{
+			ModelID:    chatModel.ModelID,
+			ClientType: provider.ClientType,
+		})
+
+		cfg := agentpkg.RunConfig{
+			Model: sdkModel,
+			Identity: agentpkg.SessionContext{
+				BotID:             p.BotID,
+				ChatID:            chatID,
+				SessionID:         p.SessionID,
+				ChannelIdentityID: strings.TrimSpace(p.ChannelIdentityID),
+				CurrentPlatform:   p.CurrentPlatform,
+				ReplyTarget:       strings.TrimSpace(p.ReplyTarget),
+				ConversationType:  strings.TrimSpace(p.ConversationType),
+				Timezone:          userTimezoneName,
+				TimezoneLocation:  userClockLocation,
+				SessionToken:      p.SessionToken,
+			},
+			Query:         "",
+			LoopDetection: agentpkg.LoopDetectionConfig{Enabled: loopDetectionEnabled},
+		}
+		return cfg, chatModel, provider, nil
 	}
 
 	req := buildModelSelectionRequest(p, chatID)
