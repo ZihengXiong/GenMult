@@ -171,6 +171,7 @@
     <BotClaudecodeSettings
       v-if="bot?.framework === 'claudecode'"
       v-model="overlayConfigClaudecode"
+      :models="models"
     />
 
     <!-- Search Provider -->

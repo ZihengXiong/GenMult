@@ -46,24 +46,21 @@
 
     <div class="space-y-2">
       <Label>Model</Label>
-      <Select v-model="config.model">
-        <SelectTrigger>
-          <SelectValue placeholder="Select Claude Model" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="sonnet">
-            Claude 3.7 Sonnet (Default)
-          </SelectItem>
-          <SelectItem value="opus">
-            Claude 3 Opus
-          </SelectItem>
-          <SelectItem value="haiku">
-            Claude 3.5 Haiku
-          </SelectItem>
-        </SelectContent>
-      </Select>
+      <Input
+        v-model="config.model"
+        list="claude-models-list"
+        placeholder="e.g. sonnet, deepseek-v4-flash, or leave empty for global default"
+      />
+      <datalist id="claude-models-list">
+        <option value="sonnet">Claude 3.7 Sonnet (Default)</option>
+        <option value="opus">Claude 3 Opus</option>
+        <option value="haiku">Claude 3.5 Haiku</option>
+        <option v-for="m in props.models" :key="m.id" :value="m.model_id">
+          {{ m.name }}
+        </option>
+      </datalist>
       <p class="text-xs text-muted-foreground">
-        Overrides the global default model for this bot.
+        Overrides the global default model. You can type any compatible model name or pick from the list.
       </p>
     </div>
 
@@ -126,6 +123,12 @@ import {
   SelectContent,
   SelectItem
 } from '@memohai/ui'
+
+import type { ModelsGetResponse } from '@memohai/sdk'
+
+const props = defineProps<{
+  models?: ModelsGetResponse[]
+}>()
 
 const config = defineModel<Record<string, unknown>>({ default: () => ({}) })
 

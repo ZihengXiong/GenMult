@@ -57,4 +57,8 @@ func (c *ProviderConfigs) FromEnvWithDefaults() {
 	if c.Codex.Sandbox == "" {
 		c.Codex.Sandbox = "workspace-write"
 	}
+
+	if c.ClaudeCode.Model == "" {
+		c.ClaudeCode.Model = os.Getenv("CLAUDE_DEFAULT_MODEL")
+	}
 }
