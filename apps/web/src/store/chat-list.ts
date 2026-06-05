@@ -1452,7 +1452,7 @@ export const useChatStore = defineStore('chat', () => {
         await refreshCurrentSession(bid, sid)
       } else {
         void createCompletionForAssistantTurn(assistantTurn).catch(() => {})
-        await sendLocalChannelMessage(bid, trimmed, attachments, { modelId, reasoningEffort })
+        await sendLocalChannelMessage(bid, trimmed, attachments, { modelId, reasoningEffort, sessionId: sid })
         await refreshCurrentSession(bid, sid)
       }
 
