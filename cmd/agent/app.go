@@ -418,12 +418,11 @@ func buildCLIBotRuntimes(log *slog.Logger, queries dbstore.Queries, wsManager *w
 	cfgs.FromEnvWithDefaults()
 
 	resolveWorkDir := botruntime.WorkDirResolverFunc(func(ctx context.Context, botID string) (string, error) {
-		if wsManager != nil && botID != "" {
-			if info, err := wsManager.WorkspaceInfo(ctx, botID); err == nil && info.DefaultWorkDir != "" {
-				return info.DefaultWorkDir, nil
-			}
+		dir := filepath.Join(os.TempDir(), "memoh_cli_bots", botID)
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			return "", err
 		}
-		return os.Getwd()
+		return dir, nil
 	})
 
 	resolveCreds := func(framework string) func(ctx context.Context) (providers.ModelCredentials, error) {
