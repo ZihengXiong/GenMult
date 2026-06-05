@@ -12,8 +12,9 @@ type ClaudeCodeConfig struct {
 	BaseURL        string   `toml:"base_url"`
 	PermissionMode string   `toml:"permission_mode"`
 	MaxTurns       int      `toml:"max_turns"`
-	AllowedTools   []string `toml:"allowed_tools"`
-	Model          string   `toml:"model"`
+	Model          string            `toml:"model"`
+	CustomEnv      map[string]string `toml:"custom_env"`
+	AllowedTools   []string          `toml:"allowed_tools"`
 }
 
 type CodexConfig struct {

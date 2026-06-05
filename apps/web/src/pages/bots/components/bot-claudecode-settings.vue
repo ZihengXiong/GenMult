@@ -109,11 +109,32 @@
         Comma-separated list of tool signatures to automatically allow.
       </p>
     </div>
+
+    <div class="space-y-2">
+      <Label>Custom Environment Variables</Label>
+      <div class="space-y-2">
+        <div v-for="(v, idx) in envList" :key="idx" class="flex items-center gap-2">
+          <Input v-model="v.key" placeholder="Key (e.g. CLAUDE_CODE_SUBAGENT_MODEL)" class="flex-1" />
+          <Input v-model="v.value" placeholder="Value" class="flex-1" />
+          <Button variant="ghost" size="icon" class="shrink-0" @click="removeEnv(idx)">
+            <Trash class="size-4 text-destructive" />
+          </Button>
+        </div>
+      </div>
+      <Button variant="outline" size="sm" @click="addEnv">
+        <Plus class="size-4 mr-2" />
+        Add Variable
+      </Button>
+      <p class="text-xs text-muted-foreground mt-2">
+        Variables defined here will override system-wide environment variables for this bot.
+      </p>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { watch, ref } from 'vue'
 import {
   Label,
   Input,
@@ -121,8 +142,10 @@ import {
   SelectTrigger,
   SelectValue,
   SelectContent,
-  SelectItem
+  SelectItem,
+  Button
 } from '@memohai/ui'
+import { Plus, Trash } from 'lucide-vue-next'
 
 import type { ModelsGetResponse } from '@memohai/sdk'
 
@@ -144,4 +167,34 @@ const allowedToolsStr = computed({
     }
   }
 })
+
+const envList = ref<{key: string, value: string}[]>([])
+
+watch(() => config.value.custom_env, (newVal) => {
+  if (newVal && typeof newVal === 'object') {
+    const currentListStr = JSON.stringify(envList.value.filter(e => e.key).map(e => [e.key, e.value]))
+    const newListStr = JSON.stringify(Object.entries(newVal))
+    if (currentListStr !== newListStr) {
+      envList.value = Object.entries(newVal).map(([k, v]) => ({ key: k, value: String(v) }))
+    }
+  }
+}, { immediate: true })
+
+watch(envList, (newVal) => {
+  const env: Record<string, string> = {}
+  newVal.forEach(item => {
+    if (item.key.trim()) {
+      env[item.key.trim()] = item.value
+    }
+  })
+  config.value.custom_env = env
+}, { deep: true })
+
+function addEnv() {
+  envList.value.push({ key: '', value: '' })
+}
+
+function removeEnv(index: number) {
+  envList.value.splice(index, 1)
+}
 </script>

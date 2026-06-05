@@ -28,6 +28,11 @@ func ClaudeEnv(cfg ClaudeCodeConfig) []string {
 	} else if val := os.Getenv("ANTHROPIC_BASE_URL"); val != "" {
 		env = append(env, "ANTHROPIC_BASE_URL="+val)
 	}
+	for k, v := range cfg.CustomEnv {
+		if k != "" && v != "" {
+			env = append(env, k+"="+v)
+		}
+	}
 	return env
 }
 
