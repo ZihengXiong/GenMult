@@ -19,6 +19,7 @@ const openAIAuthClaimPath = "https://api.openai.com/auth"
 type ModelCredentials struct {
 	APIKey         string //nolint:gosec // runtime credential material used to construct SDK providers
 	CodexAccountID string
+	BaseURL        string
 }
 
 func SupportsOpenAICodexOAuth(provider sqlc.Provider) bool {
@@ -54,8 +55,10 @@ func (s *Service) ResolveModelCredentials(ctx context.Context, provider sqlc.Pro
 
 	default:
 		apiKey := ProviderConfigString(provider, "api_key")
+		baseURL := ProviderConfigString(provider, "base_url")
 		return ModelCredentials{
-			APIKey: apiKey,
+			APIKey:  apiKey,
+			BaseURL: baseURL,
 		}, nil
 	}
 }
@@ -84,11 +87,11 @@ func codexAccountIDFromToken(token string) (string, error) {
 	return accountID, nil
 }
 
-// ResolveAPIKeyForFramework resolves the API key of the active provider matching the given framework ("claudecode" or "codex").
-func ResolveAPIKeyForFramework(ctx context.Context, queries dbstore.Queries, framework string) (string, error) {
+// ResolveCredentialsForFramework resolves the credentials of the active provider matching the given framework ("claudecode" or "codex").
+func ResolveCredentialsForFramework(ctx context.Context, queries dbstore.Queries, framework string) (ModelCredentials, error) {
 	providersList, err := queries.ListProviders(ctx)
 	if err != nil {
-		return "", fmt.Errorf("list providers: %w", err)
+		return ModelCredentials{}, fmt.Errorf("list providers: %w", err)
 	}
 
 	var match *sqlc.Provider
@@ -111,19 +114,19 @@ func ResolveAPIKeyForFramework(ctx context.Context, queries dbstore.Queries, fra
 	if match == nil {
 		switch framework {
 		case "claudecode":
-			return "", errors.New("anthropic provider not configured or disabled in database")
+			return ModelCredentials{}, errors.New("anthropic provider not configured or disabled in database")
 		case "codex":
-			return "", errors.New("openai provider not configured or disabled in database")
+			return ModelCredentials{}, errors.New("openai provider not configured or disabled in database")
 		}
-		return "", fmt.Errorf("provider for framework %q not configured", framework)
+		return ModelCredentials{}, fmt.Errorf("provider for framework %q not configured", framework)
 	}
 
 	s := NewService(nil, queries, "")
 	creds, err := s.ResolveModelCredentials(ctx, *match)
 	if err != nil || creds.APIKey == "" {
-		return "", fmt.Errorf("provider configured but API key is missing or invalid: %w", err)
+		return ModelCredentials{}, fmt.Errorf("provider configured but API key is missing or invalid: %w", err)
 	}
 
-	return creds.APIKey, nil
+	return creds, nil
 }
 

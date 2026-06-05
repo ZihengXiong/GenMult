@@ -21,7 +21,9 @@ func ClaudeEnv(cfg ClaudeCodeConfig) []string {
 	if cfg.APIKey != "" {
 		env = append(env, "ANTHROPIC_API_KEY="+cfg.APIKey)
 	}
-	if val := os.Getenv("ANTHROPIC_BASE_URL"); val != "" {
+	if cfg.BaseURL != "" {
+		env = append(env, "ANTHROPIC_BASE_URL="+cfg.BaseURL)
+	} else if val := os.Getenv("ANTHROPIC_BASE_URL"); val != "" {
 		env = append(env, "ANTHROPIC_BASE_URL="+val)
 	}
 	return env
@@ -115,7 +117,9 @@ func CodexEnv(cfg CodexConfig) []string {
 	if cfg.APIKey != "" {
 		env = append(env, "OPENAI_API_KEY="+cfg.APIKey)
 	}
-	if val := os.Getenv("OPENAI_BASE_URL"); val != "" {
+	if cfg.BaseURL != "" {
+		env = append(env, "OPENAI_BASE_URL="+cfg.BaseURL)
+	} else if val := os.Getenv("OPENAI_BASE_URL"); val != "" {
 		env = append(env, "OPENAI_BASE_URL="+val)
 	}
 	return env

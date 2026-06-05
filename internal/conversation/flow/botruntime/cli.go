@@ -13,6 +13,7 @@ import (
 	agentpkg "github.com/ZihengXiong/GenMult/internal/agent"
 	"github.com/ZihengXiong/GenMult/internal/agenthub/providers"
 	"github.com/ZihengXiong/GenMult/internal/bots"
+	globalproviders "github.com/ZihengXiong/GenMult/internal/providers"
 )
 
 // WorkDirResolver resolves the host working directory for a bot's CLI runtime.
@@ -40,15 +41,15 @@ type cliRuntime struct {
 	binaryName string
 	buildArgs  func(in RunInput, prompt string) []string
 	parseEvent func(line []byte) (providers.CLIEvent, error)
-	buildEnv   func(in RunInput, apiKey string) []string
-	resolveKey func(ctx context.Context) (string, error)
+	buildEnv   func(in RunInput, creds globalproviders.ModelCredentials) []string
+	resolveCreds func(ctx context.Context) (globalproviders.ModelCredentials, error)
 	resolver   WorkDirResolver
 	executor   ExecutorFactory
 	logger     *slog.Logger
 }
 
 // NewClaudeCodeRuntime builds the claudecode BotRuntime.
-func NewClaudeCodeRuntime(cfg providers.ClaudeCodeConfig, resolveKey func(ctx context.Context) (string, error), resolver WorkDirResolver, execFac ExecutorFactory, logger *slog.Logger) BotRuntime {
+func NewClaudeCodeRuntime(cfg providers.ClaudeCodeConfig, resolveCreds func(ctx context.Context) (globalproviders.ModelCredentials, error), resolver WorkDirResolver, execFac ExecutorFactory, logger *slog.Logger) BotRuntime {
 	if logger == nil {
 		logger = slog.Default()
 	}
@@ -60,14 +61,17 @@ func NewClaudeCodeRuntime(cfg providers.ClaudeCodeConfig, resolveKey func(ctx co
 			return providers.ClaudeBuildArgs(localCfg, prompt)
 		},
 		parseEvent: providers.ClaudeParseEvent,
-		buildEnv: func(in RunInput, apiKey string) []string {
+		buildEnv: func(in RunInput, creds globalproviders.ModelCredentials) []string {
 			localCfg := mergeClaudeCodeConfig(cfg, in.Config.ProviderExt["claudecode"])
-			if apiKey != "" {
-				localCfg.APIKey = apiKey
+			if creds.APIKey != "" {
+				localCfg.APIKey = creds.APIKey
+			}
+			if creds.BaseURL != "" {
+				localCfg.BaseURL = creds.BaseURL
 			}
 			return providers.ClaudeEnv(localCfg)
 		},
-		resolveKey: resolveKey,
+		resolveCreds: resolveCreds,
 		resolver:   resolver,
 		executor:   execFac,
 		logger:     logger.With(slog.String("component", "claudecode_runtime")),
@@ -75,7 +79,7 @@ func NewClaudeCodeRuntime(cfg providers.ClaudeCodeConfig, resolveKey func(ctx co
 }
 
 // NewCodexRuntime builds the codex BotRuntime.
-func NewCodexRuntime(cfg providers.CodexConfig, resolveKey func(ctx context.Context) (string, error), resolver WorkDirResolver, execFac ExecutorFactory, logger *slog.Logger) BotRuntime {
+func NewCodexRuntime(cfg providers.CodexConfig, resolveCreds func(ctx context.Context) (globalproviders.ModelCredentials, error), resolver WorkDirResolver, execFac ExecutorFactory, logger *slog.Logger) BotRuntime {
 	if logger == nil {
 		logger = slog.Default()
 	}
@@ -87,14 +91,17 @@ func NewCodexRuntime(cfg providers.CodexConfig, resolveKey func(ctx context.Cont
 			return providers.CodexBuildArgs(localCfg, prompt)
 		},
 		parseEvent: providers.CodexParseEvent,
-		buildEnv: func(in RunInput, apiKey string) []string {
+		buildEnv: func(in RunInput, creds globalproviders.ModelCredentials) []string {
 			localCfg := mergeCodexConfig(cfg, in.Config.ProviderExt["codex"])
-			if apiKey != "" {
-				localCfg.APIKey = apiKey
+			if creds.APIKey != "" {
+				localCfg.APIKey = creds.APIKey
+			}
+			if creds.BaseURL != "" {
+				localCfg.BaseURL = creds.BaseURL
 			}
 			return providers.CodexEnv(localCfg)
 		},
-		resolveKey: resolveKey,
+		resolveCreds: resolveCreds,
 		resolver:   resolver,
 		executor:   execFac,
 		logger:     logger.With(slog.String("component", "codex_runtime")),
@@ -189,12 +196,9 @@ func (c *cliRuntime) run(ctx context.Context, in RunInput, onEvent func(provider
 	if err != nil {
 		return "", err
 	}
-	var apiKey string
-	if c.resolveKey != nil {
-		apiKey, err = c.resolveKey(ctx)
-		if err != nil {
-			return "", err
-		}
+	creds, err := c.resolveCreds(ctx)
+	if err != nil {
+		return "", err
 	}
 	runner := providers.NewCLIRunner(providers.CLIRunnerConfig{
 		BinaryName: c.binaryName,
@@ -209,7 +213,7 @@ func (c *cliRuntime) run(ctx context.Context, in RunInput, onEvent func(provider
 			return "", err
 		}
 	}
-	return runner.Run(ctx, promptFor(in), workDir, executor, c.buildEnv(in, apiKey))
+	return runner.Run(ctx, promptFor(in), workDir, executor, c.buildEnv(in, creds))
 }
 
 func mergeClaudeCodeConfig(base providers.ClaudeCodeConfig, ext any) providers.ClaudeCodeConfig {

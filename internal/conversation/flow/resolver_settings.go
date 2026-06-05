@@ -102,10 +102,10 @@ func parseLoopDetectionEnabledFromMetadata(payload []byte) bool {
 }
 
 // checkProviderAvailable checks if an enabled provider is available for the given framework.
-// If it is, it returns the resolved API key, otherwise it returns a descriptive validation error.
-func (r *Resolver) checkProviderAvailable(ctx context.Context, framework string) (string, error) {
+// If it is, it returns the resolved credentials, otherwise it returns a descriptive validation error.
+func (r *Resolver) checkProviderAvailable(ctx context.Context, framework string) (providers.ModelCredentials, error) {
 	if r.queries == nil {
-		return "", errors.New("database queries not configured")
+		return providers.ModelCredentials{}, errors.New("database queries not configured")
 	}
-	return providers.ResolveAPIKeyForFramework(ctx, r.queries, framework)
+	return providers.ResolveCredentialsForFramework(ctx, r.queries, framework)
 }

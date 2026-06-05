@@ -8,15 +8,16 @@ import (
 // ClaudeCodeConfig holds configuration for the Claude Code CLI provider.
 type ClaudeCodeConfig struct {
 	APIKey         string   `toml:"api_key"`
+	BaseURL        string   `toml:"base_url"`
 	PermissionMode string   `toml:"permission_mode"`
 	MaxTurns       int      `toml:"max_turns"`
 	AllowedTools   []string `toml:"allowed_tools"`
 	Model          string   `toml:"model"`
 }
 
-// CodexConfig holds configuration for the OpenAI Codex CLI provider.
 type CodexConfig struct {
 	APIKey  string `toml:"api_key"`
+	BaseURL string `toml:"base_url"`
 	Sandbox string `toml:"sandbox"`
 	Model   string `toml:"model"`
 }

@@ -426,9 +426,9 @@ func buildCLIBotRuntimes(log *slog.Logger, queries dbstore.Queries, wsManager *w
 		return "/", nil
 	})
 
-	resolveKey := func(framework string) func(ctx context.Context) (string, error) {
-		return func(ctx context.Context) (string, error) {
-			return providers.ResolveAPIKeyForFramework(ctx, queries, framework)
+	resolveCreds := func(framework string) func(ctx context.Context) (providers.ModelCredentials, error) {
+		return func(ctx context.Context) (providers.ModelCredentials, error) {
+			return providers.ResolveCredentialsForFramework(ctx, queries, framework)
 		}
 	}
 
@@ -444,8 +444,8 @@ func buildCLIBotRuntimes(log *slog.Logger, queries dbstore.Queries, wsManager *w
 	})
 
 	return []botruntime.BotRuntime{
-		botruntime.NewClaudeCodeRuntime(cfgs.ClaudeCode, resolveKey(bots.FrameworkClaudeCode), resolveWorkDir, execFac, log),
-		botruntime.NewCodexRuntime(cfgs.Codex, resolveKey(bots.FrameworkCodex), resolveWorkDir, execFac, log),
+		botruntime.NewClaudeCodeRuntime(cfgs.ClaudeCode, resolveCreds(bots.FrameworkClaudeCode), resolveWorkDir, execFac, log),
+		botruntime.NewCodexRuntime(cfgs.Codex, resolveCreds(bots.FrameworkCodex), resolveWorkDir, execFac, log),
 	}
 }
 
