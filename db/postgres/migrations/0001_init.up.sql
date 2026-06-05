@@ -176,6 +176,7 @@ CREATE TABLE IF NOT EXISTS bots (
   overlay_provider TEXT NOT NULL DEFAULT '',
   overlay_enabled BOOLEAN NOT NULL DEFAULT false,
   overlay_config JSONB NOT NULL DEFAULT '{}'::jsonb,
+  provider_ext JSONB NOT NULL DEFAULT '{}'::jsonb,
   metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),

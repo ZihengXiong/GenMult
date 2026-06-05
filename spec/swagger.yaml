@@ -3428,6 +3428,9 @@ definitions:
         type: string
       persist_full_tool_results:
         type: boolean
+      provider_ext:
+        additionalProperties: {}
+        type: object
       reasoning_effort:
         type: string
       reasoning_enabled:
@@ -3523,6 +3526,9 @@ definitions:
         type: string
       persist_full_tool_results:
         type: boolean
+      provider_ext:
+        additionalProperties: {}
+        type: object
       reasoning_effort:
         type: string
       reasoning_enabled:

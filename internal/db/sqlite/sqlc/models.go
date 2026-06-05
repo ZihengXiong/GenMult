@@ -150,6 +150,7 @@ type Bot struct {
 	CreatedAt              string         `json:"created_at"`
 	UpdatedAt              string         `json:"updated_at"`
 	Framework              string         `json:"framework"`
+	ProviderExt            string         `json:"provider_ext"`
 }
 
 type BotAclRule struct {

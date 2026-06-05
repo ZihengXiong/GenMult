@@ -545,17 +545,18 @@ const form = reactive({
   show_tool_calls_in_im: false,
   display_enabled: false,
   overlay_config: {} as Record<string, any>,
+  provider_ext: {} as Record<string, any>,
 })
 
 const overlayConfigClaudecode = computed({
   get() {
-    if (!form.overlay_config.claudecode) {
-      form.overlay_config.claudecode = {}
+    if (!form.provider_ext.claudecode) {
+      form.provider_ext.claudecode = {}
     }
-    return form.overlay_config.claudecode
+    return form.provider_ext.claudecode
   },
   set(val) {
-    form.overlay_config.claudecode = val
+    form.provider_ext.claudecode = val
   }
 })
 
@@ -699,6 +700,7 @@ watch(settings, (val) => {
     form.show_tool_calls_in_im = val.show_tool_calls_in_im ?? false
     form.display_enabled = val.display_enabled ?? false
     form.overlay_config = JSON.parse(JSON.stringify(val.overlay_config ?? {}))
+    form.provider_ext = JSON.parse(JSON.stringify(val.provider_ext ?? {}))
   }
 }, { immediate: true })
 
@@ -724,6 +726,7 @@ const hasSettingsChanges = computed(() => {
     || form.show_tool_calls_in_im !== (s.show_tool_calls_in_im ?? false)
     || form.display_enabled !== (s.display_enabled ?? false)
     || JSON.stringify(form.overlay_config) !== JSON.stringify(s.overlay_config ?? {})
+    || JSON.stringify(form.provider_ext) !== JSON.stringify(s.provider_ext ?? {})
   )
 })
 

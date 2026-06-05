@@ -15478,6 +15478,10 @@ const docTemplate = `{
                 "persist_full_tool_results": {
                     "type": "boolean"
                 },
+                "provider_ext": {
+                    "type": "object",
+                    "additionalProperties": {}
+                },
                 "reasoning_effort": {
                     "type": "string"
                 },
@@ -15621,6 +15625,10 @@ const docTemplate = `{
                 },
                 "persist_full_tool_results": {
                     "type": "boolean"
+                },
+                "provider_ext": {
+                    "type": "object",
+                    "additionalProperties": {}
                 },
                 "reasoning_effort": {
                     "type": "string"

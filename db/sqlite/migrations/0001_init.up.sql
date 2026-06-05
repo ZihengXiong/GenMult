@@ -172,6 +172,7 @@ CREATE TABLE IF NOT EXISTS bots (
   overlay_provider TEXT NOT NULL DEFAULT '',
   overlay_enabled INTEGER NOT NULL DEFAULT 0,
   overlay_config TEXT NOT NULL DEFAULT '{}',
+  provider_ext TEXT NOT NULL DEFAULT '{}',
   metadata TEXT NOT NULL DEFAULT '{}',
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,

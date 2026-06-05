@@ -2008,6 +2008,9 @@ export type SettingsSettings = {
     overlay_enabled?: boolean;
     overlay_provider?: string;
     persist_full_tool_results?: boolean;
+    provider_ext?: {
+        [key: string]: unknown;
+    };
     reasoning_effort?: string;
     reasoning_enabled?: boolean;
     search_provider_id?: string;
@@ -2059,6 +2062,9 @@ export type SettingsUpsertRequest = {
     overlay_enabled?: boolean;
     overlay_provider?: string;
     persist_full_tool_results?: boolean;
+    provider_ext?: {
+        [key: string]: unknown;
+    };
     reasoning_effort?: string;
     reasoning_enabled?: boolean;
     search_provider_id?: string;

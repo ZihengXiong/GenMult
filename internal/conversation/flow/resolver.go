@@ -578,7 +578,7 @@ func (r *Resolver) buildBaseRunConfig(ctx context.Context, p baseRunConfigParams
 			},
 			Query:         "",
 			LoopDetection: agentpkg.LoopDetectionConfig{Enabled: loopDetectionEnabled},
-			ProviderExt:   botSettings.OverlayConfig,
+			ProviderExt:   botSettings.ProviderExt,
 		}
 		return cfg, chatModel, provider, nil
 	}
@@ -655,7 +655,7 @@ func (r *Resolver) buildBaseRunConfig(ctx context.Context, p baseRunConfigParams
 		Skills:            agentSkills,
 		LoopDetection:     agentpkg.LoopDetectionConfig{Enabled: loopDetectionEnabled},
 		BackgroundManager: r.bgManager,
-		ProviderExt:       botSettings.OverlayConfig,
+		ProviderExt:   botSettings.ProviderExt,
 	}
 	if r.toolApproval != nil {
 		cfg.ToolApprovalHandler = r.buildToolApprovalHandler(p)

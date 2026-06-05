@@ -144,6 +144,7 @@ type Bot struct {
 	OverlayProvider        string             `json:"overlay_provider"`
 	OverlayEnabled         bool               `json:"overlay_enabled"`
 	OverlayConfig          []byte             `json:"overlay_config"`
+	ProviderExt            []byte             `json:"provider_ext"`
 	Metadata               []byte             `json:"metadata"`
 	CreatedAt              pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt              pgtype.Timestamptz `json:"updated_at"`

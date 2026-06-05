@@ -93,6 +93,9 @@ func (s *Service) UpsertBot(ctx context.Context, botID string, req UpsertRequest
 	current.OverlayEnabled = overlayBindingRow.OverlayEnabled
 	current.OverlayProvider = strings.TrimSpace(overlayBindingRow.OverlayProvider)
 	current.OverlayConfig = normalizeJSONObject(overlayBindingRow.OverlayConfig)
+	if settingsRow, err := s.queries.GetSettingsByBotID(ctx, pgID); err == nil {
+		current.ProviderExt = normalizeJSONObject(settingsRow.ProviderExt)
+	}
 	if strings.TrimSpace(req.Language) != "" {
 		current.Language = strings.TrimSpace(req.Language)
 	}
@@ -148,6 +151,9 @@ func (s *Service) UpsertBot(ctx context.Context, botID string, req UpsertRequest
 	}
 	if req.OverlayConfig != nil {
 		current.OverlayConfig = req.OverlayConfig
+	}
+	if req.ProviderExt != nil {
+		current.ProviderExt = req.ProviderExt
 	}
 	chatModelUUID := pgtype.UUID{}
 	if value := strings.TrimSpace(req.ChatModelID); value != "" {
@@ -255,6 +261,10 @@ func (s *Service) UpsertBot(ctx context.Context, botID string, req UpsertRequest
 	if err != nil {
 		return Settings{}, rollbackNetworkChange(fmt.Errorf("marshal network config: %w", err))
 	}
+	providerExtJSON, err := json.Marshal(current.ProviderExt)
+	if err != nil {
+		return Settings{}, rollbackNetworkChange(fmt.Errorf("marshal provider_ext: %w", err))
+	}
 	updated, err := s.queries.UpsertBotSettings(ctx, sqlc.UpsertBotSettingsParams{
 		ID:                     pgID,
 		Timezone:               timezoneValue,
@@ -283,6 +293,7 @@ func (s *Service) UpsertBot(ctx context.Context, botID string, req UpsertRequest
 		OverlayProvider:        normalizedNetwork.OverlayProvider,
 		OverlayEnabled:         normalizedNetwork.OverlayEnabled,
 		OverlayConfig:          overlayConfigJSON,
+		ProviderExt:            providerExtJSON,
 	})
 	if err != nil {
 		return Settings{}, rollbackNetworkChange(err)
@@ -346,6 +357,7 @@ func normalizeBotSetting(language string, aclDefaultEffect string, reasoningEnab
 		settings.CompactionRatio = 80
 	}
 	settings.OverlayConfig = map[string]any{}
+	settings.ProviderExt = map[string]any{}
 	return settings
 }
 
@@ -385,6 +397,7 @@ func normalizeBotSettingsReadRow(row sqlc.GetSettingsByBotIDRow) Settings {
 		row.OverlayProvider,
 		row.OverlayEnabled,
 		row.OverlayConfig,
+		row.ProviderExt,
 	)
 }
 
@@ -415,6 +428,7 @@ func normalizeBotSettingsWriteRow(row sqlc.UpsertBotSettingsRow) Settings {
 		row.OverlayProvider,
 		row.OverlayEnabled,
 		row.OverlayConfig,
+		row.ProviderExt,
 	)
 }
 
@@ -444,6 +458,7 @@ func normalizeBotSettingsFields(
 	overlayProvider string,
 	overlayEnabled bool,
 	overlayConfig []byte,
+	providerExt []byte,
 ) Settings {
 	settings := normalizeBotSetting(language, "", reasoningEnabled, reasoningEffort, heartbeatEnabled, heartbeatInterval, compactionEnabled, compactionThreshold, compactionRatio)
 	if timezone.Valid {
@@ -483,6 +498,7 @@ func normalizeBotSettingsFields(
 	settings.OverlayProvider = strings.TrimSpace(overlayProvider)
 	settings.OverlayEnabled = overlayEnabled
 	settings.OverlayConfig = normalizeJSONObject(overlayConfig)
+	settings.ProviderExt = normalizeJSONObject(providerExt)
 	return settings
 }
 
