@@ -49,7 +49,7 @@ func (h *AgentHubHandler) Register(e *echo.Echo) {
 // @Success 200 {object} agenthub.ListRoomsResponse
 // @Failure 401 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
-// @Router /agent-hub/rooms [get]
+// @Router /agent-hub/rooms [get].
 func (h *AgentHubHandler) ListRooms(c echo.Context) error {
 	ownerID, err := auth.UserIDFromContext(c)
 	if err != nil {
@@ -73,7 +73,7 @@ func (h *AgentHubHandler) ListRooms(c echo.Context) error {
 // @Failure 400 {object} ErrorResponse
 // @Failure 401 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
-// @Router /agent-hub/rooms [post]
+// @Router /agent-hub/rooms [post].
 func (h *AgentHubHandler) CreateRoom(c echo.Context) error {
 	ownerID, err := auth.UserIDFromContext(c)
 	if err != nil {
@@ -101,7 +101,7 @@ func (h *AgentHubHandler) CreateRoom(c echo.Context) error {
 // @Failure 401 {object} ErrorResponse
 // @Failure 404 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
-// @Router /agent-hub/rooms/{room_id} [get]
+// @Router /agent-hub/rooms/{room_id} [get].
 func (h *AgentHubHandler) GetRoom(c echo.Context) error {
 	ownerID, err := auth.UserIDFromContext(c)
 	if err != nil {
@@ -127,7 +127,7 @@ func (h *AgentHubHandler) GetRoom(c echo.Context) error {
 // @Failure 401 {object} ErrorResponse
 // @Failure 404 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
-// @Router /agent-hub/rooms/{room_id} [put]
+// @Router /agent-hub/rooms/{room_id} [put].
 func (h *AgentHubHandler) UpdateRoom(c echo.Context) error {
 	ownerID, err := auth.UserIDFromContext(c)
 	if err != nil {
@@ -153,7 +153,7 @@ func (h *AgentHubHandler) UpdateRoom(c echo.Context) error {
 // @Failure 400 {object} ErrorResponse
 // @Failure 401 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
-// @Router /agent-hub/rooms/{room_id} [delete]
+// @Router /agent-hub/rooms/{room_id} [delete].
 func (h *AgentHubHandler) DeleteRoom(c echo.Context) error {
 	ownerID, err := auth.UserIDFromContext(c)
 	if err != nil {
@@ -178,7 +178,7 @@ func (h *AgentHubHandler) DeleteRoom(c echo.Context) error {
 // @Failure 401 {object} ErrorResponse
 // @Failure 404 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
-// @Router /agent-hub/rooms/{room_id}/agents [post]
+// @Router /agent-hub/rooms/{room_id}/agents [post].
 func (h *AgentHubHandler) AddAgent(c echo.Context) error {
 	ownerID, err := auth.UserIDFromContext(c)
 	if err != nil {
@@ -207,7 +207,7 @@ func (h *AgentHubHandler) AddAgent(c echo.Context) error {
 // @Failure 401 {object} ErrorResponse
 // @Failure 404 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
-// @Router /agent-hub/rooms/{room_id}/agents/{agent_id} [delete]
+// @Router /agent-hub/rooms/{room_id}/agents/{agent_id} [delete].
 func (h *AgentHubHandler) RemoveAgent(c echo.Context) error {
 	ownerID, err := auth.UserIDFromContext(c)
 	if err != nil {
@@ -232,7 +232,7 @@ func (h *AgentHubHandler) RemoveAgent(c echo.Context) error {
 // @Failure 401 {object} ErrorResponse
 // @Failure 404 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
-// @Router /agent-hub/rooms/{room_id}/messages [get]
+// @Router /agent-hub/rooms/{room_id}/messages [get].
 func (h *AgentHubHandler) ListMessages(c echo.Context) error {
 	ownerID, err := auth.UserIDFromContext(c)
 	if err != nil {
@@ -244,7 +244,7 @@ func (h *AgentHubHandler) ListMessages(c echo.Context) error {
 		if err != nil || parsed <= 0 {
 			return echo.NewHTTPError(http.StatusBadRequest, "invalid limit")
 		}
-		limit = int32(parsed)
+		limit = int32(parsed) //nolint:gosec // parsed from string, acceptable to wrap
 	}
 	resp, err := h.service.ListMessages(c.Request().Context(), ownerID, c.Param("room_id"), limit)
 	if err != nil {
@@ -266,7 +266,7 @@ func (h *AgentHubHandler) ListMessages(c echo.Context) error {
 // @Failure 401 {object} ErrorResponse
 // @Failure 404 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
-// @Router /agent-hub/rooms/{room_id}/messages [post]
+// @Router /agent-hub/rooms/{room_id}/messages [post].
 func (h *AgentHubHandler) CreateMessage(c echo.Context) error {
 	ownerID, err := auth.UserIDFromContext(c)
 	if err != nil {

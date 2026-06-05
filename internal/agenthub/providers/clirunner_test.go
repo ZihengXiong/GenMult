@@ -84,10 +84,10 @@ echo '{"type":"result"}'`
 func TestCLIRunner_Run_FailFast(t *testing.T) {
 	cfg := CLIRunnerConfig{
 		BinaryName: "nonexistent-binary-xyz-12345",
-		BuildArgs: func(prompt string) []string {
+		BuildArgs: func(_ string) []string {
 			return nil
 		},
-		ParseEvent: func(line []byte) (CLIEvent, error) {
+		ParseEvent: func(_ []byte) (CLIEvent, error) {
 			return CLIEvent{}, nil
 		},
 	}
@@ -106,7 +106,7 @@ func TestCLIRunner_Run_Timeout(t *testing.T) {
 		BuildArgs: func(prompt string) []string {
 			return []string{"-c", prompt}
 		},
-		ParseEvent: func(line []byte) (CLIEvent, error) {
+		ParseEvent: func(_ []byte) (CLIEvent, error) {
 			return CLIEvent{}, nil
 		},
 	}
@@ -165,7 +165,7 @@ func (m *mockExecHandle) Chunks() <-chan ExecChunk {
 	return m.chunks
 }
 
-func (m *mockExecHandle) Wait() (int, error) {
+func (*mockExecHandle) Wait() (int, error) {
 	return 0, nil
 }
 
@@ -174,11 +174,11 @@ type mockCommandExecutor struct {
 	chunks []ExecChunk
 }
 
-func (m *mockCommandExecutor) LookPath(bin string) (string, error) {
+func (*mockCommandExecutor) LookPath(bin string) (string, error) {
 	return "/mock/path/" + bin, nil
 }
 
-func (m *mockCommandExecutor) Start(ctx context.Context, req ExecRequest) (ExecHandle, error) {
+func (m *mockCommandExecutor) Start(_ context.Context, _ ExecRequest) (ExecHandle, error) {
 	ch := make(chan ExecChunk, len(m.chunks)+1)
 	for _, chunk := range m.chunks {
 		ch <- chunk
@@ -199,7 +199,7 @@ func TestCLIRunner_ChunkBuffering(t *testing.T) {
 
 	cfg := CLIRunnerConfig{
 		BinaryName: "mock-cli",
-		BuildArgs: func(prompt string) []string {
+		BuildArgs: func(_ string) []string {
 			return nil
 		},
 		ParseEvent: func(line []byte) (CLIEvent, error) {

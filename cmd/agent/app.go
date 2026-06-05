@@ -413,13 +413,13 @@ func provideChatResolver(log *slog.Logger, a *agentpkg.Agent, modelsService *mod
 // buildCLIBotRuntimes constructs the CLI-backed bot runtimes (claudecode,
 // codex). Provider config is sourced from environment defaults; the work dir is
 // resolved per-bot from the workspace manager.
-func buildCLIBotRuntimes(log *slog.Logger, queries dbstore.Queries, wsManager *workspace.Manager) []botruntime.BotRuntime {
+func buildCLIBotRuntimes(log *slog.Logger, queries dbstore.Queries, _ *workspace.Manager) []botruntime.BotRuntime {
 	var cfgs agenthubproviders.ProviderConfigs
 	cfgs.FromEnvWithDefaults()
 
-	resolveWorkDir := botruntime.WorkDirResolverFunc(func(ctx context.Context, botID string) (string, error) {
+	resolveWorkDir := botruntime.WorkDirResolverFunc(func(_ context.Context, botID string) (string, error) {
 		dir := filepath.Join(os.TempDir(), "memoh_cli_bots", botID)
-		if err := os.MkdirAll(dir, 0755); err != nil {
+		if err := os.MkdirAll(dir, 0o755); err != nil { //nolint:gosec // intentional: bot workspace dir needs exec for shell cmds
 			return "", err
 		}
 		return dir, nil
@@ -431,7 +431,7 @@ func buildCLIBotRuntimes(log *slog.Logger, queries dbstore.Queries, wsManager *w
 		}
 	}
 
-	execFac := botruntime.ExecutorFactory(func(ctx context.Context, botID string) (agenthubproviders.CommandExecutor, error) {
+	execFac := botruntime.ExecutorFactory(func(_ context.Context, _ string) (agenthubproviders.CommandExecutor, error) {
 		return agenthubproviders.NewHostExecutor(), nil
 	})
 

@@ -64,12 +64,12 @@ func NewClaudeCodeProvider(config ClaudeCodeConfig, wsInfo WorkspaceResolver, st
 }
 
 // Name returns the provider's registered name.
-func (p *ClaudeCodeProvider) Name() string {
+func (*ClaudeCodeProvider) Name() string {
 	return "claudecode"
 }
 
 // Capabilities returns the provider's supported capabilities.
-func (p *ClaudeCodeProvider) Capabilities() []string {
+func (*ClaudeCodeProvider) Capabilities() []string {
 	return []string{"code", "review"}
 }
 

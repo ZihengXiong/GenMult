@@ -320,7 +320,7 @@ func (s *SQLStore) ListRunsByStatus(ctx context.Context, statuses ...RunStatus) 
 		if err != nil {
 			return nil, err
 		}
-		defer rows.Close()
+		defer func() { _ = rows.Close() }()
 		for rows.Next() {
 			var id string
 			if err := rows.Scan(&id); err != nil {
@@ -443,7 +443,7 @@ func (s *SQLStore) ListTasks(ctx context.Context, runID string) ([]Task, error) 
 	if runID == "" {
 		return nil, ErrInvalidInput
 	}
-	query := `SELECT id, run_id, COALESCE(parent_task_id,''), title, description, assigned_agent_id, provider_name, priority, status, timeout_ms, max_retries, attempt_count, idempotency_key, metadata, created_at_ms, updated_at_ms FROM agent_hub_tasks WHERE run_id=` + s.placeholder(1) + ` ORDER BY created_at_ms ASC`
+	query := `SELECT id, run_id, COALESCE(parent_task_id,''), title, description, assigned_agent_id, provider_name, priority, status, timeout_ms, max_retries, attempt_count, idempotency_key, metadata, created_at_ms, updated_at_ms FROM agent_hub_tasks WHERE run_id=` + s.placeholder(1) + ` ORDER BY created_at_ms ASC` //nolint:gosec // safe interpolation of placeholders
 	args := []any{runID}
 	out := make([]Task, 0)
 	if s.dialect == dialectPostgres {
@@ -468,7 +468,7 @@ func (s *SQLStore) ListTasks(ctx context.Context, runID string) ([]Task, error) 
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	for rows.Next() {
 		task, err := scanTaskSQLite(rows)
 		if err != nil {
@@ -531,7 +531,7 @@ func (s *SQLStore) IncrementTaskAttempt(ctx context.Context, taskID string) (Tas
 
 func (s *SQLStore) getTask(ctx context.Context, taskID string) (Task, error) {
 	taskID = strings.TrimSpace(taskID)
-	query := `SELECT id, run_id, COALESCE(parent_task_id,''), title, description, assigned_agent_id, provider_name, priority, status, timeout_ms, max_retries, attempt_count, idempotency_key, metadata, created_at_ms, updated_at_ms FROM agent_hub_tasks WHERE id=` + s.placeholder(1)
+	query := `SELECT id, run_id, COALESCE(parent_task_id,''), title, description, assigned_agent_id, provider_name, priority, status, timeout_ms, max_retries, attempt_count, idempotency_key, metadata, created_at_ms, updated_at_ms FROM agent_hub_tasks WHERE id=` + s.placeholder(1) //nolint:gosec // safe interpolation of placeholders
 	if s.dialect == dialectPostgres {
 		row := s.pg.QueryRow(ctx, query, taskID)
 		return scanTaskPG(row)
@@ -542,7 +542,7 @@ func (s *SQLStore) getTask(ctx context.Context, taskID string) (Task, error) {
 
 func (s *SQLStore) ListDependencies(ctx context.Context, runID string) ([]TaskDependency, error) {
 	runID = strings.TrimSpace(runID)
-	query := `SELECT run_id, task_id, depends_on_task_id FROM agent_hub_task_deps WHERE run_id=` + s.placeholder(1) + ` ORDER BY task_id ASC`
+	query := `SELECT run_id, task_id, depends_on_task_id FROM agent_hub_task_deps WHERE run_id=` + s.placeholder(1) + ` ORDER BY task_id ASC` //nolint:gosec // safe interpolation of placeholders
 	out := make([]TaskDependency, 0)
 	if s.dialect == dialectPostgres {
 		rows, err := s.pg.Query(ctx, query, runID)
@@ -566,7 +566,7 @@ func (s *SQLStore) ListDependencies(ctx context.Context, runID string) ([]TaskDe
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	for rows.Next() {
 		var dep TaskDependency
 		if err := rows.Scan(&dep.RunID, &dep.TaskID, &dep.DependsOnTaskID); err != nil {
@@ -620,7 +620,7 @@ func (s *SQLStore) CompleteAttempt(ctx context.Context, attemptID string, status
 }
 
 func (s *SQLStore) ListAttempts(ctx context.Context, runID string) ([]TaskAttempt, error) {
-	query := `SELECT id, task_id, run_id, attempt_no, provider_name, agent_id, status, input_payload, output_payload, error_message, retryable, started_at_ms, finished_at_ms, idempotency_key FROM agent_hub_task_attempts WHERE run_id=` + s.placeholder(1) + ` ORDER BY started_at_ms ASC, attempt_no ASC`
+	query := `SELECT id, task_id, run_id, attempt_no, provider_name, agent_id, status, input_payload, output_payload, error_message, retryable, started_at_ms, finished_at_ms, idempotency_key FROM agent_hub_task_attempts WHERE run_id=` + s.placeholder(1) + ` ORDER BY started_at_ms ASC, attempt_no ASC` //nolint:gosec // safe interpolation of placeholders
 	out := make([]TaskAttempt, 0)
 	if s.dialect == dialectPostgres {
 		rows, err := s.pg.Query(ctx, query, runID)
@@ -644,7 +644,7 @@ func (s *SQLStore) ListAttempts(ctx context.Context, runID string) ([]TaskAttemp
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	for rows.Next() {
 		attempt, err := scanAttemptSQLite(rows)
 		if err != nil {
@@ -659,7 +659,7 @@ func (s *SQLStore) ListAttempts(ctx context.Context, runID string) ([]TaskAttemp
 }
 
 func (s *SQLStore) getAttempt(ctx context.Context, attemptID string) (TaskAttempt, error) {
-	query := `SELECT id, task_id, run_id, attempt_no, provider_name, agent_id, status, input_payload, output_payload, error_message, retryable, started_at_ms, finished_at_ms, idempotency_key FROM agent_hub_task_attempts WHERE id=` + s.placeholder(1)
+	query := `SELECT id, task_id, run_id, attempt_no, provider_name, agent_id, status, input_payload, output_payload, error_message, retryable, started_at_ms, finished_at_ms, idempotency_key FROM agent_hub_task_attempts WHERE id=` + s.placeholder(1) //nolint:gosec // safe interpolation of placeholders
 	if s.dialect == dialectPostgres {
 		row := s.pg.QueryRow(ctx, query, attemptID)
 		return scanAttemptPG(row)
@@ -707,7 +707,7 @@ func (s *SQLStore) ListEvents(ctx context.Context, runID string, afterSeq int64,
 	if limit <= 0 || limit > 500 {
 		limit = 200
 	}
-	query := `SELECT id, run_id, COALESCE(task_id,''), seq, type, payload, created_at_ms FROM agent_hub_run_events WHERE run_id=` + s.placeholder(1) + ` AND seq > ` + s.placeholder(2) + ` ORDER BY seq ASC LIMIT ` + s.placeholder(3)
+	query := `SELECT id, run_id, COALESCE(task_id,''), seq, type, payload, created_at_ms FROM agent_hub_run_events WHERE run_id=` + s.placeholder(1) + ` AND seq > ` + s.placeholder(2) + ` ORDER BY seq ASC LIMIT ` + s.placeholder(3) //nolint:gosec // safe interpolation of placeholders
 	out := make([]RunEvent, 0)
 	if s.dialect == dialectPostgres {
 		rows, err := s.pg.Query(ctx, query, runID, afterSeq, limit)
@@ -731,7 +731,7 @@ func (s *SQLStore) ListEvents(ctx context.Context, runID string, afterSeq int64,
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	for rows.Next() {
 		event, err := scanEventSQLite(rows)
 		if err != nil {

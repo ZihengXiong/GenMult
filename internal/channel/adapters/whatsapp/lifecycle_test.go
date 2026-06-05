@@ -45,7 +45,7 @@ func TestHandleLoggedOutDisablesConfig(t *testing.T) {
 	}
 }
 
-func TestHandleLoggedOutNoOpWithoutLifecycle(t *testing.T) {
+func TestHandleLoggedOutNoOpWithoutLifecycle(_ *testing.T) {
 	a := &WhatsAppAdapter{}
 	// No panic and no observable side effects expected.
 	a.handleLoggedOut(context.Background(), channel.ChannelConfig{ID: "cfg-2", BotID: "bot-2"})

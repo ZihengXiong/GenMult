@@ -51,4 +51,3 @@ func canTransitionTask(from, to TaskStatus) bool {
 		return false
 	}
 }
-

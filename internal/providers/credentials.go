@@ -129,4 +129,3 @@ func ResolveCredentialsForFramework(ctx context.Context, queries dbstore.Queries
 
 	return creds, nil
 }
-

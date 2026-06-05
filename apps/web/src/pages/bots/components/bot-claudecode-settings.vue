@@ -59,7 +59,10 @@
           </p>
         </div>
       </template>
-      <div v-else class="text-xs text-muted-foreground bg-muted/40 p-2 rounded-md">
+      <div
+        v-else
+        class="text-xs text-muted-foreground bg-muted/40 p-2 rounded-md"
+      >
         Currently using global/main provider credentials.
       </div>
     </div>
@@ -72,10 +75,20 @@
         placeholder="e.g. sonnet, deepseek-v4-flash, or leave empty for global default"
       />
       <datalist id="claude-models-list">
-        <option value="sonnet">Claude 3.7 Sonnet (Default)</option>
-        <option value="opus">Claude 3 Opus</option>
-        <option value="haiku">Claude 3.5 Haiku</option>
-        <option v-for="m in props.models" :key="m.id" :value="m.model_id">
+        <option value="sonnet">
+          Claude 3.7 Sonnet (Default)
+        </option>
+        <option value="opus">
+          Claude 3 Opus
+        </option>
+        <option value="haiku">
+          Claude 3.5 Haiku
+        </option>
+        <option
+          v-for="m in props.models"
+          :key="m.id"
+          :value="m.model_id"
+        >
           {{ m.name }}
         </option>
       </datalist>
@@ -133,15 +146,36 @@
     <div class="space-y-2">
       <Label>Custom Environment Variables</Label>
       <div class="space-y-2">
-        <div v-for="(v, idx) in envList" :key="idx" class="flex items-center gap-2">
-          <Input v-model="v.key" placeholder="Key (e.g. CLAUDE_CODE_SUBAGENT_MODEL)" class="flex-1" />
-          <Input v-model="v.value" placeholder="Value" class="flex-1" />
-          <Button variant="ghost" size="icon" class="shrink-0" @click="removeEnv(idx)">
+        <div
+          v-for="(v, idx) in envList"
+          :key="idx"
+          class="flex items-center gap-2"
+        >
+          <Input
+            v-model="v.key"
+            placeholder="Key (e.g. CLAUDE_CODE_SUBAGENT_MODEL)"
+            class="flex-1"
+          />
+          <Input
+            v-model="v.value"
+            placeholder="Value"
+            class="flex-1"
+          />
+          <Button
+            variant="ghost"
+            size="icon"
+            class="shrink-0"
+            @click="removeEnv(idx)"
+          >
             <Trash class="size-4 text-destructive" />
           </Button>
         </div>
       </div>
-      <Button variant="outline" size="sm" @click="addEnv">
+      <Button
+        variant="outline"
+        size="sm"
+        @click="addEnv"
+      >
         <Plus class="size-4 mr-2" />
         Add Variable
       </Button>

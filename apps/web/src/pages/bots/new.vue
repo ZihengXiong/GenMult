@@ -214,41 +214,40 @@
 
       <!-- Model (only for memoh framework) -->
       <template v-if="form.framework === 'memoh'">
+        <div>
+          <h3 class="text-sm font-medium mb-4">
+            {{ $t('bots.steps.model') }}
+          </h3>
+          <p class="text-xs text-muted-foreground mb-3">
+            {{ $t('bots.steps.modelDesc') }}
+          </p>
+          <Label class="mb-2">{{ $t('bots.settings.chatModel') }}</Label>
+          <ModelSelect
+            v-model="form.chat_model_id"
+            :models="models"
+            :providers="providers"
+            model-type="chat"
+            :placeholder="$t('common.none')"
+          />
+        </div>
 
-      <div>
-        <h3 class="text-sm font-medium mb-4">
-          {{ $t('bots.steps.model') }}
-        </h3>
-        <p class="text-xs text-muted-foreground mb-3">
-          {{ $t('bots.steps.modelDesc') }}
-        </p>
-        <Label class="mb-2">{{ $t('bots.settings.chatModel') }}</Label>
-        <ModelSelect
-          v-model="form.chat_model_id"
-          :models="models"
-          :providers="providers"
-          model-type="chat"
-          :placeholder="$t('common.none')"
-        />
-      </div>
+        <Separator class="my-6" />
 
-      <Separator class="my-6" />
-
-      <!-- Memory -->
-      <div>
-        <h3 class="text-sm font-medium mb-4">
-          {{ $t('bots.steps.memory') }}
-        </h3>
-        <p class="text-xs text-muted-foreground mb-3">
-          {{ $t('bots.steps.memoryDesc') }}
-        </p>
-        <Label class="mb-2">{{ $t('bots.settings.memoryProvider') }}</Label>
-        <MemoryProviderSelect
-          v-model="form.memory_provider_id"
-          :providers="memoryProviders"
-          :placeholder="$t('common.none')"
-        />
-      </div>
+        <!-- Memory -->
+        <div>
+          <h3 class="text-sm font-medium mb-4">
+            {{ $t('bots.steps.memory') }}
+          </h3>
+          <p class="text-xs text-muted-foreground mb-3">
+            {{ $t('bots.steps.memoryDesc') }}
+          </p>
+          <Label class="mb-2">{{ $t('bots.settings.memoryProvider') }}</Label>
+          <MemoryProviderSelect
+            v-model="form.memory_provider_id"
+            :providers="memoryProviders"
+            :placeholder="$t('common.none')"
+          />
+        </div>
       </template>
 
       <Separator class="my-6" />
@@ -421,8 +420,8 @@ watch(() => form.local_workspace_path, (newPath) => {
       if (data && !data.valid) {
         localWorkspaceError.value = data.error || 'Invalid directory'
       }
-    } catch (err: any) {
-      localWorkspaceError.value = err.message || 'Failed to validate directory'
+    } catch (err: unknown) {
+      localWorkspaceError.value = err instanceof Error ? err.message : 'Failed to validate directory'
     } finally {
       localWorkspaceValidating.value = false
     }

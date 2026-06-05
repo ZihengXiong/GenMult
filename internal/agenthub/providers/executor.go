@@ -2,6 +2,7 @@ package providers
 
 import (
 	"context"
+	"errors"
 	"os"
 	"os/exec"
 	"sync"
@@ -14,7 +15,7 @@ type ExecRequest struct {
 	Args    []string
 	WorkDir string
 	Stdin   string
-	Env     []string      // Environment variables, e.g. API keys.
+	Env     []string // Environment variables, e.g. API keys.
 	Timeout time.Duration
 }
 
@@ -45,18 +46,18 @@ func NewHostExecutor() *HostExecutor {
 }
 
 // LookPath searches for an executable binary in the host's PATH.
-func (e *HostExecutor) LookPath(bin string) (string, error) {
+func (*HostExecutor) LookPath(bin string) (string, error) {
 	return exec.LookPath(bin)
 }
 
 // Start spawns a command locally and streams output.
-func (e *HostExecutor) Start(ctx context.Context, req ExecRequest) (ExecHandle, error) {
+func (*HostExecutor) Start(ctx context.Context, req ExecRequest) (ExecHandle, error) {
 	binPath, err := exec.LookPath(req.Bin)
 	if err != nil {
 		return nil, err
 	}
 
-	cmd := exec.CommandContext(ctx, binPath, req.Args...)
+	cmd := exec.CommandContext(ctx, binPath, req.Args...) //nolint:gosec // intentional: execution of agent-provided commands
 	cmd.Dir = req.WorkDir
 	if len(req.Env) > 0 {
 		cmd.Env = append(os.Environ(), req.Env...)
@@ -135,10 +136,10 @@ func (e *HostExecutor) Start(ctx context.Context, req ExecRequest) (ExecHandle, 
 }
 
 type hostExecHandle struct {
-	cmd        *exec.Cmd
-	chunksChan chan ExecChunk
-	wg         sync.WaitGroup
-	waitOnce   sync.Once
+	cmd          *exec.Cmd
+	chunksChan   chan ExecChunk
+	wg           sync.WaitGroup
+	waitOnce     sync.Once
 	waitExitCode int
 	waitErr      error
 }
@@ -154,7 +155,8 @@ func (h *hostExecHandle) Wait() (int, error) {
 	h.waitOnce.Do(func() {
 		h.waitErr = h.cmd.Wait()
 		if h.waitErr != nil {
-			if exitErr, ok := h.waitErr.(*exec.ExitError); ok {
+			exitErr := &exec.ExitError{}
+			if errors.As(h.waitErr, &exitErr) {
 				h.waitExitCode = exitErr.ExitCode()
 			} else {
 				h.waitExitCode = -1

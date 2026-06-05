@@ -30,4 +30,3 @@ func (m memohRuntime) Generate(ctx context.Context, in RunInput) (*agentpkg.Gene
 }
 
 func (memohRuntime) IdleTimeout() time.Duration { return 0 }
-

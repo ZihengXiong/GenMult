@@ -7,18 +7,18 @@ import (
 
 // ClaudeCodeConfig holds configuration for the Claude Code CLI provider.
 type ClaudeCodeConfig struct {
-	APIKey         string   `toml:"api_key"`
-	AuthToken      string   `toml:"auth_token"`
-	BaseURL        string   `toml:"base_url"`
-	PermissionMode string   `toml:"permission_mode"`
-	MaxTurns       int      `toml:"max_turns"`
+	APIKey         string            `toml:"api_key"`    //nolint:gosec // intentional: struct field for config parsing
+	AuthToken      string            `toml:"auth_token"` //nolint:gosec // intentional: struct field for config parsing
+	BaseURL        string            `toml:"base_url"`
+	PermissionMode string            `toml:"permission_mode"`
+	MaxTurns       int               `toml:"max_turns"`
 	Model          string            `toml:"model"`
 	CustomEnv      map[string]string `toml:"custom_env"`
 	AllowedTools   []string          `toml:"allowed_tools"`
 }
 
 type CodexConfig struct {
-	APIKey  string `toml:"api_key"`
+	APIKey  string `toml:"api_key"` //nolint:gosec // intentional: struct field for config parsing
 	BaseURL string `toml:"base_url"`
 	Sandbox string `toml:"sandbox"`
 	Model   string `toml:"model"`

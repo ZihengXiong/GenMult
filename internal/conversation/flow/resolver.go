@@ -22,6 +22,7 @@ import (
 	"github.com/ZihengXiong/GenMult/internal/accounts"
 	agentpkg "github.com/ZihengXiong/GenMult/internal/agent"
 	"github.com/ZihengXiong/GenMult/internal/agent/background"
+	"github.com/ZihengXiong/GenMult/internal/bots"
 	"github.com/ZihengXiong/GenMult/internal/channel"
 	"github.com/ZihengXiong/GenMult/internal/compaction"
 	"github.com/ZihengXiong/GenMult/internal/conversation"
@@ -31,7 +32,6 @@ import (
 	memprovider "github.com/ZihengXiong/GenMult/internal/memory/adapters"
 	messagepkg "github.com/ZihengXiong/GenMult/internal/message"
 	messageevent "github.com/ZihengXiong/GenMult/internal/message/event"
-	"github.com/ZihengXiong/GenMult/internal/bots"
 	"github.com/ZihengXiong/GenMult/internal/models"
 	"github.com/ZihengXiong/GenMult/internal/oauthctx"
 	pipelinepkg "github.com/ZihengXiong/GenMult/internal/pipeline"
@@ -655,7 +655,7 @@ func (r *Resolver) buildBaseRunConfig(ctx context.Context, p baseRunConfigParams
 		Skills:            agentSkills,
 		LoopDetection:     agentpkg.LoopDetectionConfig{Enabled: loopDetectionEnabled},
 		BackgroundManager: r.bgManager,
-		ProviderExt:   botSettings.ProviderExt,
+		ProviderExt:       botSettings.ProviderExt,
 	}
 	if r.toolApproval != nil {
 		cfg.ToolApprovalHandler = r.buildToolApprovalHandler(p)

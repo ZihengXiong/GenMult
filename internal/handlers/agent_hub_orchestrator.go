@@ -52,7 +52,7 @@ func (h *AgentHubOrchestratorHandler) Register(e *echo.Echo) {
 // @Failure 401 {object} ErrorResponse
 // @Failure 404 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
-// @Router /agent-hub/rooms/{room_id}/runs [post]
+// @Router /agent-hub/rooms/{room_id}/runs [post].
 func (h *AgentHubOrchestratorHandler) StartRun(c echo.Context) error {
 	ownerID, err := auth.UserIDFromContext(c)
 	if err != nil {
@@ -80,7 +80,7 @@ func (h *AgentHubOrchestratorHandler) StartRun(c echo.Context) error {
 // @Failure 401 {object} ErrorResponse
 // @Failure 404 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
-// @Router /agent-hub/runs/{run_id} [get]
+// @Router /agent-hub/runs/{run_id} [get].
 func (h *AgentHubOrchestratorHandler) GetRun(c echo.Context) error {
 	ownerID, err := auth.UserIDFromContext(c)
 	if err != nil {
@@ -104,7 +104,7 @@ func (h *AgentHubOrchestratorHandler) GetRun(c echo.Context) error {
 // @Failure 401 {object} ErrorResponse
 // @Failure 404 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
-// @Router /agent-hub/runs/{run_id}/reconcile [post]
+// @Router /agent-hub/runs/{run_id}/reconcile [post].
 func (h *AgentHubOrchestratorHandler) ReconcileRun(c echo.Context) error {
 	ownerID, err := auth.UserIDFromContext(c)
 	if err != nil {
@@ -128,7 +128,7 @@ func (h *AgentHubOrchestratorHandler) ReconcileRun(c echo.Context) error {
 // @Failure 401 {object} ErrorResponse
 // @Failure 404 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
-// @Router /agent-hub/runs/{run_id}/cancel [post]
+// @Router /agent-hub/runs/{run_id}/cancel [post].
 func (h *AgentHubOrchestratorHandler) CancelRun(c echo.Context) error {
 	ownerID, err := auth.UserIDFromContext(c)
 	if err != nil {
@@ -154,7 +154,7 @@ func (h *AgentHubOrchestratorHandler) CancelRun(c echo.Context) error {
 // @Failure 401 {object} ErrorResponse
 // @Failure 404 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
-// @Router /agent-hub/runs/{run_id}/events [get]
+// @Router /agent-hub/runs/{run_id}/events [get].
 func (h *AgentHubOrchestratorHandler) ListRunEvents(c echo.Context) error {
 	ownerID, err := auth.UserIDFromContext(c)
 	if err != nil {
@@ -174,7 +174,7 @@ func (h *AgentHubOrchestratorHandler) ListRunEvents(c echo.Context) error {
 		if err != nil || parsed <= 0 {
 			return echo.NewHTTPError(http.StatusBadRequest, "invalid limit")
 		}
-		limit = int32(parsed)
+		limit = int32(parsed) //nolint:gosec // parsed from string, acceptable to wrap
 	}
 	events, err := h.service.ListEvents(c.Request().Context(), ownerID, c.Param("run_id"), afterSeq, limit)
 	if err != nil {
@@ -191,7 +191,7 @@ func (h *AgentHubOrchestratorHandler) ListRunEvents(c echo.Context) error {
 // @Success 200 {array} orchestrator.RunSnapshot
 // @Failure 401 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
-// @Router /agent-hub/runs/reconcile-active [post]
+// @Router /agent-hub/runs/reconcile-active [post].
 func (h *AgentHubOrchestratorHandler) ReconcileActiveRuns(c echo.Context) error {
 	ownerID, err := auth.UserIDFromContext(c)
 	if err != nil {

@@ -20,7 +20,7 @@ import (
 	"go.mau.fi/whatsmeow/types"
 	"go.mau.fi/whatsmeow/types/events"
 	"google.golang.org/protobuf/proto"
-	_ "modernc.org/sqlite"
+	_ "modernc.org/sqlite" // revive:disable-line:blank-imports required by sqlc tests and driver registration
 
 	"github.com/ZihengXiong/GenMult/internal/channel"
 	"github.com/ZihengXiong/GenMult/internal/config"
@@ -550,7 +550,7 @@ func (a *WhatsAppAdapter) extractInboundAttachments(ctx context.Context, client 
 	case msg.GetImageMessage() != nil:
 		im := msg.GetImageMessage()
 		att := a.downloadAttachment(ctx, client, msg, channel.AttachmentImage,
-			im.GetMimetype(), "", im.GetCaption(), int64(im.GetFileLength()))
+			im.GetMimetype(), "", im.GetCaption(), int64(im.GetFileLength())) //nolint:gosec // file length fits safely in int64
 		att.Width = int(im.GetWidth())
 		att.Height = int(im.GetHeight())
 		return []channel.Attachment{channel.NormalizeInboundChannelAttachment(att)}
@@ -558,7 +558,7 @@ func (a *WhatsAppAdapter) extractInboundAttachments(ctx context.Context, client 
 	case msg.GetVideoMessage() != nil:
 		vm := msg.GetVideoMessage()
 		att := a.downloadAttachment(ctx, client, msg, channel.AttachmentVideo,
-			vm.GetMimetype(), "", vm.GetCaption(), int64(vm.GetFileLength()))
+			vm.GetMimetype(), "", vm.GetCaption(), int64(vm.GetFileLength())) //nolint:gosec // file length fits safely in int64
 		att.Width = int(vm.GetWidth())
 		att.Height = int(vm.GetHeight())
 		att.DurationMs = int64(vm.GetSeconds()) * 1000
@@ -571,20 +571,20 @@ func (a *WhatsAppAdapter) extractInboundAttachments(ctx context.Context, client 
 			attType = channel.AttachmentVoice
 		}
 		att := a.downloadAttachment(ctx, client, msg, attType,
-			am.GetMimetype(), "", "", int64(am.GetFileLength()))
+			am.GetMimetype(), "", "", int64(am.GetFileLength())) //nolint:gosec // file length fits safely in int64
 		att.DurationMs = int64(am.GetSeconds()) * 1000
 		return []channel.Attachment{channel.NormalizeInboundChannelAttachment(att)}
 
 	case msg.GetDocumentMessage() != nil:
 		dm := msg.GetDocumentMessage()
 		att := a.downloadAttachment(ctx, client, msg, channel.AttachmentFile,
-			dm.GetMimetype(), dm.GetFileName(), dm.GetCaption(), int64(dm.GetFileLength()))
+			dm.GetMimetype(), dm.GetFileName(), dm.GetCaption(), int64(dm.GetFileLength())) //nolint:gosec // file length fits safely in int64
 		return []channel.Attachment{channel.NormalizeInboundChannelAttachment(att)}
 
 	case msg.GetStickerMessage() != nil:
 		sm := msg.GetStickerMessage()
 		att := a.downloadAttachment(ctx, client, msg, channel.AttachmentImage,
-			sm.GetMimetype(), "", "", int64(sm.GetFileLength()))
+			sm.GetMimetype(), "", "", int64(sm.GetFileLength())) //nolint:gosec // file length fits safely in int64
 		return []channel.Attachment{channel.NormalizeInboundChannelAttachment(att)}
 	}
 
@@ -763,7 +763,7 @@ func readPreparedAttachment(ctx context.Context, att channel.PreparedAttachment)
 	if err != nil {
 		return nil, err
 	}
-	defer rc.Close()
+	defer func() { _ = rc.Close() }()
 	var buf bytes.Buffer
 	if _, err := io.Copy(&buf, io.LimitReader(rc, maxInboundMediaSize+1)); err != nil {
 		return nil, err

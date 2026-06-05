@@ -23,7 +23,7 @@ func TestCodexProvider_Execute_Success(t *testing.T) {
 	// Create mock 'codex' binary in a temp directory.
 	tmpDir, err := os.MkdirTemp("", "mock-codex")
 	require.NoError(t, err)
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	mockBinPath := filepath.Join(tmpDir, "codex")
 	mockScript := `#!/bin/bash
@@ -32,13 +32,13 @@ echo '{"type":"item.completed","item":{"type":"message","content":"Codex respons
 echo '{"type":"item.completed","item":{"type":"command","name":"ReadDir"}}'
 echo '{"type":"turn.completed"}'
 `
-	err = os.WriteFile(mockBinPath, []byte(mockScript), 0755)
+	err = os.WriteFile(mockBinPath, []byte(mockScript), 0o755) //nolint:gosec // intentional test executable
 	require.NoError(t, err)
 
 	// Prepend tmpDir to PATH.
 	oldPath := os.Getenv("PATH")
-	os.Setenv("PATH", tmpDir+string(os.PathListSeparator)+oldPath)
-	defer os.Setenv("PATH", oldPath)
+	_ = os.Setenv("PATH", tmpDir+string(os.PathListSeparator)+oldPath)
+	defer func() { _ = os.Setenv("PATH", oldPath) }()
 
 	store := &mockStore{}
 	resolver := &mockWorkspaceResolver{WorkDir: tmpDir}
@@ -77,20 +77,20 @@ func TestCodexProvider_Execute_RateLimit(t *testing.T) {
 	// Create mock 'codex' binary that exits with status 1 and prints a rate limit error.
 	tmpDir, err := os.MkdirTemp("", "mock-codex-err")
 	require.NoError(t, err)
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	mockBinPath := filepath.Join(tmpDir, "codex")
 	mockScript := `#!/bin/bash
 echo "Rate limit exceeded (429)" >&2
 exit 1
 `
-	err = os.WriteFile(mockBinPath, []byte(mockScript), 0755)
+	err = os.WriteFile(mockBinPath, []byte(mockScript), 0o755) //nolint:gosec // intentional test executable //nolint:gosec // intentional test executable
 	require.NoError(t, err)
 
 	// Prepend tmpDir to PATH.
 	oldPath := os.Getenv("PATH")
-	os.Setenv("PATH", tmpDir+string(os.PathListSeparator)+oldPath)
-	defer os.Setenv("PATH", oldPath)
+	_ = os.Setenv("PATH", tmpDir+string(os.PathListSeparator)+oldPath)
+	defer func() { _ = os.Setenv("PATH", oldPath) }()
 
 	store := &mockStore{}
 	resolver := &mockWorkspaceResolver{WorkDir: tmpDir}

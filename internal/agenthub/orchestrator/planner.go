@@ -107,7 +107,7 @@ func (p *RulePlanner) Plan(_ context.Context, input PlanInput) (Plan, error) {
 	return Plan{PlannerVersion: RulePlannerVersion, Tasks: drafts}, nil
 }
 
-func (p *RulePlanner) pickAgent(agents []AgentDescriptor, keywords ...string) AgentDescriptor {
+func (*RulePlanner) pickAgent(agents []AgentDescriptor, keywords ...string) AgentDescriptor {
 	for _, agent := range agents {
 		haystack := strings.ToLower(strings.Join(append([]string{agent.ID, agent.Name, agent.ProviderName}, agent.Capabilities...), " "))
 		for _, keyword := range keywords {

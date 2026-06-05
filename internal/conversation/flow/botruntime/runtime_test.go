@@ -16,6 +16,7 @@ func (stubRuntime) Stream(context.Context, RunInput) <-chan agentpkg.StreamEvent
 	close(ch)
 	return ch
 }
+
 func (stubRuntime) Generate(context.Context, RunInput) (*agentpkg.GenerateResult, error) {
 	return &agentpkg.GenerateResult{}, nil
 }

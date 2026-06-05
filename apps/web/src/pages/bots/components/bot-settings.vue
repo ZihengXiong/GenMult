@@ -1,171 +1,171 @@
 <template>
   <div class="max-w-2xl mx-auto space-y-6">
     <template v-if="bot?.framework === 'memoh'">
-    <!-- Chat Model -->
-    <div class="space-y-2">
-      <Label>{{ $t('bots.settings.chatModel') }}</Label>
-      <ModelSelect
-        v-model="form.chat_model_id"
-        :models="models"
-        :providers="providers"
-        model-type="chat"
-        :placeholder="$t('bots.settings.chatModel')"
-      />
-    </div>
-
-    <!-- Title Model -->
-    <div class="space-y-2">
-      <Label>{{ $t('bots.settings.titleModel') }}</Label>
-      <p class="text-xs text-muted-foreground">
-        {{ $t('bots.settings.titleModelDescription') }}
-      </p>
-      <ModelSelect
-        v-model="form.title_model_id"
-        :models="models"
-        :providers="providers"
-        model-type="chat"
-        :placeholder="$t('bots.settings.titleModelPlaceholder')"
-      />
-    </div>
-
-    <!-- Memory Provider -->
-    <div class="space-y-2">
-      <Label>{{ $t('bots.settings.memoryProvider') }}</Label>
-      <MemoryProviderSelect
-        v-model="form.memory_provider_id"
-        :providers="memoryProviders"
-        :placeholder="$t('bots.settings.memoryProviderPlaceholder')"
-      />
-      <div
-        v-if="selectedBuiltinMemoryProvider"
-        class="rounded-md border border-border bg-card px-3 py-2 text-xs text-muted-foreground"
-      >
-        {{ $t('bots.settings.memoryModePreview', {
-          mode: $t(`memory.modeNames.${selectedBuiltinMemoryMode}`),
-        }) }}
+      <!-- Chat Model -->
+      <div class="space-y-2">
+        <Label>{{ $t('bots.settings.chatModel') }}</Label>
+        <ModelSelect
+          v-model="form.chat_model_id"
+          :models="models"
+          :providers="providers"
+          model-type="chat"
+          :placeholder="$t('bots.settings.chatModel')"
+        />
       </div>
-      <div
-        v-if="showMemoryProviderStatusCard"
-        class="rounded-lg border border-border bg-card p-4 space-y-4"
-      >
-        <div class="flex items-start justify-between gap-3">
-          <div class="space-y-1">
-            <p class="text-xs font-medium text-foreground">
-              {{ indexedMemoryStatusTitle }}
-            </p>
-            <p class="text-xs text-muted-foreground">
-              {{ isSelectedMemoryProviderPersisted
-                ? indexedMemoryStatusHint
-                : $t('bots.settings.indexedMemoryStatusPendingSave') }}
-            </p>
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            :disabled="!isSelectedMemoryProviderPersisted || isRebuilding || !memoryStatus?.can_manual_sync"
-            @click="handleMemorySync"
-          >
-            <Spinner
-              v-if="isRebuilding"
-              class="mr-1.5"
-            />
-            {{ $t('bots.settings.memorySyncAction') }}
-          </Button>
-        </div>
 
-        <div
-          v-if="isMemoryStatusLoading"
-          class="text-xs text-muted-foreground"
-        >
-          {{ $t('common.loading') }}
-        </div>
+      <!-- Title Model -->
+      <div class="space-y-2">
+        <Label>{{ $t('bots.settings.titleModel') }}</Label>
+        <p class="text-xs text-muted-foreground">
+          {{ $t('bots.settings.titleModelDescription') }}
+        </p>
+        <ModelSelect
+          v-model="form.title_model_id"
+          :models="models"
+          :providers="providers"
+          model-type="chat"
+          :placeholder="$t('bots.settings.titleModelPlaceholder')"
+        />
+      </div>
 
+      <!-- Memory Provider -->
+      <div class="space-y-2">
+        <Label>{{ $t('bots.settings.memoryProvider') }}</Label>
+        <MemoryProviderSelect
+          v-model="form.memory_provider_id"
+          :providers="memoryProviders"
+          :placeholder="$t('bots.settings.memoryProviderPlaceholder')"
+        />
         <div
-          v-else-if="statusCardData"
-          class="grid gap-3 md:grid-cols-2"
+          v-if="selectedBuiltinMemoryProvider"
+          class="rounded-md border border-border bg-card px-3 py-2 text-xs text-muted-foreground"
         >
-          <div class="rounded-md border border-border bg-background/60 px-3 py-2">
-            <p class="text-xs text-muted-foreground">
-              {{ $t('bots.settings.memorySourceDir') }}
-            </p>
-            <p class="mt-1 text-xs font-medium text-foreground break-all">
-              {{ statusCardData.source_dir || '-' }}
-            </p>
-          </div>
-          <div class="rounded-md border border-border bg-background/60 px-3 py-2">
-            <p class="text-xs text-muted-foreground">
-              {{ $t('bots.settings.memoryOverviewPath') }}
-            </p>
-            <p class="mt-1 text-xs font-medium text-foreground break-all">
-              {{ statusCardData.overview_path || '-' }}
-            </p>
-          </div>
-          <div class="rounded-md border border-border bg-background/60 px-3 py-2">
-            <p class="text-xs text-muted-foreground">
-              {{ $t('bots.settings.memoryMarkdownFiles') }}
-            </p>
-            <p class="mt-1 text-xs font-medium text-foreground">
-              {{ statusCardData.markdown_file_count ?? 0 }}
-            </p>
-          </div>
-          <div class="rounded-md border border-border bg-background/60 px-3 py-2">
-            <p class="text-xs text-muted-foreground">
-              {{ $t('bots.settings.memorySourceEntries') }}
-            </p>
-            <p class="mt-1 text-xs font-medium text-foreground">
-              {{ statusCardData.source_count ?? 0 }}
-            </p>
-          </div>
-          <div class="rounded-md border border-border bg-background/60 px-3 py-2">
-            <p class="text-xs text-muted-foreground">
-              {{ $t('bots.settings.memoryIndexedEntries') }}
-            </p>
-            <p class="mt-1 text-xs font-medium text-foreground">
-              {{ statusCardData.indexed_count ?? 0 }}
-            </p>
-          </div>
-          <div
-            v-if="showQdrantDetails"
-            class="rounded-md border border-border bg-background/60 px-3 py-2"
-          >
-            <p class="text-xs text-muted-foreground">
-              {{ $t('bots.settings.memoryQdrantCollection') }}
-            </p>
-            <p class="mt-1 text-xs font-medium text-foreground break-all">
-              {{ statusCardData.qdrant_collection || '-' }}
-            </p>
-          </div>
-          <div
-            v-if="showEncoderHealth"
-            class="rounded-md border border-border bg-background/60 px-3 py-2"
-          >
-            <p class="text-xs text-muted-foreground">
-              {{ encoderHealthLabel }}
-            </p>
-            <p
-              class="mt-1 text-xs font-medium"
-              :class="healthTextClass(statusCardData.encoder?.ok)"
+          {{ $t('bots.settings.memoryModePreview', {
+            mode: $t(`memory.modeNames.${selectedBuiltinMemoryMode}`),
+          }) }}
+        </div>
+        <div
+          v-if="showMemoryProviderStatusCard"
+          class="rounded-lg border border-border bg-card p-4 space-y-4"
+        >
+          <div class="flex items-start justify-between gap-3">
+            <div class="space-y-1">
+              <p class="text-xs font-medium text-foreground">
+                {{ indexedMemoryStatusTitle }}
+              </p>
+              <p class="text-xs text-muted-foreground">
+                {{ isSelectedMemoryProviderPersisted
+                  ? indexedMemoryStatusHint
+                  : $t('bots.settings.indexedMemoryStatusPendingSave') }}
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              :disabled="!isSelectedMemoryProviderPersisted || isRebuilding || !memoryStatus?.can_manual_sync"
+              @click="handleMemorySync"
             >
-              {{ healthLabel(statusCardData.encoder?.ok, statusCardData.encoder?.error) }}
-            </p>
+              <Spinner
+                v-if="isRebuilding"
+                class="mr-1.5"
+              />
+              {{ $t('bots.settings.memorySyncAction') }}
+            </Button>
           </div>
+
           <div
-            v-if="showQdrantHealth"
-            class="rounded-md border border-border bg-background/60 px-3 py-2"
+            v-if="isMemoryStatusLoading"
+            class="text-xs text-muted-foreground"
           >
-            <p class="text-xs text-muted-foreground">
-              {{ $t('bots.settings.memoryQdrantHealth') }}
-            </p>
-            <p
-              class="mt-1 text-xs font-medium"
-              :class="healthTextClass(statusCardData.qdrant?.ok)"
+            {{ $t('common.loading') }}
+          </div>
+
+          <div
+            v-else-if="statusCardData"
+            class="grid gap-3 md:grid-cols-2"
+          >
+            <div class="rounded-md border border-border bg-background/60 px-3 py-2">
+              <p class="text-xs text-muted-foreground">
+                {{ $t('bots.settings.memorySourceDir') }}
+              </p>
+              <p class="mt-1 text-xs font-medium text-foreground break-all">
+                {{ statusCardData.source_dir || '-' }}
+              </p>
+            </div>
+            <div class="rounded-md border border-border bg-background/60 px-3 py-2">
+              <p class="text-xs text-muted-foreground">
+                {{ $t('bots.settings.memoryOverviewPath') }}
+              </p>
+              <p class="mt-1 text-xs font-medium text-foreground break-all">
+                {{ statusCardData.overview_path || '-' }}
+              </p>
+            </div>
+            <div class="rounded-md border border-border bg-background/60 px-3 py-2">
+              <p class="text-xs text-muted-foreground">
+                {{ $t('bots.settings.memoryMarkdownFiles') }}
+              </p>
+              <p class="mt-1 text-xs font-medium text-foreground">
+                {{ statusCardData.markdown_file_count ?? 0 }}
+              </p>
+            </div>
+            <div class="rounded-md border border-border bg-background/60 px-3 py-2">
+              <p class="text-xs text-muted-foreground">
+                {{ $t('bots.settings.memorySourceEntries') }}
+              </p>
+              <p class="mt-1 text-xs font-medium text-foreground">
+                {{ statusCardData.source_count ?? 0 }}
+              </p>
+            </div>
+            <div class="rounded-md border border-border bg-background/60 px-3 py-2">
+              <p class="text-xs text-muted-foreground">
+                {{ $t('bots.settings.memoryIndexedEntries') }}
+              </p>
+              <p class="mt-1 text-xs font-medium text-foreground">
+                {{ statusCardData.indexed_count ?? 0 }}
+              </p>
+            </div>
+            <div
+              v-if="showQdrantDetails"
+              class="rounded-md border border-border bg-background/60 px-3 py-2"
             >
-              {{ healthLabel(statusCardData.qdrant?.ok, statusCardData.qdrant?.error) }}
-            </p>
+              <p class="text-xs text-muted-foreground">
+                {{ $t('bots.settings.memoryQdrantCollection') }}
+              </p>
+              <p class="mt-1 text-xs font-medium text-foreground break-all">
+                {{ statusCardData.qdrant_collection || '-' }}
+              </p>
+            </div>
+            <div
+              v-if="showEncoderHealth"
+              class="rounded-md border border-border bg-background/60 px-3 py-2"
+            >
+              <p class="text-xs text-muted-foreground">
+                {{ encoderHealthLabel }}
+              </p>
+              <p
+                class="mt-1 text-xs font-medium"
+                :class="healthTextClass(statusCardData.encoder?.ok)"
+              >
+                {{ healthLabel(statusCardData.encoder?.ok, statusCardData.encoder?.error) }}
+              </p>
+            </div>
+            <div
+              v-if="showQdrantHealth"
+              class="rounded-md border border-border bg-background/60 px-3 py-2"
+            >
+              <p class="text-xs text-muted-foreground">
+                {{ $t('bots.settings.memoryQdrantHealth') }}
+              </p>
+              <p
+                class="mt-1 text-xs font-medium"
+                :class="healthTextClass(statusCardData.qdrant?.ok)"
+              >
+                {{ healthLabel(statusCardData.qdrant?.ok, statusCardData.qdrant?.error) }}
+              </p>
+            </div>
           </div>
         </div>
       </div>
-    </div>
     </template>
 
     <BotClaudecodeSettings
@@ -207,7 +207,10 @@
     </div>
 
     <!-- Image Generation Model -->
-    <div v-if="bot?.framework === 'memoh'" class="space-y-2">
+    <div
+      v-if="bot?.framework === 'memoh'"
+      class="space-y-2"
+    >
       <Label>{{ $t('bots.settings.imageModel') }}</Label>
       <p class="text-xs text-muted-foreground">
         {{ $t('bots.settings.imageModelDescription') }}
@@ -259,7 +262,10 @@
     <Separator />
 
     <!-- Reasoning -->
-    <div v-if="bot?.framework === 'memoh'" class="space-y-2">
+    <div
+      v-if="bot?.framework === 'memoh'"
+      class="space-y-2"
+    >
       <Label>{{ $t('bots.settings.reasoningEffort') }}</Label>
       <Popover v-model:open="reasoningPopoverOpen">
         <PopoverTrigger as-child>
@@ -545,16 +551,13 @@ const form = reactive({
   reasoning_effort: 'medium',
   show_tool_calls_in_im: false,
   display_enabled: false,
-  overlay_config: {} as Record<string, any>,
-  provider_ext: {} as Record<string, any>,
+  overlay_config: {} as Record<string, unknown>,
+  provider_ext: {} as Record<string, unknown>,
 })
 
 const overlayConfigClaudecode = computed({
   get() {
-    if (!form.provider_ext.claudecode) {
-      form.provider_ext.claudecode = {}
-    }
-    return form.provider_ext.claudecode
+    return form.provider_ext.claudecode as Record<string, unknown>
   },
   set(val) {
     form.provider_ext.claudecode = val
@@ -701,7 +704,9 @@ watch(settings, (val) => {
     form.show_tool_calls_in_im = val.show_tool_calls_in_im ?? false
     form.display_enabled = val.display_enabled ?? false
     form.overlay_config = JSON.parse(JSON.stringify(val.overlay_config ?? {}))
-    form.provider_ext = JSON.parse(JSON.stringify(val.provider_ext ?? {}))
+    const ext = JSON.parse(JSON.stringify(val.provider_ext ?? {}))
+    if (!ext.claudecode) ext.claudecode = {}
+    form.provider_ext = ext
   }
 }, { immediate: true })
 

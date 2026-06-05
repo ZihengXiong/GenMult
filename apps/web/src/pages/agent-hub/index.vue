@@ -117,7 +117,9 @@
               v-model="newRoomOrchestratorAgentId"
               class="mb-2 h-8 w-full rounded-md border border-border bg-card px-2 text-xs outline-none focus:border-primary"
             >
-              <option value="">(选择群聊主 Agent)</option>
+              <option value="">
+                (选择群聊主 Agent)
+              </option>
               <option
                 v-for="agent in agents"
                 :key="`select-agent-${agent.id}`"

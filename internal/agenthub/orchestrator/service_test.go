@@ -12,8 +12,8 @@ type flakyProvider struct {
 	calls int32
 }
 
-func (p *flakyProvider) Name() string           { return "flaky" }
-func (p *flakyProvider) Capabilities() []string { return []string{"code", "test"} }
+func (*flakyProvider) Name() string           { return "flaky" }
+func (*flakyProvider) Capabilities() []string { return []string{"code", "test"} }
 func (p *flakyProvider) Execute(_ context.Context, req ExecuteTaskRequest) (ExecuteTaskResult, error) {
 	call := atomic.AddInt32(&p.calls, 1)
 	if req.Task.Title == "one" && call == 1 {
@@ -169,8 +169,8 @@ type slowProvider struct {
 	delay time.Duration
 }
 
-func (p *slowProvider) Name() string           { return "slow" }
-func (p *slowProvider) Capabilities() []string { return []string{"code"} }
+func (*slowProvider) Name() string           { return "slow" }
+func (*slowProvider) Capabilities() []string { return []string{"code"} }
 func (p *slowProvider) Execute(ctx context.Context, _ ExecuteTaskRequest) (ExecuteTaskResult, error) {
 	select {
 	case <-time.After(p.delay):

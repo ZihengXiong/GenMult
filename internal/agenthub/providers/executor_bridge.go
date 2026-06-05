@@ -2,6 +2,7 @@ package providers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -20,7 +21,7 @@ func NewBridgeExecutor(client *bridge.Client) *BridgeExecutor {
 	return &BridgeExecutor{client: client}
 }
 
-func (e *BridgeExecutor) LookPath(bin string) (string, error) {
+func (*BridgeExecutor) LookPath(bin string) (string, error) {
 	return bin, nil
 }
 
@@ -34,7 +35,7 @@ func (e *BridgeExecutor) Start(ctx context.Context, req ExecRequest) (ExecHandle
 	if len(req.Args) > 0 {
 		var args []string
 		for _, arg := range req.Args {
-			args = append(args, "'" + strings.ReplaceAll(arg, "'", "'\\''") + "'")
+			args = append(args, "'"+strings.ReplaceAll(arg, "'", "'\\''")+"'")
 		}
 		command += " " + strings.Join(args, " ")
 	}
@@ -76,7 +77,7 @@ func (h *bridgeExecHandle) receiveLoop() {
 	for {
 		out, err := h.stream.Recv()
 		if err != nil {
-			if err != io.EOF {
+			if !errors.Is(err, io.EOF) {
 				h.err = err
 			}
 			break

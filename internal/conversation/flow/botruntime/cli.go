@@ -37,15 +37,15 @@ func (f WorkDirResolverFunc) ResolveWorkDir(ctx context.Context, botID string) (
 // arg/parse/env helpers, and emits agent.StreamEvent so the resolver's existing
 // persistence path works unchanged.
 type cliRuntime struct {
-	name       string
-	binaryName string
-	buildArgs  func(in RunInput, prompt string) []string
-	parseEvent func(line []byte) (providers.CLIEvent, error)
-	buildEnv   func(in RunInput, creds globalproviders.ModelCredentials) []string
+	name         string
+	binaryName   string
+	buildArgs    func(in RunInput, prompt string) []string
+	parseEvent   func(line []byte) (providers.CLIEvent, error)
+	buildEnv     func(in RunInput, creds globalproviders.ModelCredentials) []string
 	resolveCreds func(ctx context.Context) (globalproviders.ModelCredentials, error)
-	resolver   WorkDirResolver
-	executor   ExecutorFactory
-	logger     *slog.Logger
+	resolver     WorkDirResolver
+	executor     ExecutorFactory
+	logger       *slog.Logger
 }
 
 // NewClaudeCodeRuntime builds the claudecode BotRuntime.
@@ -72,9 +72,9 @@ func NewClaudeCodeRuntime(cfg providers.ClaudeCodeConfig, resolveCreds func(ctx 
 			return providers.ClaudeEnv(localCfg)
 		},
 		resolveCreds: resolveCreds,
-		resolver:   resolver,
-		executor:   execFac,
-		logger:     logger.With(slog.String("component", "claudecode_runtime")),
+		resolver:     resolver,
+		executor:     execFac,
+		logger:       logger.With(slog.String("component", "claudecode_runtime")),
 	}
 }
 
@@ -102,9 +102,9 @@ func NewCodexRuntime(cfg providers.CodexConfig, resolveCreds func(ctx context.Co
 			return providers.CodexEnv(localCfg)
 		},
 		resolveCreds: resolveCreds,
-		resolver:   resolver,
-		executor:   execFac,
-		logger:     logger.With(slog.String("component", "codex_runtime")),
+		resolver:     resolver,
+		executor:     execFac,
+		logger:       logger.With(slog.String("component", "codex_runtime")),
 	}
 }
 

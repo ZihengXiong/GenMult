@@ -161,7 +161,7 @@ func (s *Service) Create(ctx context.Context, ownerUserID string, req UpsertRoom
 		Live:                req.Live,
 		Accent:              req.Accent,
 		StatusClass:         req.StatusClass,
-		Attention:           int32(req.Attention),
+		Attention:           int32(req.Attention), //nolint:gosec // attention values are small enums
 		Metadata:            metadataBytes(req),
 		OrchestratorAgentID: req.OrchestratorAgentID,
 	})
@@ -206,7 +206,7 @@ func (s *Service) Update(ctx context.Context, ownerUserID, roomID string, req Up
 		Live:                req.Live,
 		Accent:              req.Accent,
 		StatusClass:         req.StatusClass,
-		Attention:           int32(req.Attention),
+		Attention:           int32(req.Attention), //nolint:gosec // attention values are small enums
 		Metadata:            metadataBytes(req),
 		OrchestratorAgentID: req.OrchestratorAgentID,
 	})

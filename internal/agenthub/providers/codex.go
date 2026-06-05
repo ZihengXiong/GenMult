@@ -53,12 +53,12 @@ func NewCodexProvider(config CodexConfig, wsInfo WorkspaceResolver, store orches
 }
 
 // Name returns the provider's registered name.
-func (p *CodexProvider) Name() string {
+func (*CodexProvider) Name() string {
 	return "codex"
 }
 
 // Capabilities returns the provider's supported capabilities.
-func (p *CodexProvider) Capabilities() []string {
+func (*CodexProvider) Capabilities() []string {
 	return []string{"code", "review"}
 }
 

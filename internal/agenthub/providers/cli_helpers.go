@@ -142,8 +142,6 @@ func CodexEnv(cfg CodexConfig) []string {
 	return env
 }
 
-
-
 // CodexBuildArgs builds the Codex CLI arguments for a prompt.
 func CodexBuildArgs(cfg CodexConfig, prompt string) []string {
 	args := []string{

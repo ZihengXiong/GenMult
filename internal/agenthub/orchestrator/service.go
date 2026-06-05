@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"log/slog"
 	"sort"
@@ -168,7 +169,7 @@ func (s *Service) ReconcileRun(ctx context.Context, runID string) (RunSnapshot, 
 			break
 		}
 		if err := s.dispatchReadyTasks(ctx, run); err != nil {
-			if err == ErrNoExecutableTasks {
+			if errors.Is(err, ErrNoExecutableTasks) {
 				break
 			}
 			return RunSnapshot{}, err
@@ -309,7 +310,7 @@ func (s *Service) dispatchReadyTasks(ctx context.Context, run Run) error {
 		}
 		runningTask, err := s.store.UpdateTaskStatus(ctx, task.ID, TaskStatusRunning)
 		if err != nil {
-			if err == ErrInvalidTransition {
+			if errors.Is(err, ErrInvalidTransition) {
 				continue
 			}
 			s.logger.Error("failed to update task status to running",
@@ -338,7 +339,7 @@ func (s *Service) dispatchReadyTasks(ctx context.Context, run Run) error {
 			return err
 		}
 		_, _ = s.appendEvent(ctx, run.ID, runningTask.ID, EventTaskDispatched, map[string]any{"attempt_id": attempt.ID, "attempt_no": attempt.AttemptNo, "provider_name": attempt.ProviderName, "agent_id": attempt.AgentID})
-		
+
 		s.logger.Info("dispatching task to provider",
 			slog.String("run_id", run.ID),
 			slog.String("task_id", task.ID),

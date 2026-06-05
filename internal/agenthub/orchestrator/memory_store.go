@@ -294,7 +294,7 @@ func (s *MemoryStore) ListEvents(_ context.Context, runID string, afterSeq int64
 			continue
 		}
 		out = append(out, cloneEvent(event))
-		if int32(len(out)) >= limit {
+		if int32(len(out)) >= limit { //nolint:gosec // len is bounded by limit
 			break
 		}
 	}
