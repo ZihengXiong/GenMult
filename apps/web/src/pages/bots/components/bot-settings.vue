@@ -207,7 +207,7 @@
     </div>
 
     <!-- Image Generation Model -->
-    <div class="space-y-2">
+    <div v-if="bot?.framework === 'memoh'" class="space-y-2">
       <Label>{{ $t('bots.settings.imageModel') }}</Label>
       <p class="text-xs text-muted-foreground">
         {{ $t('bots.settings.imageModelDescription') }}
@@ -259,7 +259,7 @@
     <Separator />
 
     <!-- Reasoning -->
-    <div class="space-y-2">
+    <div v-if="bot?.framework === 'memoh'" class="space-y-2">
       <Label>{{ $t('bots.settings.reasoningEffort') }}</Label>
       <Popover v-model:open="reasoningPopoverOpen">
         <PopoverTrigger as-child>

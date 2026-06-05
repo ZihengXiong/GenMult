@@ -9,39 +9,59 @@
       </p>
     </div>
 
-    <div class="space-y-2">
-      <Label>API Base URL</Label>
-      <Input
-        v-model="config.base_url"
-        placeholder="https://api.deepseek.com/anthropic"
-      />
-      <p class="text-xs text-muted-foreground">
-        Optional. Overrides the default Anthropic API endpoint.
-      </p>
-    </div>
+    <div class="space-y-4 rounded-md border p-4">
+      <div class="flex items-center justify-between">
+        <div class="space-y-0.5">
+          <Label>Use Custom API Credentials</Label>
+          <p class="text-xs text-muted-foreground">
+            Override the global API settings specifically for this bot.
+          </p>
+        </div>
+        <Switch
+          :model-value="!!config.override_credentials"
+          @update:model-value="(val) => config.override_credentials = !!val"
+        />
+      </div>
 
-    <div class="space-y-2">
-      <Label>Anthropic Auth Token</Label>
-      <Input
-        v-model="config.auth_token"
-        type="password"
-        placeholder="sk-..."
-      />
-      <p class="text-xs text-muted-foreground">
-        Used for DeepSeek compatibility (ANTHROPIC_AUTH_TOKEN).
-      </p>
-    </div>
+      <template v-if="config.override_credentials">
+        <div class="space-y-2">
+          <Label>API Base URL</Label>
+          <Input
+            v-model="config.base_url"
+            placeholder="https://api.deepseek.com/anthropic"
+          />
+          <p class="text-xs text-muted-foreground">
+            Optional. Overrides the default Anthropic API endpoint.
+          </p>
+        </div>
 
-    <div class="space-y-2">
-      <Label>Anthropic API Key</Label>
-      <Input
-        v-model="config.api_key"
-        type="password"
-        placeholder="sk-..."
-      />
-      <p class="text-xs text-muted-foreground">
-        Optional. Overrides the global API key for this bot.
-      </p>
+        <div class="space-y-2">
+          <Label>Anthropic Auth Token</Label>
+          <Input
+            v-model="config.auth_token"
+            type="password"
+            placeholder="sk-..."
+          />
+          <p class="text-xs text-muted-foreground">
+            Used for DeepSeek compatibility (ANTHROPIC_AUTH_TOKEN).
+          </p>
+        </div>
+
+        <div class="space-y-2">
+          <Label>Anthropic API Key</Label>
+          <Input
+            v-model="config.api_key"
+            type="password"
+            placeholder="sk-..."
+          />
+          <p class="text-xs text-muted-foreground">
+            Optional. Overrides the global API key for this bot.
+          </p>
+        </div>
+      </template>
+      <div v-else class="text-xs text-muted-foreground bg-muted/40 p-2 rounded-md">
+        Currently using global/main provider credentials.
+      </div>
     </div>
 
     <div class="space-y-2">
@@ -143,7 +163,8 @@ import {
   SelectValue,
   SelectContent,
   SelectItem,
-  Button
+  Button,
+  Switch
 } from '@memohai/ui'
 import { Plus, Trash } from 'lucide-vue-next'
 
