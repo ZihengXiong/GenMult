@@ -17,6 +17,7 @@ type Bot struct {
 	Timezone               sql.NullString `json:"timezone"`
 	IsActive               int64          `json:"is_active"`
 	Status                 string         `json:"status"`
+	Framework              string         `json:"framework"`
 	AclDefaultEffect       string         `json:"acl_default_effect"`
 	Language               string         `json:"language"`
 	ReasoningEnabled       int64          `json:"reasoning_enabled"`

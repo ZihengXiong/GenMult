@@ -106,6 +106,17 @@ func (s *OrchestratorService) GetSnapshot(ctx context.Context, ownerUserID, runI
 	return snapshot, nil
 }
 
+func (s *OrchestratorService) GetLatestRoomRun(ctx context.Context, ownerUserID, roomID string) (orch.RunSnapshot, error) {
+	roomID = strings.TrimSpace(roomID)
+	if roomID == "" {
+		return orch.RunSnapshot{}, orch.ErrInvalidInput
+	}
+	if _, err := s.rooms.Get(ctx, ownerUserID, roomID); err != nil {
+		return orch.RunSnapshot{}, err
+	}
+	return s.orch.GetLatestRunForRoom(ctx, roomID)
+}
+
 func (s *OrchestratorService) ReconcileRun(ctx context.Context, ownerUserID, runID string) (orch.RunSnapshot, error) {
 	snapshot, err := s.GetSnapshot(ctx, ownerUserID, runID)
 	if err != nil {

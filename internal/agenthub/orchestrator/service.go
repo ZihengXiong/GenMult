@@ -192,6 +192,24 @@ func (s *Service) ListActiveRuns(ctx context.Context) ([]Run, error) {
 	return s.store.ListRunsByStatus(ctx, RunStatusPlanning, RunStatusDispatching, RunStatusCollecting)
 }
 
+func (s *Service) GetLatestRunForRoom(ctx context.Context, roomID string) (RunSnapshot, error) {
+	roomID = strings.TrimSpace(roomID)
+	if roomID == "" {
+		return RunSnapshot{}, ErrInvalidInput
+	}
+	runs, err := s.store.ListRunsByStatus(ctx)
+	if err != nil {
+		return RunSnapshot{}, err
+	}
+	for i := len(runs) - 1; i >= 0; i-- {
+		if runs[i].RoomID != roomID {
+			continue
+		}
+		return s.GetSnapshot(ctx, runs[i].ID)
+	}
+	return RunSnapshot{}, ErrNotFound
+}
+
 func (s *Service) ReconcileActiveRuns(ctx context.Context) ([]RunSnapshot, error) {
 	runs, err := s.store.ListRunsByStatus(ctx, RunStatusPlanning, RunStatusDispatching, RunStatusCollecting)
 	if err != nil {

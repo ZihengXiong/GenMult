@@ -53,10 +53,36 @@ function emptyBotState(): BotTabState {
   return { tabs: [], activeId: null, terminalCounter: 0, displayCounter: 0, dirtyFileTabs: {} }
 }
 
+function normalizeTabs(rawTabs: Array<WorkspaceTab | { id: string; type: string; title: string }>): WorkspaceTab[] {
+  const tabs = rawTabs.map((tab) =>
+    tab.type === 'vnc' ? { id: tab.id, type: 'display' as const, title: tab.title } : tab,
+  ) as WorkspaceTab[]
+
+  const seen = new Set<string>()
+  let draftSeen = false
+  const normalized: WorkspaceTab[] = []
+
+  for (const tab of tabs) {
+    if (!tab?.id) continue
+    if (tab.type === 'draft') {
+      if (draftSeen) continue
+      draftSeen = true
+    }
+    if (seen.has(tab.id)) continue
+    seen.add(tab.id)
+    normalized.push(tab)
+  }
+
+  return normalized.some((tab) => tab.type === 'chat')
+    ? normalized.filter((tab) => tab.type !== 'draft')
+    : normalized
+}
+
 export const useWorkspaceTabsStore = defineStore('workspace-tabs', () => {
   const selection = useChatSelectionStore()
   const { currentBotId } = storeToRefs(selection)
   const chatStore = useChatStore()
+  const { sessions } = storeToRefs(chatStore)
 
   const storage = useStorage<WorkspaceTabsStorage>('workspace-tabs', {})
 
@@ -69,16 +95,17 @@ export const useWorkspaceTabsStore = defineStore('workspace-tabs', () => {
       // Backfill fields added later so old persisted state stays usable.
       const cur = storage.value[bid]!
       const currentTabs = cur.tabs ?? []
-      const tabs = (currentTabs as Array<WorkspaceTab | { id: string; type: string; title: string }>).map((tab) =>
-        tab.type === 'vnc' ? { id: tab.id, type: 'display' as const, title: tab.title } : tab,
-      ) as WorkspaceTab[]
-      const tabsChanged = tabs.some((tab, index) => tab !== currentTabs[index])
+      const tabs = normalizeTabs(currentTabs as Array<WorkspaceTab | { id: string; type: string; title: string }>)
+      const tabsChanged = tabs.length !== currentTabs.length || tabs.some((tab, index) => tab !== currentTabs[index])
+      const activeId = cur.activeId && tabs.some((tab) => tab.id === cur.activeId)
+        ? cur.activeId
+        : tabs[0]?.id ?? null
       if (cur.terminalCounter === undefined || cur.displayCounter === undefined || cur.dirtyFileTabs === undefined || tabsChanged) {
         storage.value = {
           ...storage.value,
           [bid]: {
             tabs,
-            activeId: cur.activeId ?? null,
+            activeId,
             terminalCounter: cur.terminalCounter ?? 0,
             displayCounter: cur.displayCounter ?? (tabs.some((tab) => tab.type === 'display') ? 1 : 0),
             dirtyFileTabs: cur.dirtyFileTabs ?? {},
@@ -118,6 +145,24 @@ export const useWorkspaceTabsStore = defineStore('workspace-tabs', () => {
     }
   }
 
+  function pruneTabsForKnownSessions(state: BotTabState): BotTabState {
+    if (!sessions.value.length) return state
+
+    const knownSessionIds = new Set(sessions.value.map((session) => session.id))
+    const nextTabs = state.tabs.filter((tab) => tab.type !== 'chat' || knownSessionIds.has(tab.sessionId))
+    if (nextTabs.length === state.tabs.length) return state
+
+    const nextActive = state.activeId && nextTabs.some((tab) => tab.id === state.activeId)
+      ? state.activeId
+      : nextTabs[0]?.id ?? null
+
+    return {
+      ...state,
+      tabs: nextTabs,
+      activeId: nextActive,
+    }
+  }
+
   function discardTerminalSnapshots(botId: string, tabsToDiscard: WorkspaceTab[]) {
     const terminalTabs = tabsToDiscard.filter((tab) => tab.type === 'terminal')
     if (!botId || terminalTabs.length === 0) return
@@ -149,15 +194,16 @@ export const useWorkspaceTabsStore = defineStore('workspace-tabs', () => {
     const state = ensureBot(currentBotId.value)
     if (!state) return
     const id = chatTabId(sid)
+    const tabsWithoutDraft = state.tabs.filter((t) => t.type !== 'draft')
     const existing = state.tabs.find((t) => t.id === id)
     if (existing) {
       if (title && existing.type === 'chat' && existing.title !== title) {
-        const next = state.tabs.map((t) =>
+        const next = tabsWithoutDraft.map((t) =>
           t.id === id && t.type === 'chat' ? { ...t, title } : t,
         )
         commit({ ...state, tabs: next, activeId: id })
       } else {
-        commit({ ...state, activeId: id })
+        commit({ ...state, tabs: tabsWithoutDraft, activeId: id })
       }
     } else {
       const tab: WorkspaceTab = {
@@ -166,7 +212,7 @@ export const useWorkspaceTabsStore = defineStore('workspace-tabs', () => {
         sessionId: sid,
         title: title ?? '',
       }
-      commit({ ...state, tabs: [...state.tabs, tab], activeId: id })
+      commit({ ...state, tabs: [...tabsWithoutDraft, tab], activeId: id })
     }
     void chatStore.selectSession(sid)
   }
@@ -399,6 +445,15 @@ export const useWorkspaceTabsStore = defineStore('workspace-tabs', () => {
   watch(currentBotId, (bid) => {
     ensureBot(bid)
   }, { immediate: true })
+
+  watch(sessions, () => {
+    const state = ensureBot(currentBotId.value)
+    if (!state) return
+    const next = pruneTabsForKnownSessions(state)
+    if (next !== state) {
+      commit(next)
+    }
+  }, { deep: true })
 
   // When the chat-store session is set externally (e.g. URL navigation, or
   // the first message in a draft tab triggering server-side session creation),

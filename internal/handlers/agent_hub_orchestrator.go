@@ -32,6 +32,7 @@ func NewAgentHubOrchestratorHandler(log *slog.Logger, service *agenthub.Orchestr
 func (h *AgentHubOrchestratorHandler) Register(e *echo.Echo) {
 	group := e.Group("/agent-hub")
 	group.POST("/rooms/:room_id/runs", h.StartRun)
+	group.GET("/rooms/:room_id/runs/latest", h.GetLatestRoomRun)
 	group.GET("/runs/:run_id", h.GetRun)
 	group.POST("/runs/:run_id/reconcile", h.ReconcileRun)
 	group.POST("/runs/:run_id/cancel", h.CancelRun)
@@ -67,6 +68,30 @@ func (h *AgentHubOrchestratorHandler) StartRun(c echo.Context) error {
 		return h.httpError(err)
 	}
 	return c.JSON(http.StatusCreated, snapshot)
+}
+
+// GetLatestRoomRun godoc
+// @Summary Get latest AgentHub orchestration run for a room
+// @Description Return the newest run snapshot for one AgentHub room.
+// @Tags agent-hub
+// @Produce json
+// @Param room_id path string true "Room ID"
+// @Success 200 {object} orchestrator.RunSnapshot
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /agent-hub/rooms/{room_id}/runs/latest [get]
+func (h *AgentHubOrchestratorHandler) GetLatestRoomRun(c echo.Context) error {
+	ownerID, err := auth.UserIDFromContext(c)
+	if err != nil {
+		return err
+	}
+	snapshot, err := h.service.GetLatestRoomRun(c.Request().Context(), ownerID, c.Param("room_id"))
+	if err != nil {
+		return h.httpError(err)
+	}
+	return c.JSON(http.StatusOK, snapshot)
 }
 
 // GetRun godoc

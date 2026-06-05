@@ -1,6 +1,6 @@
 <template>
   <SidebarMenuButton
-    :tooltip="bot.display_name || bot.id"
+    :tooltip="displayName"
     as-child
   >
     <button
@@ -20,7 +20,7 @@
         <img
           v-if="bot.avatar_url&&!isError"
           :src="bot.avatar_url"
-          :alt="bot.display_name || bot.id"
+          :alt="displayName"
           class="size-full rounded-full object-cover "
           @error="() => {
             isError = true;
@@ -37,7 +37,7 @@
         </span>
       </div>
       <span class="truncate text-xs font-medium text-foreground leading-4.5 flex-1 text-left group-data-[collapsible=icon]:hidden">
-        {{ bot.display_name || bot.id }}
+        {{ displayName }}
       </span>
 
       <div class="group-data-[collapsible=icon]:hidden">
@@ -86,6 +86,7 @@ import type { BotsBot } from '@memohai/sdk'
 import { useChatStore } from '@/store/chat-list'
 import { useAvatarInitials } from '@/composables/useAvatarInitials'
 import { usePinnedBots } from '@/composables/usePinnedBots'
+import { resolveBotLabel } from '@/utils/bot-label'
 import { Ellipsis, Pin, Settings } from 'lucide-vue-next'
 import {
   SidebarMenuButton,
@@ -103,7 +104,7 @@ const chatStore = useChatStore()
 const { currentBotId } = storeToRefs(chatStore)
 const { isPinned, togglePin } = usePinnedBots()
 
-const displayName = computed(() => props.bot.display_name || props.bot.id || '')
+const displayName = computed(() => resolveBotLabel(props.bot))
 const avatarFallback = useAvatarInitials(() => displayName.value, 'B')
 
 const isActive = computed(() => currentBotId.value === props.bot.id)
@@ -112,8 +113,7 @@ const isError=ref(false)
 
 function handleSelect() {
   if (props.bot.status === 'error') return
-  chatStore.selectBot(props.bot.id ?? '')
-  router.push({ name: 'chat', params: { botId: props.bot.id } })
+  void router.push({ name: 'chat', params: { botId: props.bot.id } })
 }
 
 function handleDetails() {

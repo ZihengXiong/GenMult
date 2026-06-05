@@ -11,6 +11,7 @@ import (
 
 	agentpkg "github.com/memohai/memoh/internal/agent"
 	"github.com/memohai/memoh/internal/conversation"
+	"github.com/memohai/memoh/internal/conversation/flow/botruntime"
 )
 
 // WSStreamEvent represents a raw JSON event forwarded from the agent.
@@ -104,12 +105,13 @@ func (r *Resolver) StreamChat(ctx context.Context, req conversation.ChatRequest)
 
 		cfg := rc.runConfig
 		cfg = r.prepareRunConfig(ctx, cfg)
+		rt := r.runtimeForBot(ctx, cfg.Identity.BotID)
 
 		// Wrap with idle timeout: if no events arrive within the adaptive timeout, cancel the stream.
-		idleCtx, idleCancel := withIdleTimeout(ctx)
+		idleCtx, idleCancel := withIdleTimeout(ctx, rt.IdleTimeout())
 		defer idleCancel.Stop()
 
-		eventCh := r.agent.Stream(idleCtx, cfg)
+		eventCh := rt.Stream(idleCtx, botruntime.RunInput{Config: cfg})
 		stored := false
 		clientGone := false
 		var lastSnapshot terminalSnapshot
@@ -253,12 +255,13 @@ func (r *Resolver) StreamChatWS(
 
 	cfg := rc.runConfig
 	cfg = r.prepareRunConfig(streamCtx, cfg)
+	rt := r.runtimeForBot(streamCtx, cfg.Identity.BotID)
 
 	// Wrap with idle timeout: if no events arrive within the adaptive timeout, cancel the stream.
-	idleCtx, idleCancel := withIdleTimeout(streamCtx)
+	idleCtx, idleCancel := withIdleTimeout(streamCtx, rt.IdleTimeout())
 	defer idleCancel.Stop()
 
-	agentEventCh := r.agent.Stream(idleCtx, cfg)
+	agentEventCh := rt.Stream(idleCtx, botruntime.RunInput{Config: cfg})
 	modelID := rc.model.ID
 	stored := false
 	clientGone := false

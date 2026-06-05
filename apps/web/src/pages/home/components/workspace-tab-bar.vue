@@ -102,7 +102,6 @@ import {
 import { useWorkspaceTabsStore, type WorkspaceTab } from '@/store/workspace-tabs'
 import { useChatStore } from '@/store/chat-list'
 import { isLocalWorkspaceBot } from '@/utils/bot-workspace'
-
 const { t } = useI18n()
 const store = useWorkspaceTabsStore()
 const { tabs, activeId } = storeToRefs(store)
@@ -153,7 +152,7 @@ const isLocalWorkspace = computed(() =>
 const sessionTitleById = computed<Record<string, string>>(() => {
   const out: Record<string, string> = {}
   for (const s of sessions.value) {
-    out[s.id] = (s.title ?? '').trim() || t('chat.untitledSession')
+    out[s.id] = chatStore.resolveSessionTitle(s)
   }
   return out
 })

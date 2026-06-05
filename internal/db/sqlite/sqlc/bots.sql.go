@@ -11,7 +11,7 @@ import (
 )
 
 const createBot = `-- name: CreateBot :one
-INSERT INTO bots (id, owner_user_id, type, display_name, avatar_url, timezone, is_active, metadata, status)
+INSERT INTO bots (id, owner_user_id, type, display_name, avatar_url, timezone, is_active, metadata, status, framework)
 VALUES (
   lower(hex(randomblob(4))) || '-' ||
   lower(hex(randomblob(2))) || '-' ||
@@ -25,9 +25,10 @@ VALUES (
   ?4,
   ?5,
   ?6,
-  ?7
+  ?7,
+  ?8
 )
-RETURNING id, owner_user_id, display_name, avatar_url, timezone, is_active, status, language, reasoning_enabled, reasoning_effort, chat_model_id, search_provider_id, memory_provider_id, heartbeat_enabled, heartbeat_interval, heartbeat_prompt, metadata, created_at, updated_at
+RETURNING id, owner_user_id, display_name, avatar_url, timezone, is_active, status, language, reasoning_enabled, reasoning_effort, chat_model_id, search_provider_id, memory_provider_id, heartbeat_enabled, heartbeat_interval, heartbeat_prompt, framework, metadata, created_at, updated_at
 `
 
 type CreateBotParams struct {
@@ -38,6 +39,7 @@ type CreateBotParams struct {
 	IsActive    int64          `json:"is_active"`
 	Metadata    string         `json:"metadata"`
 	Status      string         `json:"status"`
+	Framework   string         `json:"framework"`
 }
 
 type CreateBotRow struct {
@@ -57,6 +59,7 @@ type CreateBotRow struct {
 	HeartbeatEnabled  int64          `json:"heartbeat_enabled"`
 	HeartbeatInterval int64          `json:"heartbeat_interval"`
 	HeartbeatPrompt   string         `json:"heartbeat_prompt"`
+	Framework         string         `json:"framework"`
 	Metadata          string         `json:"metadata"`
 	CreatedAt         string         `json:"created_at"`
 	UpdatedAt         string         `json:"updated_at"`
@@ -71,6 +74,7 @@ func (q *Queries) CreateBot(ctx context.Context, arg CreateBotParams) (CreateBot
 		arg.IsActive,
 		arg.Metadata,
 		arg.Status,
+		arg.Framework,
 	)
 	var i CreateBotRow
 	err := row.Scan(
@@ -90,6 +94,7 @@ func (q *Queries) CreateBot(ctx context.Context, arg CreateBotParams) (CreateBot
 		&i.HeartbeatEnabled,
 		&i.HeartbeatInterval,
 		&i.HeartbeatPrompt,
+		&i.Framework,
 		&i.Metadata,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -107,7 +112,7 @@ func (q *Queries) DeleteBotByID(ctx context.Context, id string) error {
 }
 
 const getBotByID = `-- name: GetBotByID :one
-SELECT id, owner_user_id, display_name, avatar_url, timezone, is_active, status, language, reasoning_enabled, reasoning_effort, chat_model_id, search_provider_id, memory_provider_id, heartbeat_enabled, heartbeat_interval, heartbeat_prompt, compaction_enabled, compaction_threshold, compaction_ratio, compaction_model_id, metadata, created_at, updated_at
+SELECT id, owner_user_id, display_name, avatar_url, timezone, is_active, status, language, reasoning_enabled, reasoning_effort, chat_model_id, search_provider_id, memory_provider_id, heartbeat_enabled, heartbeat_interval, heartbeat_prompt, compaction_enabled, compaction_threshold, compaction_ratio, compaction_model_id, framework, metadata, created_at, updated_at
 FROM bots
 WHERE id = ?1
 `
@@ -133,6 +138,7 @@ type GetBotByIDRow struct {
 	CompactionThreshold int64          `json:"compaction_threshold"`
 	CompactionRatio     int64          `json:"compaction_ratio"`
 	CompactionModelID   sql.NullString `json:"compaction_model_id"`
+	Framework           string         `json:"framework"`
 	Metadata            string         `json:"metadata"`
 	CreatedAt           string         `json:"created_at"`
 	UpdatedAt           string         `json:"updated_at"`
@@ -162,6 +168,7 @@ func (q *Queries) GetBotByID(ctx context.Context, id string) (GetBotByIDRow, err
 		&i.CompactionThreshold,
 		&i.CompactionRatio,
 		&i.CompactionModelID,
+		&i.Framework,
 		&i.Metadata,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -170,7 +177,7 @@ func (q *Queries) GetBotByID(ctx context.Context, id string) (GetBotByIDRow, err
 }
 
 const listBotsByOwner = `-- name: ListBotsByOwner :many
-SELECT id, owner_user_id, display_name, avatar_url, timezone, is_active, status, language, reasoning_enabled, reasoning_effort, chat_model_id, search_provider_id, memory_provider_id, heartbeat_enabled, heartbeat_interval, heartbeat_prompt, metadata, created_at, updated_at
+SELECT id, owner_user_id, display_name, avatar_url, timezone, is_active, status, language, reasoning_enabled, reasoning_effort, chat_model_id, search_provider_id, memory_provider_id, heartbeat_enabled, heartbeat_interval, heartbeat_prompt, framework, metadata, created_at, updated_at
 FROM bots
 WHERE owner_user_id = ?1
 ORDER BY created_at DESC
@@ -193,6 +200,7 @@ type ListBotsByOwnerRow struct {
 	HeartbeatEnabled  int64          `json:"heartbeat_enabled"`
 	HeartbeatInterval int64          `json:"heartbeat_interval"`
 	HeartbeatPrompt   string         `json:"heartbeat_prompt"`
+	Framework         string         `json:"framework"`
 	Metadata          string         `json:"metadata"`
 	CreatedAt         string         `json:"created_at"`
 	UpdatedAt         string         `json:"updated_at"`
@@ -224,6 +232,7 @@ func (q *Queries) ListBotsByOwner(ctx context.Context, ownerUserID string) ([]Li
 			&i.HeartbeatEnabled,
 			&i.HeartbeatInterval,
 			&i.HeartbeatPrompt,
+			&i.Framework,
 			&i.Metadata,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -289,7 +298,7 @@ UPDATE bots
 SET owner_user_id = ?1,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = ?2
-RETURNING id, owner_user_id, display_name, avatar_url, timezone, is_active, status, language, reasoning_enabled, reasoning_effort, chat_model_id, search_provider_id, memory_provider_id, heartbeat_enabled, heartbeat_interval, heartbeat_prompt, metadata, created_at, updated_at
+RETURNING id, owner_user_id, display_name, avatar_url, timezone, is_active, status, language, reasoning_enabled, reasoning_effort, chat_model_id, search_provider_id, memory_provider_id, heartbeat_enabled, heartbeat_interval, heartbeat_prompt, framework, metadata, created_at, updated_at
 `
 
 type UpdateBotOwnerParams struct {
@@ -314,6 +323,7 @@ type UpdateBotOwnerRow struct {
 	HeartbeatEnabled  int64          `json:"heartbeat_enabled"`
 	HeartbeatInterval int64          `json:"heartbeat_interval"`
 	HeartbeatPrompt   string         `json:"heartbeat_prompt"`
+	Framework         string         `json:"framework"`
 	Metadata          string         `json:"metadata"`
 	CreatedAt         string         `json:"created_at"`
 	UpdatedAt         string         `json:"updated_at"`
@@ -339,6 +349,7 @@ func (q *Queries) UpdateBotOwner(ctx context.Context, arg UpdateBotOwnerParams) 
 		&i.HeartbeatEnabled,
 		&i.HeartbeatInterval,
 		&i.HeartbeatPrompt,
+		&i.Framework,
 		&i.Metadata,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -355,7 +366,7 @@ SET display_name = ?1,
     metadata = ?5,
     updated_at = CURRENT_TIMESTAMP
 WHERE id = ?6
-RETURNING id, owner_user_id, display_name, avatar_url, timezone, is_active, status, language, reasoning_enabled, reasoning_effort, chat_model_id, search_provider_id, memory_provider_id, heartbeat_enabled, heartbeat_interval, heartbeat_prompt, metadata, created_at, updated_at
+RETURNING id, owner_user_id, display_name, avatar_url, timezone, is_active, status, language, reasoning_enabled, reasoning_effort, chat_model_id, search_provider_id, memory_provider_id, heartbeat_enabled, heartbeat_interval, heartbeat_prompt, framework, metadata, created_at, updated_at
 `
 
 type UpdateBotProfileParams struct {
@@ -384,6 +395,7 @@ type UpdateBotProfileRow struct {
 	HeartbeatEnabled  int64          `json:"heartbeat_enabled"`
 	HeartbeatInterval int64          `json:"heartbeat_interval"`
 	HeartbeatPrompt   string         `json:"heartbeat_prompt"`
+	Framework         string         `json:"framework"`
 	Metadata          string         `json:"metadata"`
 	CreatedAt         string         `json:"created_at"`
 	UpdatedAt         string         `json:"updated_at"`
@@ -416,6 +428,7 @@ func (q *Queries) UpdateBotProfile(ctx context.Context, arg UpdateBotProfilePara
 		&i.HeartbeatEnabled,
 		&i.HeartbeatInterval,
 		&i.HeartbeatPrompt,
+		&i.Framework,
 		&i.Metadata,
 		&i.CreatedAt,
 		&i.UpdatedAt,

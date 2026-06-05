@@ -51,6 +51,7 @@ import (
 	containerprovider "github.com/memohai/memoh/internal/container/provider"
 	"github.com/memohai/memoh/internal/conversation"
 	"github.com/memohai/memoh/internal/conversation/flow"
+	"github.com/memohai/memoh/internal/conversation/flow/botruntime"
 	"github.com/memohai/memoh/internal/db"
 	postgresstore "github.com/memohai/memoh/internal/db/postgres/store"
 	sqlitestore "github.com/memohai/memoh/internal/db/sqlite/store"
@@ -241,8 +242,12 @@ func provideBridgeProvider(manage *workspace.Manager) bridge.Provider {
 	return manage
 }
 
+func provideToolApprovalService(log *slog.Logger, queries dbstore.Queries, settingsService *settings.Service) *toolapproval.Service {
+	return toolapproval.NewService(log, queries, settingsService, workspace.NewBotHostAccessResolver(queries))
+}
+
 func provideWorkspaceManager(lc fx.Lifecycle, log *slog.Logger, service ctr.Service, networkController netctl.Controller, cfg config.Config, conn *pgxpool.Pool, queries dbstore.Queries) *workspace.Manager {
-	localSvc := workspace.NewLocalService(log, cfg.Local, cfg.Workspace.DataRoot)
+	localSvc := workspace.NewLocalService(log, cfg.Local, cfg.Workspace.DataRoot, workspace.NewBotHostAccessResolver(queries))
 	lc.Append(fx.Hook{
 		OnStop: func(context.Context) error {
 			localSvc.Close()
@@ -371,6 +376,7 @@ func injectToolProviders(a *agentpkg.Agent, msgService *message.DBService, provi
 
 func provideChatResolver(log *slog.Logger, a *agentpkg.Agent, modelsService *models.Service, queries dbstore.Queries, chatService *conversation.Service, msgService *message.DBService, settingsService *settings.Service, accountService *accounts.Service, mediaService *media.Service, containerdHandler *handlers.ContainerdHandler, memoryRegistry *memprovider.Registry, channelStore *channel.Store, routeService *route.DBService, sessionService *sessionpkg.Service, eventHub *event.Hub, compactionService *compaction.Service, pipeline *pipelinepkg.Pipeline, rc *boot.RuntimeConfig, bgManager *background.Manager, toolApproval *toolapproval.Service) *flow.Resolver {
 	resolver := flow.NewResolver(log, modelsService, queries, chatService, msgService, settingsService, accountService, a, rc.TimezoneLocation, 120*time.Second)
+	resolver.SetBotRuntimes(botruntime.NewPassthroughRuntime(bots.FrameworkCodex, a))
 	resolver.SetMemoryRegistry(memoryRegistry)
 	resolver.SetSkillLoader(&skillLoaderAdapter{handler: containerdHandler})
 	resolver.SetGatewayAssetLoader(&gatewayAssetLoaderAdapter{media: mediaService})
