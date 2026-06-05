@@ -8,6 +8,7 @@ import (
 // ClaudeCodeConfig holds configuration for the Claude Code CLI provider.
 type ClaudeCodeConfig struct {
 	APIKey         string   `toml:"api_key"`
+	AuthToken      string   `toml:"auth_token"`
 	BaseURL        string   `toml:"base_url"`
 	PermissionMode string   `toml:"permission_mode"`
 	MaxTurns       int      `toml:"max_turns"`
@@ -32,6 +33,9 @@ type ProviderConfigs struct {
 func (c *ProviderConfigs) FromEnvWithDefaults() {
 	if c.ClaudeCode.APIKey == "" {
 		c.ClaudeCode.APIKey = os.Getenv("ANTHROPIC_API_KEY")
+	}
+	if c.ClaudeCode.AuthToken == "" {
+		c.ClaudeCode.AuthToken = os.Getenv("ANTHROPIC_AUTH_TOKEN")
 	}
 	if c.ClaudeCode.PermissionMode == "" {
 		c.ClaudeCode.PermissionMode = "auto"

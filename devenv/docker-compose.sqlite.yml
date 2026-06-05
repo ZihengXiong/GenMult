@@ -62,6 +62,7 @@ services:
     pid: host
     command: ["air", "-c", ".air.toml"]
     environment:
+      PATH: "/opt/memoh/runtime/toolkit/bin:/usr/local/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
       CONFIG_PATH: /workspace/devenv/app.sqlite.dev.toml
       GOFLAGS: -buildvcs=false
       MEMOH_DISPLAY_WEBRTC_UDP_PORT_MIN: "${MEMOH_SQLITE_DEV_DISPLAY_WEBRTC_UDP_PORT_MIN:-30200}"

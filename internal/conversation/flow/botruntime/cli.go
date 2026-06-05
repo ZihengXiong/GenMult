@@ -231,6 +231,15 @@ func mergeClaudeCodeConfig(base providers.ClaudeCodeConfig, ext any) providers.C
 	if overlay.Model != "" {
 		base.Model = overlay.Model
 	}
+	if overlay.APIKey != "" {
+		base.APIKey = overlay.APIKey
+	}
+	if overlay.AuthToken != "" {
+		base.AuthToken = overlay.AuthToken
+	}
+	if overlay.BaseURL != "" {
+		base.BaseURL = overlay.BaseURL
+	}
 	if overlay.PermissionMode != "" {
 		base.PermissionMode = overlay.PermissionMode
 	}

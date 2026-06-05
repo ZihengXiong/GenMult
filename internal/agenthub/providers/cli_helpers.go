@@ -18,7 +18,9 @@ import (
 // set (replacing any existing values).
 func ClaudeEnv(cfg ClaudeCodeConfig) []string {
 	var env []string
-	if cfg.APIKey != "" {
+	if cfg.AuthToken != "" {
+		env = append(env, "ANTHROPIC_AUTH_TOKEN="+cfg.AuthToken)
+	} else if cfg.APIKey != "" {
 		env = append(env, "ANTHROPIC_API_KEY="+cfg.APIKey)
 	}
 	if cfg.BaseURL != "" {

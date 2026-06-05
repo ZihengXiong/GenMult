@@ -10,6 +10,41 @@
     </div>
 
     <div class="space-y-2">
+      <Label>API Base URL</Label>
+      <Input
+        v-model="config.base_url"
+        placeholder="https://api.deepseek.com/anthropic"
+      />
+      <p class="text-xs text-muted-foreground">
+        Optional. Overrides the default Anthropic API endpoint.
+      </p>
+    </div>
+
+    <div class="space-y-2">
+      <Label>Anthropic Auth Token</Label>
+      <Input
+        v-model="config.auth_token"
+        type="password"
+        placeholder="sk-..."
+      />
+      <p class="text-xs text-muted-foreground">
+        Used for DeepSeek compatibility (ANTHROPIC_AUTH_TOKEN).
+      </p>
+    </div>
+
+    <div class="space-y-2">
+      <Label>Anthropic API Key</Label>
+      <Input
+        v-model="config.api_key"
+        type="password"
+        placeholder="sk-..."
+      />
+      <p class="text-xs text-muted-foreground">
+        Optional. Overrides the global API key for this bot.
+      </p>
+    </div>
+
+    <div class="space-y-2">
       <Label>Model</Label>
       <Select v-model="config.model">
         <SelectTrigger>
