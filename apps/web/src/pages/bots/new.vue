@@ -205,7 +205,7 @@
         <Label class="mb-2">{{ $t('bots.settings.chatModel') }}</Label>
         <ModelSelect
           v-model="form.chat_model_id"
-          :models="models"
+          :models="chatSelectableModels"
           :providers="providers"
           model-type="chat"
           :placeholder="$t('common.none')"
@@ -404,6 +404,24 @@ const { data: memoryProviderData } = useQuery({
 const models = computed(() => modelData.value ?? [])
 const providers = computed(() => providerData.value ?? [])
 const memoryProviders = computed(() => memoryProviderData.value ?? [])
+const codexProviderIds = computed(() =>
+  new Set(
+    providers.value
+      .filter((provider) => provider.client_type === 'openai-codex')
+      .map((provider) => provider.id)
+      .filter((id): id is string => Boolean(id)),
+  ),
+)
+const chatSelectableModels = computed(() => {
+  if (form.framework !== 'codex') return models.value
+  return models.value.filter((model) => codexProviderIds.value.has(model.provider_id ?? ''))
+})
+
+watch([() => form.framework, chatSelectableModels], () => {
+  if (!form.chat_model_id) return
+  if (chatSelectableModels.value.some((model) => model.id === form.chat_model_id)) return
+  form.chat_model_id = ''
+}, { immediate: true })
 
 watch(memoryProviders, (list) => {
   if (form.memory_provider_id) return
@@ -424,6 +442,7 @@ const canSubmit = computed(() => {
   if (!form.display_name.trim()) return false
   if (!form.framework) return false
   if (!form.acl_preset) return false
+  if (form.framework === 'codex' && !form.chat_model_id) return false
   if (localWorkspaceEnabled.value && form.workspace_backend === 'local' && !form.local_workspace_path.trim()) return false
   return true
 })

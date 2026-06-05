@@ -145,7 +145,8 @@ func (s *SpawnAdapter) GenerateWithWatchdog(ctx context.Context, cfg tools.Spawn
 // SpawnSystemPrompt returns the system prompt for a given session type.
 func SpawnSystemPrompt(sessionType string) string {
 	return GenerateSystemPrompt(SystemPromptParams{
-		SessionType: sessionType,
+		SessionType:      sessionType,
+		SupportsToolCall: true,
 	})
 }
 

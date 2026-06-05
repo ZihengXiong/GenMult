@@ -155,14 +155,28 @@ func NewSDKProvider(baseURL, apiKey, codexAccountID string, clientType ClientTyp
 		return openairesponses.New(opts...)
 
 	case ClientTypeOpenAICodex:
-		opts := []openaicodex.Option{
-			openaicodex.WithAccessToken(apiKey),
-			openaicodex.WithHTTPClient(httpClient),
+		if useNativeCodexBackend(apiKey, codexAccountID) {
+			opts := []openaicodex.Option{
+				openaicodex.WithAccessToken(apiKey),
+				openaicodex.WithHTTPClient(httpClient),
+			}
+			if baseURL != "" {
+				opts = append(opts, openaicodex.WithBaseURL(baseURL))
+			}
+			if codexAccountID != "" {
+				opts = append(opts, openaicodex.WithAccountID(codexAccountID))
+			}
+			return openaicodex.New(opts...)
 		}
-		if codexAccountID != "" {
-			opts = append(opts, openaicodex.WithAccountID(codexAccountID))
+
+		opts := []openairesponses.Option{
+			openairesponses.WithAPIKey(apiKey),
+			openairesponses.WithHTTPClient(httpClient),
 		}
-		return openaicodex.New(opts...)
+		if baseURL != "" {
+			opts = append(opts, openairesponses.WithBaseURL(baseURL))
+		}
+		return openairesponses.New(opts...)
 
 	case ClientTypeGitHubCopilot:
 		return memohcopilot.NewProvider(apiKey, httpClient)
@@ -216,6 +230,13 @@ func (s *Service) resolveModelCredentials(ctx context.Context, provider sqlc.Pro
 		return modelCredentials{APIKey: token}, nil
 
 	case ClientTypeOpenAICodex:
+		if apiKey := strings.TrimSpace(providerConfigString(provider.Config, "api_key")); apiKey != "" {
+			return modelCredentials{
+				APIKey:         apiKey,
+				CodexAccountID: strings.TrimSpace(providerConfigString(provider.Config, "codex_account_id")),
+			}, nil
+		}
+
 		tokenRow, err := s.queries.GetProviderOAuthTokenByProvider(ctx, provider.ID)
 		if err != nil {
 			return modelCredentials{}, err

@@ -5,7 +5,7 @@
       <Label>{{ $t('bots.settings.chatModel') }}</Label>
       <ModelSelect
         v-model="form.chat_model_id"
-        :models="models"
+        :models="chatSelectableModels"
         :providers="providers"
         model-type="chat"
         :placeholder="$t('bots.settings.chatModel')"
@@ -510,6 +510,24 @@ const { mutateAsync: deleteBot, isLoading: deleteLoading } = useMutation({
 
 const models = computed(() => modelData.value ?? [])
 const providers = computed(() => providerData.value ?? [])
+const codexProviderIds = computed(() =>
+  new Set(
+    providers.value
+      .filter((provider) => provider.client_type === 'openai-codex')
+      .map((provider) => provider.id)
+      .filter((id): id is string => Boolean(id)),
+  ),
+)
+const codexChatModels = computed(() =>
+  models.value.filter((model) => codexProviderIds.value.has(model.provider_id ?? '')),
+)
+const chatSelectableModels = computed(() => {
+  if (bot.value?.framework !== 'codex') return models.value
+  if (!form.chat_model_id) return codexChatModels.value
+  if (codexChatModels.value.some((model) => model.id === form.chat_model_id)) return codexChatModels.value
+  const currentModel = models.value.find((model) => model.id === form.chat_model_id)
+  return currentModel ? [currentModel, ...codexChatModels.value] : codexChatModels.value
+})
 const imageCapableModels = computed(() =>
   models.value.filter((m) => m.config?.compatibilities?.includes('image-output')),
 )

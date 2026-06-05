@@ -99,6 +99,9 @@ func (h *SettingsHandler) Upsert(c echo.Context) error {
 		if errors.Is(err, settings.ErrInvalidModelRef) {
 			return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 		}
+		if errors.Is(err, settings.ErrCodexChatModelRequired) || errors.Is(err, settings.ErrCodexChatModelProvider) {
+			return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+		}
 		if errors.Is(err, settings.ErrModelIDAmbiguous) {
 			return echo.NewHTTPError(http.StatusConflict, "model_id is duplicated across providers; select by model UUID")
 		}

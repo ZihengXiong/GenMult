@@ -13,9 +13,11 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/memohai/memoh/internal/acl"
+	"github.com/memohai/memoh/internal/bots"
 	"github.com/memohai/memoh/internal/db"
 	"github.com/memohai/memoh/internal/db/postgres/sqlc"
 	dbstore "github.com/memohai/memoh/internal/db/store"
+	"github.com/memohai/memoh/internal/models"
 	netctl "github.com/memohai/memoh/internal/network"
 	tzutil "github.com/memohai/memoh/internal/timezone"
 )
@@ -28,8 +30,10 @@ type Service struct {
 }
 
 var (
-	ErrModelIDAmbiguous = errors.New("model_id is ambiguous across providers")
-	ErrInvalidModelRef  = errors.New("invalid model reference")
+	ErrModelIDAmbiguous       = errors.New("model_id is ambiguous across providers")
+	ErrInvalidModelRef        = errors.New("invalid model reference")
+	ErrCodexChatModelRequired = errors.New("codex bots require a configured chat model")
+	ErrCodexChatModelProvider = errors.New("codex bots require an openai-codex chat model")
 )
 
 func NewService(log *slog.Logger, queries dbstore.Queries, aclService *acl.Service, networkService *netctl.Service) *Service {
@@ -225,6 +229,9 @@ func (s *Service) UpsertBot(ctx context.Context, botID string, req UpsertRequest
 	}
 	toolApprovalConfig, err := json.Marshal(current.ToolApprovalConfig)
 	if err != nil {
+		return Settings{}, err
+	}
+	if err := s.validateChatModelSelection(ctx, botRow.Framework, chatModelUUID, botRow.ChatModelID); err != nil {
 		return Settings{}, err
 	}
 
@@ -640,4 +647,33 @@ func normalizeOptionalTimezone(raw string) (pgtype.Text, error) {
 		return pgtype.Text{}, fmt.Errorf("invalid timezone: %w", err)
 	}
 	return pgtype.Text{String: loc.String(), Valid: true}, nil
+}
+
+func (s *Service) validateChatModelSelection(ctx context.Context, framework string, requested, existing pgtype.UUID) error {
+	if strings.TrimSpace(framework) != bots.FrameworkCodex {
+		return nil
+	}
+	selected := requested
+	if !selected.Valid {
+		selected = existing
+	}
+	if !selected.Valid {
+		return ErrCodexChatModelRequired
+	}
+	modelRow, err := s.queries.GetModelByID(ctx, selected)
+	if err != nil {
+		return err
+	}
+	provider, err := s.queries.GetProviderByID(ctx, modelRow.ProviderID)
+	if err != nil {
+		return err
+	}
+	if !isCodexChatModelClientType(provider.ClientType) {
+		return ErrCodexChatModelProvider
+	}
+	return nil
+}
+
+func isCodexChatModelClientType(clientType string) bool {
+	return models.ClientType(strings.TrimSpace(clientType)) == models.ClientTypeOpenAICodex
 }

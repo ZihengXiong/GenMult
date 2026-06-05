@@ -514,7 +514,35 @@
             {{ isSelectedAgentInRoom ? '移出群' : '加入群' }}
           </Button>
         </div>
+
+        <Button
+          v-if="selectedAgent?.botId"
+          variant="outline"
+          size="sm"
+          class="mt-2 h-8 w-full justify-start gap-1.5 text-xs"
+          @click="hostAccessDialogOpen = true"
+        >
+          <FolderOpen class="size-3.5" />
+          挂载与本地访问
+        </Button>
       </section>
+
+      <Dialog v-model:open="hostAccessDialogOpen">
+        <DialogContent class="sm:max-w-4xl max-h-[calc(100dvh-2rem)] overflow-hidden p-0">
+          <DialogHeader class="border-b border-border px-6 py-4">
+            <DialogTitle>挂载与本地访问</DialogTitle>
+            <DialogDescription>
+              为 {{ selectedAgent?.name || '当前 Agent' }} 配置可信根目录和额外白名单路径。
+            </DialogDescription>
+          </DialogHeader>
+          <div class="max-h-[calc(100dvh-9rem)] overflow-y-auto px-6 py-4">
+            <BotHostAccess
+              v-if="selectedAgent?.botId"
+              :bot-id="selectedAgent.botId"
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <section class="min-h-0 flex-1 overflow-y-auto p-4">
         <div class="mb-5 rounded-md border border-border bg-card p-3">
@@ -665,11 +693,19 @@ import { useMutation, useQuery, useQueryCache } from '@pinia/colada'
 import { getBotsQuery } from '@memohai/sdk/colada'
 import type { BotsBot } from '@memohai/sdk'
 import { client } from '@memohai/sdk/client'
-import { Button } from '@memohai/ui'
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@memohai/ui'
 import { connectWebSocket, createSession, type UIMessage, type UIStreamEvent } from '@/composables/api/useChat'
 import { useChatSelectionStore } from '@/store/chat-selection'
 import { useWorkspaceTabsStore } from '@/store/workspace-tabs'
 import { visibleBots } from '@/utils/bots'
+import BotHostAccess from '@/pages/bots/components/bot-host-access.vue'
 import {
   AtSign,
   Bot,
@@ -840,6 +876,7 @@ const workspaceTabsStore = useWorkspaceTabsStore()
 const activeActivity = ref<ActivityId>('rooms')
 const selectedRoomId = ref('payment')
 const selectedAgentId = ref('orchestrator')
+const hostAccessDialogOpen = ref(false)
 const searchQuery = ref('')
 const isCreatingRoom = ref(false)
 const newRoomName = ref('')
@@ -1149,6 +1186,14 @@ watch(
   selectedRoom,
   () => {
     void ensureMainAgentInSelectedRoom()
+  },
+)
+
+watch(
+  selectedAgent,
+  (agent) => {
+    if (agent?.botId) return
+    hostAccessDialogOpen.value = false
   },
 )
 

@@ -1176,9 +1176,14 @@ export const useChatStore = defineStore('chat', () => {
   async function loadMessages(botId: string, sid: string) {
     const turns = await fetchMessagesUI(botId, sid, { limit: PAGE_SIZE })
     const normalized = normalizeTurns(turns, sid)
-    setMessages(normalized)
-    hasMoreOlder.value = normalized.length > 0
-    cacheCurrentMessages()
+    const moreOlder = normalized.length > 0
+    if (currentBotId.value === botId && sessionId.value === sid) {
+      setMessages(normalized)
+      hasMoreOlder.value = moreOlder
+      cacheCurrentMessages()
+    } else {
+      cacheFetchedMessages(botId, sid, normalized, moreOlder)
+    }
     void ensureSessionTitle(botId, sid, normalized)
   }
 
