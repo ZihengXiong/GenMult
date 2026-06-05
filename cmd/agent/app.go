@@ -433,14 +433,7 @@ func buildCLIBotRuntimes(log *slog.Logger, queries dbstore.Queries, wsManager *w
 	}
 
 	execFac := botruntime.ExecutorFactory(func(ctx context.Context, botID string) (agenthubproviders.CommandExecutor, error) {
-		if wsManager == nil {
-			return agenthubproviders.NewHostExecutor(), nil
-		}
-		client, err := wsManager.MCPClient(ctx, botID)
-		if err != nil {
-			return nil, err
-		}
-		return agenthubproviders.NewBridgeExecutor(client), nil
+		return agenthubproviders.NewHostExecutor(), nil
 	})
 
 	return []botruntime.BotRuntime{
