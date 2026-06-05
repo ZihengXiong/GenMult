@@ -30,10 +30,12 @@ type Service struct {
 }
 
 var (
-	ErrModelIDAmbiguous       = errors.New("model_id is ambiguous across providers")
-	ErrInvalidModelRef        = errors.New("invalid model reference")
-	ErrCodexChatModelRequired = errors.New("codex bots require a configured chat model")
-	ErrCodexChatModelProvider = errors.New("codex bots require an openai-codex chat model")
+	ErrModelIDAmbiguous            = errors.New("model_id is ambiguous across providers")
+	ErrInvalidModelRef             = errors.New("invalid model reference")
+	ErrClaudeCodeChatModelRequired = errors.New("claudecode bots require a configured chat model")
+	ErrClaudeCodeChatModelProvider = errors.New("claudecode bots require an anthropic-messages chat model")
+	ErrCodexChatModelRequired      = errors.New("codex bots require a configured chat model")
+	ErrCodexChatModelProvider      = errors.New("codex bots require an openai-codex chat model")
 )
 
 func NewService(log *slog.Logger, queries dbstore.Queries, aclService *acl.Service, networkService *netctl.Service) *Service {
@@ -650,15 +652,29 @@ func normalizeOptionalTimezone(raw string) (pgtype.Text, error) {
 }
 
 func (s *Service) validateChatModelSelection(ctx context.Context, framework string, requested, existing pgtype.UUID) error {
-	if strings.TrimSpace(framework) != bots.FrameworkCodex {
-		return nil
-	}
 	selected := requested
 	if !selected.Valid {
 		selected = existing
 	}
+	switch strings.TrimSpace(framework) {
+	case bots.FrameworkClaudeCode:
+		return s.validateFrameworkChatModelSelection(ctx, selected, ErrClaudeCodeChatModelRequired, ErrClaudeCodeChatModelProvider, isClaudeCodeChatModelClientType)
+	case bots.FrameworkCodex:
+		return s.validateFrameworkChatModelSelection(ctx, selected, ErrCodexChatModelRequired, ErrCodexChatModelProvider, isCodexChatModelClientType)
+	default:
+		return nil
+	}
+}
+
+func (s *Service) validateFrameworkChatModelSelection(
+	ctx context.Context,
+	selected pgtype.UUID,
+	missingErr error,
+	providerErr error,
+	accept func(string) bool,
+) error {
 	if !selected.Valid {
-		return ErrCodexChatModelRequired
+		return missingErr
 	}
 	modelRow, err := s.queries.GetModelByID(ctx, selected)
 	if err != nil {
@@ -668,10 +684,14 @@ func (s *Service) validateChatModelSelection(ctx context.Context, framework stri
 	if err != nil {
 		return err
 	}
-	if !isCodexChatModelClientType(provider.ClientType) {
-		return ErrCodexChatModelProvider
+	if !accept(provider.ClientType) {
+		return providerErr
 	}
 	return nil
+}
+
+func isClaudeCodeChatModelClientType(clientType string) bool {
+	return models.ClientType(strings.TrimSpace(clientType)) == models.ClientTypeAnthropicMessages
 }
 
 func isCodexChatModelClientType(clientType string) bool {

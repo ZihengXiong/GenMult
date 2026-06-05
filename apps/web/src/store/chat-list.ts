@@ -1375,11 +1375,11 @@ export const useChatStore = defineStore('chat', () => {
 
   async function createNewSession() {
     cacheCurrentMessages()
-    const bid = await ensureBot()
-    if (!bid) return
     sessionId.value = null
     replaceMessages([])
     hasMoreOlder.value = false
+    const bid = currentBotId.value ?? await ensureBot()
+    if (!bid) return
   }
 
   async function removeSession(targetSessionId: string) {

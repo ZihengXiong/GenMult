@@ -215,6 +215,25 @@ const (
 	anthropicAPIVersion = "2023-06-01"
 )
 
+func normalizeProviderProbeMessage(clientType models.ClientType, baseURL, message string, reachable bool) string {
+	message = strings.TrimSpace(message)
+	if !reachable || message == "" {
+		return message
+	}
+	if clientType != models.ClientTypeAnthropicMessages {
+		return message
+	}
+
+	normalizedBaseURL := strings.ToLower(strings.TrimSpace(baseURL))
+	if normalizedBaseURL == "" || strings.Contains(normalizedBaseURL, "api.anthropic.com") {
+		return message
+	}
+	if !strings.Contains(message, "404") {
+		return message
+	}
+	return "provider reachable; upstream Anthropic-compatible probe endpoint returned 404, but chat requests may still work"
+}
+
 // Test probes the provider using the Twilight AI SDK to check
 // reachability and authentication.
 func (s *Service) Test(ctx context.Context, id string) (TestResponse, error) {
@@ -242,11 +261,12 @@ func (s *Service) Test(ctx context.Context, id string) (TestResponse, error) {
 	start := time.Now()
 	result := sdkProvider.Test(ctx)
 	latency := time.Since(start).Milliseconds()
+	reachable := result.Status != sdk.ProviderStatusUnreachable
 
 	return TestResponse{
-		Reachable: result.Status != sdk.ProviderStatusUnreachable,
+		Reachable: reachable,
 		LatencyMs: latency,
-		Message:   result.Message,
+		Message:   normalizeProviderProbeMessage(clientType, baseURL, result.Message, reachable),
 	}, nil
 }
 

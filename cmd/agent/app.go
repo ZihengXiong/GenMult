@@ -376,7 +376,10 @@ func injectToolProviders(a *agentpkg.Agent, msgService *message.DBService, provi
 
 func provideChatResolver(log *slog.Logger, a *agentpkg.Agent, modelsService *models.Service, queries dbstore.Queries, chatService *conversation.Service, msgService *message.DBService, settingsService *settings.Service, accountService *accounts.Service, mediaService *media.Service, containerdHandler *handlers.ContainerdHandler, memoryRegistry *memprovider.Registry, channelStore *channel.Store, routeService *route.DBService, sessionService *sessionpkg.Service, eventHub *event.Hub, compactionService *compaction.Service, pipeline *pipelinepkg.Pipeline, rc *boot.RuntimeConfig, bgManager *background.Manager, toolApproval *toolapproval.Service) *flow.Resolver {
 	resolver := flow.NewResolver(log, modelsService, queries, chatService, msgService, settingsService, accountService, a, rc.TimezoneLocation, 120*time.Second)
-	resolver.SetBotRuntimes(botruntime.NewPassthroughRuntime(bots.FrameworkCodex, a))
+	resolver.SetBotRuntimes(
+		botruntime.NewClaudeCodeRuntime(botruntime.ClaudeCodeConfigFromEnv(), log),
+		botruntime.NewPassthroughRuntime(bots.FrameworkCodex, a),
+	)
 	resolver.SetMemoryRegistry(memoryRegistry)
 	resolver.SetSkillLoader(&skillLoaderAdapter{handler: containerdHandler})
 	resolver.SetGatewayAssetLoader(&gatewayAssetLoaderAdapter{media: mediaService})

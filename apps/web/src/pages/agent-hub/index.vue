@@ -838,6 +838,7 @@ interface AgentItem {
   tone: string
   capabilities: string[]
   botId?: string
+  framework?: string
 }
 
 interface TimelineEvent {
@@ -1092,29 +1093,46 @@ const rawMemohAgents = computed<AgentItem[]>(() =>
           : 'border-slate-500/30 bg-slate-500/10 text-slate-700 dark:text-slate-300',
         capabilities: ['本地聊天', '容器工具', '长期记忆'],
         botId: bot.id,
+        framework: bot.framework,
       }
     }),
 )
 
 const codexBridgeBot = computed(() =>
-  rawMemohAgents.value.find((agent) => isCodexBridgeAgentName(agent.name)) ?? null,
+  rawMemohAgents.value.find((agent) => agent.framework === 'codex') ?? null,
+)
+
+const claudeBridgeBot = computed(() =>
+  rawMemohAgents.value.find((agent) => agent.framework === 'claudecode') ?? null,
 )
 
 const memohAgents = computed<AgentItem[]>(() =>
-  rawMemohAgents.value.filter((agent) => !isCodexBridgeAgentName(agent.name)),
+  rawMemohAgents.value.filter((agent) => agent.framework !== 'codex' && agent.framework !== 'claudecode'),
 )
 
 const agents = computed(() => {
   const codexBot = codexBridgeBot.value
+  const claudeBot = claudeBridgeBot.value
   const bridgedBaseAgents = baseAgents.map((agent) => {
-    if (agent.id !== 'codex' || !codexBot) return agent
-    return {
-      ...agent,
-      status: codexBot.status,
-      kind: 'CLI Agent · Memoh Bridge',
-      botId: codexBot.botId,
-      capabilities: [...agent.capabilities, '单聊复用'],
+    if (agent.id === 'codex' && codexBot) {
+      return {
+        ...agent,
+        status: codexBot.status,
+        kind: 'CLI Agent · Memoh Bridge',
+        botId: codexBot.botId,
+        capabilities: [...agent.capabilities, '单聊复用'],
+      }
     }
+    if (agent.id === 'claude-code' && claudeBot) {
+      return {
+        ...agent,
+        status: claudeBot.status,
+        kind: 'CLI Agent · Memoh Bridge',
+        botId: claudeBot.botId,
+        capabilities: [...agent.capabilities, '单聊复用'],
+      }
+    }
+    return agent
   })
   return [...bridgedBaseAgents, ...memohAgents.value]
 })
@@ -1287,8 +1305,10 @@ const connectors = computed<ConnectorItem[]>(() => [
   {
     id: 'claude-bridge',
     name: 'Claude Code Bridge',
-    description: '以可 @ 的 Agent 接入，不走单纯模型配置。',
-    enabled: false,
+    description: claudeBridgeBot.value
+      ? `直接绑定 ${claudeBridgeBot.value.name}，保留工具追踪、流式输出和会话恢复。`
+      : '以可 @ 的 Agent 接入，不走单纯模型配置。',
+    enabled: Boolean(claudeBridgeBot.value?.botId),
     icon: Code2,
     tone: 'border-violet-500/30 bg-violet-500/10 text-violet-700 dark:text-violet-300',
   },
@@ -1716,10 +1736,6 @@ function isPeppaAgentName(name: string) {
   return /佩奇|peppa|peiqi/i.test(name.trim())
 }
 
-function isCodexBridgeAgentName(name: string) {
-  return /^codex-smoke-/i.test(name.trim())
-}
-
 function startCreateRoom() {
   activeActivity.value = 'rooms'
   isCreatingRoom.value = true
@@ -1998,6 +2014,11 @@ function handleConnectorClick(connector: ConnectorItem) {
   }
   if (connector.id === 'codex-bridge') {
     selectedAgentId.value = 'codex'
+    void addAgentToSelectedRoom()
+    return
+  }
+  if (connector.id === 'claude-bridge') {
+    selectedAgentId.value = 'claude-code'
     void addAgentToSelectedRoom()
   }
 }

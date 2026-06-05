@@ -88,8 +88,9 @@ const (
 )
 
 const (
-	FrameworkMemoh = "memoh"
-	FrameworkCodex = "codex"
+	FrameworkMemoh      = "memoh"
+	FrameworkClaudeCode = "claudecode"
+	FrameworkCodex      = "codex"
 )
 
 const (

@@ -293,3 +293,50 @@ func TestFetchRemoteModelsFromAnthropicUsesAnthropicHeaders(t *testing.T) {
 		t.Fatalf("expected Anthropic model type to import as chat, got %q", remoteModels[0].Type)
 	}
 }
+
+func TestNormalizeProviderProbeMessage(t *testing.T) {
+	t.Parallel()
+
+	t.Run("third party anthropic 404 is rewritten", func(t *testing.T) {
+		t.Parallel()
+
+		got := normalizeProviderProbeMessage(
+			models.ClientTypeAnthropicMessages,
+			"https://api.deepseek.com/anthropic",
+			"service error (404): ",
+			true,
+		)
+		want := "provider reachable; upstream Anthropic-compatible probe endpoint returned 404, but chat requests may still work"
+		if got != want {
+			t.Fatalf("normalizeProviderProbeMessage() = %q, want %q", got, want)
+		}
+	})
+
+	t.Run("official anthropic 404 is preserved", func(t *testing.T) {
+		t.Parallel()
+
+		got := normalizeProviderProbeMessage(
+			models.ClientTypeAnthropicMessages,
+			"https://api.anthropic.com",
+			"service error (404): ",
+			true,
+		)
+		if got != "service error (404):" {
+			t.Fatalf("expected official anthropic message to be preserved, got %q", got)
+		}
+	})
+
+	t.Run("unreachable result is preserved", func(t *testing.T) {
+		t.Parallel()
+
+		got := normalizeProviderProbeMessage(
+			models.ClientTypeAnthropicMessages,
+			"https://api.deepseek.com/anthropic",
+			"connection refused",
+			false,
+		)
+		if got != "connection refused" {
+			t.Fatalf("expected unreachable message to be preserved, got %q", got)
+		}
+	})
+}

@@ -179,7 +179,7 @@ CREATE TABLE IF NOT EXISTS bots (
   CONSTRAINT bots_type_check CHECK (type IN ('personal', 'public')),
   CONSTRAINT bots_status_check CHECK (status IN ('creating', 'ready', 'deleting')),
   CONSTRAINT bots_acl_default_effect_check CHECK (acl_default_effect IN ('allow', 'deny')),
-  CONSTRAINT bots_framework_check CHECK (framework IN ('memoh', 'codex')),
+  CONSTRAINT bots_framework_check CHECK (framework IN ('memoh', 'claudecode', 'codex')),
   CONSTRAINT bots_reasoning_effort_check CHECK (reasoning_effort IN ('low', 'medium', 'high'))
 );
 

@@ -539,7 +539,7 @@ func normalizeFramework(raw string) (string, error) {
 		return FrameworkMemoh, nil
 	}
 	switch value {
-	case FrameworkMemoh, FrameworkCodex:
+	case FrameworkMemoh, FrameworkClaudeCode, FrameworkCodex:
 		return value, nil
 	default:
 		return "", fmt.Errorf("invalid framework: %q", value)

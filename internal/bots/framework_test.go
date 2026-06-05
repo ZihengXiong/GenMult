@@ -11,9 +11,10 @@ func TestNormalizeFramework(t *testing.T) {
 	}{
 		{name: "default", input: "", want: FrameworkMemoh},
 		{name: "memoh", input: "memoh", want: FrameworkMemoh},
+		{name: "claudecode", input: "claudecode", want: FrameworkClaudeCode},
 		{name: "codex", input: "codex", want: FrameworkCodex},
-		{name: "trim", input: " codex ", want: FrameworkCodex},
-		{name: "invalid", input: "claudecode", wantErr: true},
+		{name: "trim", input: " claudecode ", want: FrameworkClaudeCode},
+		{name: "invalid", input: "unknown", wantErr: true},
 	}
 
 	for _, tt := range tests {
