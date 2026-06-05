@@ -423,7 +423,7 @@ func buildCLIBotRuntimes(log *slog.Logger, queries dbstore.Queries, wsManager *w
 				return info.DefaultWorkDir, nil
 			}
 		}
-		return "/", nil
+		return os.Getwd()
 	})
 
 	resolveCreds := func(framework string) func(ctx context.Context) (providers.ModelCredentials, error) {

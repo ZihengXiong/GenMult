@@ -163,7 +163,7 @@ func (r *CLIRunner) Run(ctx context.Context, prompt string, workDir string, exec
 		return "", fmt.Errorf("CLI exit error (code %d): %w (stderr: %s)", exitCode, waitErr, stderrStr)
 	}
 
-	r.logger.Info("CLI execution finished", slog.Int("exit_code", exitCode), slog.String("stderr", stderrStr), slog.String("stdout", outputBuilder.String()))
+	r.logger.Info("CLI execution finished", slog.Int("exit_code", exitCode), slog.String("stderr", stderrStr))
 
 	return outputBuilder.String(), nil
 }

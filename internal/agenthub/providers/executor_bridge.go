@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 	"sync"
 
@@ -38,7 +39,8 @@ func (e *BridgeExecutor) Start(ctx context.Context, req ExecRequest) (ExecHandle
 		command += " " + strings.Join(args, " ")
 	}
 
-	stream, err := e.client.ExecStream(ctx, command, req.WorkDir, timeout, req.Env)
+	env := append(os.Environ(), req.Env...)
+	stream, err := e.client.ExecStream(ctx, command, req.WorkDir, timeout, env)
 	if err != nil {
 		return nil, err
 	}
