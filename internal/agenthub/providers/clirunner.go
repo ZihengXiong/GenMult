@@ -21,12 +21,13 @@ type CLIRunnerConfig struct {
 
 // CLIEvent is a provider-agnostic intermediate event.
 type CLIEvent struct {
-	Type      string          // "text", "tool_use", "tool_result", "result", "error".
-	Content   string          // Event-specific main text content.
-	Payload   any             // Event-specific structured payload (e.g., tool arguments).
-	ToolName  string          // Tool name when an event contains a tool call alongside text.
-	SessionID string          // Claude Code session ID for session persistence.
-	Raw       json.RawMessage // Raw JSON output line.
+	Type        string          // "text", "tool_use", "tool_result", "result", "error".
+	Content     string          // Event-specific main text content.
+	TextContent string          // Visible text when Type=="thinking" and text also exists in the same block.
+	Payload     any             // Event-specific structured payload (e.g., tool arguments).
+	ToolName    string          // Tool name when an event contains a tool call alongside text.
+	SessionID   string          // Claude Code session ID (captured from init events).
+	Raw         json.RawMessage // Raw JSON output line.
 }
 
 // CLIRunner manages subprocess lifecycle and streaming NDJSON parsing.
@@ -139,9 +140,9 @@ func (r *CLIRunner) Run(ctx context.Context, prompt string, workDir string, exec
 
 	// 4. Stream processing loop with cross-chunk buffering.
 	for chunk := range handle.Chunks() {
-		// Disable spammy chunk logging unless explicitly debugging stream
-		// r.logger.Debug("received chunk", slog.String("stream", chunk.Stream), slog.String("data", string(chunk.Data)))
+		r.logger.Debug("received chunk", slog.String("stream", chunk.Stream), slog.String("data", string(chunk.Data)))
 		if chunk.Stream == "stderr" {
+			r.logger.Warn("subprocess stderr", slog.String("data", string(chunk.Data)))
 			stderrBuilder.Write(chunk.Data)
 			continue
 		}

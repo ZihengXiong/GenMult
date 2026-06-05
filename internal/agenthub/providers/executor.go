@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"os/exec"
+	"strings"
 	"sync"
 	"time"
 )
@@ -60,7 +61,30 @@ func (*HostExecutor) Start(ctx context.Context, req ExecRequest) (ExecHandle, er
 	cmd := exec.CommandContext(ctx, binPath, req.Args...) //nolint:gosec // intentional: execution of agent-provided commands
 	cmd.Dir = req.WorkDir
 	if len(req.Env) > 0 {
-		cmd.Env = append(os.Environ(), req.Env...)
+		// Merge os.Environ with req.Env so that req.Env takes precedence on
+		// duplicate keys (req.Env is iterated second, overwriting host values).
+		// A req.Env entry with an empty value (e.g. "ANTHROPIC_API_KEY=") is
+		// treated as an explicit unset: the key is removed from the merged env
+		// entirely rather than passed through as present-but-empty, since some
+		// programs (Claude Code) behave differently for an empty-but-present
+		// variable than for a missing one.
+		merged := make(map[string]string, len(req.Env))
+		for _, e := range os.Environ() {
+			k, v, _ := strings.Cut(e, "=")
+			merged[k] = v
+		}
+		for _, e := range req.Env {
+			k, v, _ := strings.Cut(e, "=")
+			if v == "" {
+				delete(merged, k)
+				continue
+			}
+			merged[k] = v
+		}
+		cmd.Env = make([]string, 0, len(merged))
+		for k, v := range merged {
+			cmd.Env = append(cmd.Env, k+"="+v)
+		}
 	}
 
 	stdinPipe, err := cmd.StdinPipe()

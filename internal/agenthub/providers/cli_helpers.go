@@ -20,14 +20,23 @@ func ClaudeEnv(cfg ClaudeCodeConfig) []string {
 	var env []string
 	// Third-party Anthropic-compatible APIs (e.g. DeepSeek) use Bearer auth
 	// (ANTHROPIC_AUTH_TOKEN) rather than the Anthropic-specific x-api-key header
-	// (ANTHROPIC_API_KEY). Auto-detect based on whether the base URL points
-	// somewhere other than the official Anthropic API.
-	thirdParty := cfg.BaseURL != "" && !strings.Contains(cfg.BaseURL, "api.anthropic.com")
+	// (ANTHROPIC_API_KEY). Check both the explicit config and the environment
+	// variable, since the base URL may be injected via ANTHROPIC_BASE_URL without
+	// being set in the bot's claudecode config.
+	effectiveBaseURL := cfg.BaseURL
+	if effectiveBaseURL == "" {
+		effectiveBaseURL = os.Getenv("ANTHROPIC_BASE_URL")
+	}
+	thirdParty := effectiveBaseURL != "" && !strings.Contains(effectiveBaseURL, "api.anthropic.com")
 	if cfg.AuthToken != "" {
 		env = append(env, "ANTHROPIC_AUTH_TOKEN="+cfg.AuthToken)
+		if thirdParty {
+			env = append(env, "ANTHROPIC_API_KEY=") // suppress x-api-key for third-party endpoints
+		}
 	} else if cfg.APIKey != "" {
 		if thirdParty {
 			env = append(env, "ANTHROPIC_AUTH_TOKEN="+cfg.APIKey)
+			env = append(env, "ANTHROPIC_API_KEY=") // suppress x-api-key for third-party endpoints
 		} else {
 			env = append(env, "ANTHROPIC_API_KEY="+cfg.APIKey)
 		}
@@ -116,6 +125,10 @@ func ClaudeParseEvent(line []byte) (CLIEvent, error) {
 				case len(thinkings) > 0:
 					ev.Type = "thinking"
 					ev.Content = strings.Join(thinkings, "")
+					// Preserve visible text alongside thinking so the caller can emit both.
+					if len(texts) > 0 {
+						ev.TextContent = strings.Join(texts, "")
+					}
 				case len(texts) > 0:
 					ev.Type = "text"
 					ev.Content = strings.Join(texts, "")

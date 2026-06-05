@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"log/slog"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -47,11 +46,6 @@ type cliRuntime struct {
 	resolver     WorkDirResolver
 	executor     ExecutorFactory
 	logger       *slog.Logger
-
-	// sessionMap stores Claude Code session IDs keyed by Memoh session ID
-	// so the same conversation can resume across multiple turns.
-	sessionMu  sync.RWMutex
-	sessionMap map[string]string // memoh session ID → claude session ID
 }
 
 // NewClaudeCodeRuntime builds the claudecode BotRuntime.
@@ -81,7 +75,6 @@ func NewClaudeCodeRuntime(cfg providers.ClaudeCodeConfig, resolveCreds func(ctx 
 		resolver:     resolver,
 		executor:     execFac,
 		logger:       logger.With(slog.String("component", "claudecode_runtime")),
-		sessionMap:   make(map[string]string),
 	}
 }
 
@@ -120,15 +113,66 @@ func (c *cliRuntime) Name() string { return c.name }
 func (*cliRuntime) IdleTimeout() time.Duration { return 10 * time.Minute }
 
 // promptFor composes the CLI prompt from the run input. The system preamble is
-// prepended when present so the framework has the same high-level instructions
-// the memoh agent would receive.
+// prepended when present, followed by any prior conversation history extracted
+// from in.Config.Messages, so multi-turn context works with any API backend.
 func promptFor(in RunInput) string {
 	query := strings.TrimSpace(in.Config.Query)
 	system := strings.TrimSpace(in.Config.System)
-	if system == "" {
-		return query
+	history := formatHistory(in.Config.Messages)
+
+	var parts []string
+	if system != "" {
+		parts = append(parts, system)
 	}
-	return system + "\n\n" + query
+	if history != "" {
+		parts = append(parts, history)
+	}
+	if query != "" {
+		parts = append(parts, query)
+	}
+	return strings.Join(parts, "\n\n")
+}
+
+// formatHistory formats prior conversation turns (all but the last message,
+// which is the current user turn already present in Config.Query) as a plain
+// text transcript. Returns empty string when there is no prior history.
+func formatHistory(msgs []sdk.Message) string {
+	// Need at least 2 messages (one prior turn + current) to have history.
+	if len(msgs) < 2 {
+		return ""
+	}
+	prior := msgs[:len(msgs)-1]
+	var sb strings.Builder
+	sb.WriteString("--- Conversation History ---\n")
+	for _, msg := range prior {
+		text := extractMsgText(msg)
+		if text == "" {
+			continue
+		}
+		switch msg.Role {
+		case sdk.MessageRoleUser:
+			sb.WriteString("User: ")
+		case sdk.MessageRoleAssistant:
+			sb.WriteString("Assistant: ")
+		default:
+			continue
+		}
+		sb.WriteString(text)
+		sb.WriteByte('\n')
+	}
+	sb.WriteString("--- End of History ---")
+	return sb.String()
+}
+
+// extractMsgText returns the concatenated text content of an sdk.Message.
+func extractMsgText(msg sdk.Message) string {
+	var sb strings.Builder
+	for _, part := range msg.Content {
+		if tp, ok := part.(sdk.TextPart); ok {
+			sb.WriteString(tp.Text)
+		}
+	}
+	return strings.TrimSpace(sb.String())
 }
 
 func (c *cliRuntime) Stream(ctx context.Context, in RunInput) <-chan agentpkg.StreamEvent {
@@ -150,21 +194,8 @@ func (c *cliRuntime) Stream(ctx context.Context, in RunInput) <-chan agentpkg.St
 		var activeToolCallID string
 		var lastThinkingLen int
 		var lastTextLen int
-		memohSessionID := in.Config.Identity.SessionID
 
 		text, err := c.run(ctx, in, func(ev providers.CLIEvent) {
-			// Capture Claude session ID from init events for resume.
-			if ev.Type == "init" && ev.SessionID != "" && memohSessionID != "" {
-				c.sessionMu.Lock()
-				c.sessionMap[memohSessionID] = ev.SessionID
-				c.sessionMu.Unlock()
-				c.logger.Info("captured claude session",
-					slog.String("memoh_session", memohSessionID),
-					slog.String("claude_session", ev.SessionID),
-				)
-				return
-			}
-
 			switch ev.Type {
 			case "thinking":
 				// Claude's extended thinking content (snapshot mode).
@@ -172,6 +203,12 @@ func (c *cliRuntime) Stream(ctx context.Context, in RunInput) <-chan agentpkg.St
 					delta := ev.Content[lastThinkingLen:]
 					send(agentpkg.StreamEvent{Type: agentpkg.EventReasoningDelta, Delta: delta})
 					lastThinkingLen = len(ev.Content)
+				}
+				// Emit visible text that arrived alongside the thinking block.
+				if len(ev.TextContent) > lastTextLen {
+					delta := ev.TextContent[lastTextLen:]
+					send(agentpkg.StreamEvent{Type: agentpkg.EventTextDelta, Delta: delta})
+					lastTextLen = len(ev.TextContent)
 				}
 				if ev.ToolName != "" {
 					activeToolCallID = uuid.NewString()
@@ -256,28 +293,9 @@ func (c *cliRuntime) run(ctx context.Context, in RunInput, onEvent func(provider
 		return "", err
 	}
 
-	// Look up existing Claude session for --resume.
-	memohSessionID := in.Config.Identity.SessionID
-	var claudeSessionID string
-	if memohSessionID != "" && c.sessionMap != nil {
-		c.sessionMu.RLock()
-		claudeSessionID = c.sessionMap[memohSessionID]
-		c.sessionMu.RUnlock()
-	}
-
 	runner := providers.NewCLIRunner(providers.CLIRunnerConfig{
 		BinaryName: c.binaryName,
-		BuildArgs: func(prompt string) []string {
-			args := c.buildArgs(in, prompt)
-			if claudeSessionID != "" {
-				args = append(args, "--resume", claudeSessionID)
-				c.logger.Info("resuming claude session",
-					slog.String("memoh_session", memohSessionID),
-					slog.String("claude_session", claudeSessionID),
-				)
-			}
-			return args
-		},
+		BuildArgs:  func(prompt string) []string { return c.buildArgs(in, prompt) },
 		ParseEvent: c.parseEvent,
 		OnEvent:    onEvent,
 	}, c.logger)
