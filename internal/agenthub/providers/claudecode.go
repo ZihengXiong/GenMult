@@ -16,10 +16,13 @@ import (
 
 // ClaudeEvent represents a raw JSON line output from the Claude CLI stream.
 type ClaudeEvent struct {
-	Type    string          `json:"type"`
-	Role    string          `json:"role,omitempty"`
-	Content json.RawMessage `json:"content,omitempty"`
-	Message *ClaudeMessage  `json:"message,omitempty"`
+	Type        string          `json:"type"`
+	Role        string          `json:"role,omitempty"`
+	Content     json.RawMessage `json:"content,omitempty"`
+	Message     *ClaudeMessage  `json:"message,omitempty"`
+	Result      string          `json:"result,omitempty"`
+	IsError     bool            `json:"is_error,omitempty"`
+	ErrorStatus int             `json:"api_error_status,omitempty"`
 }
 
 // ClaudeMessage represents a message wrapper inside ClaudeEvent.

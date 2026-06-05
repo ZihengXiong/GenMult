@@ -93,7 +93,15 @@ func ClaudeParseEvent(line []byte) (CLIEvent, error) {
 		return CLIEvent{Type: "tool_result", Content: resultTxt, Raw: line}, nil
 	case "result":
 		var resultTxt string
-		_ = json.Unmarshal(ce.Content, &resultTxt)
+		if len(ce.Content) > 0 {
+			_ = json.Unmarshal(ce.Content, &resultTxt)
+		}
+		if resultTxt == "" && ce.Result != "" {
+			resultTxt = ce.Result
+		}
+		if ce.IsError {
+			return CLIEvent{Type: "error", Content: resultTxt, Raw: line}, nil
+		}
 		return CLIEvent{Type: "result", Content: resultTxt, Raw: line}, nil
 	}
 	return CLIEvent{Type: ce.Type, Raw: line}, nil
