@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -46,6 +47,11 @@ type cliRuntime struct {
 	resolver     WorkDirResolver
 	executor     ExecutorFactory
 	logger       *slog.Logger
+
+	// sessionMap stores Claude Code session IDs keyed by Memoh session ID
+	// so the same conversation can resume across multiple turns.
+	sessionMu  sync.RWMutex
+	sessionMap map[string]string // memoh session ID → claude session ID
 }
 
 // NewClaudeCodeRuntime builds the claudecode BotRuntime.
@@ -75,6 +81,7 @@ func NewClaudeCodeRuntime(cfg providers.ClaudeCodeConfig, resolveCreds func(ctx 
 		resolver:     resolver,
 		executor:     execFac,
 		logger:       logger.With(slog.String("component", "claudecode_runtime")),
+		sessionMap:   make(map[string]string),
 	}
 }
 
@@ -141,10 +148,57 @@ func (c *cliRuntime) Stream(ctx context.Context, in RunInput) <-chan agentpkg.St
 		send(agentpkg.StreamEvent{Type: agentpkg.EventAgentStart})
 
 		var activeToolCallID string
+		var lastThinkingLen int
+		var lastTextLen int
+		memohSessionID := in.Config.Identity.SessionID
 
 		text, err := c.run(ctx, in, func(ev providers.CLIEvent) {
+			// Capture Claude session ID from init events for resume.
+			if ev.Type == "init" && ev.SessionID != "" && memohSessionID != "" {
+				c.sessionMu.Lock()
+				c.sessionMap[memohSessionID] = ev.SessionID
+				c.sessionMu.Unlock()
+				c.logger.Info("captured claude session",
+					slog.String("memoh_session", memohSessionID),
+					slog.String("claude_session", ev.SessionID),
+				)
+				return
+			}
+
 			switch ev.Type {
-			case "text", "result":
+			case "thinking":
+				// Claude's extended thinking content (snapshot mode).
+				if len(ev.Content) > lastThinkingLen {
+					delta := ev.Content[lastThinkingLen:]
+					send(agentpkg.StreamEvent{Type: agentpkg.EventReasoningDelta, Delta: delta})
+					lastThinkingLen = len(ev.Content)
+				}
+				if ev.ToolName != "" {
+					activeToolCallID = uuid.NewString()
+					send(agentpkg.StreamEvent{
+						Type:       agentpkg.EventToolCallStart,
+						ToolName:   ev.ToolName,
+						Input:      ev.Payload,
+						ToolCallID: activeToolCallID,
+					})
+				}
+			case "text":
+				// Claude's visible text reply (snapshot mode).
+				if len(ev.Content) > lastTextLen {
+					delta := ev.Content[lastTextLen:]
+					send(agentpkg.StreamEvent{Type: agentpkg.EventTextDelta, Delta: delta})
+					lastTextLen = len(ev.Content)
+				}
+				if ev.ToolName != "" {
+					activeToolCallID = uuid.NewString()
+					send(agentpkg.StreamEvent{
+						Type:       agentpkg.EventToolCallStart,
+						ToolName:   ev.ToolName,
+						Input:      ev.Payload,
+						ToolCallID: activeToolCallID,
+					})
+				}
+			case "result":
 				if ev.Content != "" {
 					send(agentpkg.StreamEvent{Type: agentpkg.EventTextDelta, Delta: ev.Content})
 				}
@@ -153,6 +207,7 @@ func (c *cliRuntime) Stream(ctx context.Context, in RunInput) <-chan agentpkg.St
 				send(agentpkg.StreamEvent{
 					Type:       agentpkg.EventToolCallStart,
 					ToolName:   ev.Content,
+					Input:      ev.Payload,
 					ToolCallID: activeToolCallID,
 				})
 			case "tool_result":
@@ -200,9 +255,29 @@ func (c *cliRuntime) run(ctx context.Context, in RunInput, onEvent func(provider
 	if err != nil {
 		return "", err
 	}
+
+	// Look up existing Claude session for --resume.
+	memohSessionID := in.Config.Identity.SessionID
+	var claudeSessionID string
+	if memohSessionID != "" && c.sessionMap != nil {
+		c.sessionMu.RLock()
+		claudeSessionID = c.sessionMap[memohSessionID]
+		c.sessionMu.RUnlock()
+	}
+
 	runner := providers.NewCLIRunner(providers.CLIRunnerConfig{
 		BinaryName: c.binaryName,
-		BuildArgs:  func(prompt string) []string { return c.buildArgs(in, prompt) },
+		BuildArgs: func(prompt string) []string {
+			args := c.buildArgs(in, prompt)
+			if claudeSessionID != "" {
+				args = append(args, "--resume", claudeSessionID)
+				c.logger.Info("resuming claude session",
+					slog.String("memoh_session", memohSessionID),
+					slog.String("claude_session", claudeSessionID),
+				)
+			}
+			return args
+		},
 		ParseEvent: c.parseEvent,
 		OnEvent:    onEvent,
 	}, c.logger)

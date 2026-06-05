@@ -80,24 +80,54 @@ func ClaudeParseEvent(line []byte) (CLIEvent, error) {
 	}
 	switch ce.Type {
 	case "system":
-		return CLIEvent{Type: "init", Content: "initialized", Raw: line}, nil
+		// Only emit init for the "init" subtype; skip noisy subtypes like
+		// "thinking_tokens" which are just token counters.
+		if ce.Subtype == "init" {
+			return CLIEvent{Type: "init", Content: "initialized", SessionID: ce.SessionID, Raw: line}, nil
+		}
+		// Silently skip other system subtypes (thinking_tokens, etc.)
+		return CLIEvent{Type: "system", Raw: line}, nil
 	case "assistant":
 		if ce.Message != nil {
+			var thinkings []string
 			var texts []string
 			var tools []string
+			var firstInput any
 			for _, block := range ce.Message.Content {
 				switch block.Type {
+				case "thinking":
+					if block.Thinking != "" {
+						thinkings = append(thinkings, block.Thinking)
+					}
 				case "text":
 					texts = append(texts, block.Text)
 				case "tool_use":
 					tools = append(tools, block.Name)
+					if firstInput == nil {
+						firstInput = block.Input
+					}
 				}
 			}
-			if len(tools) > 0 {
-				return CLIEvent{Type: "tool_use", Content: strings.Join(tools, ", "), Raw: line}, nil
-			}
-			if len(texts) > 0 {
-				return CLIEvent{Type: "text", Content: strings.Join(texts, ""), Raw: line}, nil
+			// Prefer thinking content if present (Claude's internal reasoning).
+			// Fall back to text content (Claude's visible reply).
+			if len(thinkings) > 0 || len(texts) > 0 || len(tools) > 0 {
+				ev := CLIEvent{Raw: line}
+				switch {
+				case len(thinkings) > 0:
+					ev.Type = "thinking"
+					ev.Content = strings.Join(thinkings, "")
+				case len(texts) > 0:
+					ev.Type = "text"
+					ev.Content = strings.Join(texts, "")
+				default:
+					ev.Type = "tool_use"
+					ev.Content = strings.Join(tools, ", ")
+				}
+				if len(tools) > 0 {
+					ev.ToolName = strings.Join(tools, ", ")
+					ev.Payload = firstInput
+				}
+				return ev, nil
 			}
 		}
 		if ce.Content != nil {

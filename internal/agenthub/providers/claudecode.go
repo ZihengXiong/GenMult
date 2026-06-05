@@ -17,12 +17,14 @@ import (
 // ClaudeEvent represents a raw JSON line output from the Claude CLI stream.
 type ClaudeEvent struct {
 	Type        string          `json:"type"`
+	Subtype     string          `json:"subtype,omitempty"`
 	Role        string          `json:"role,omitempty"`
 	Content     json.RawMessage `json:"content,omitempty"`
 	Message     *ClaudeMessage  `json:"message,omitempty"`
 	Result      string          `json:"result,omitempty"`
 	IsError     bool            `json:"is_error,omitempty"`
 	ErrorStatus int             `json:"api_error_status,omitempty"`
+	SessionID   string          `json:"session_id,omitempty"`
 }
 
 // ClaudeMessage represents a message wrapper inside ClaudeEvent.
@@ -33,11 +35,12 @@ type ClaudeMessage struct {
 
 // ContentBlock represents a single content piece in a Claude message.
 type ContentBlock struct {
-	Type  string `json:"type"`
-	Text  string `json:"text,omitempty"`
-	Name  string `json:"name,omitempty"`
-	ID    string `json:"id,omitempty"`
-	Input any    `json:"input,omitempty"`
+	Type     string `json:"type"`
+	Text     string `json:"text,omitempty"`
+	Thinking string `json:"thinking,omitempty"`
+	Name     string `json:"name,omitempty"`
+	ID       string `json:"id,omitempty"`
+	Input    any    `json:"input,omitempty"`
 }
 
 // ClaudeCodeProvider implements orchestrator.AgentProvider using Claude Code CLI.

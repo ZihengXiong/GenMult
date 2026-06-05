@@ -21,9 +21,12 @@ type CLIRunnerConfig struct {
 
 // CLIEvent is a provider-agnostic intermediate event.
 type CLIEvent struct {
-	Type    string          // "text", "tool_use", "tool_result", "result", "error".
-	Content string          // Event-specific main text content.
-	Raw     json.RawMessage // Raw JSON output line.
+	Type      string          // "text", "tool_use", "tool_result", "result", "error".
+	Content   string          // Event-specific main text content.
+	Payload   any             // Event-specific structured payload (e.g., tool arguments).
+	ToolName  string          // Tool name when an event contains a tool call alongside text.
+	SessionID string          // Claude Code session ID for session persistence.
+	Raw       json.RawMessage // Raw JSON output line.
 }
 
 // CLIRunner manages subprocess lifecycle and streaming NDJSON parsing.
@@ -136,7 +139,8 @@ func (r *CLIRunner) Run(ctx context.Context, prompt string, workDir string, exec
 
 	// 4. Stream processing loop with cross-chunk buffering.
 	for chunk := range handle.Chunks() {
-		r.logger.Debug("received chunk", slog.String("stream", chunk.Stream), slog.String("data", string(chunk.Data)))
+		// Disable spammy chunk logging unless explicitly debugging stream
+		// r.logger.Debug("received chunk", slog.String("stream", chunk.Stream), slog.String("data", string(chunk.Data)))
 		if chunk.Stream == "stderr" {
 			stderrBuilder.Write(chunk.Data)
 			continue
