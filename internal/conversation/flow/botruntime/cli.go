@@ -63,10 +63,10 @@ func NewClaudeCodeRuntime(cfg providers.ClaudeCodeConfig, resolveCreds func(ctx 
 		parseEvent: providers.ClaudeParseEvent,
 		buildEnv: func(in RunInput, creds globalproviders.ModelCredentials) []string {
 			localCfg := mergeClaudeCodeConfig(cfg, in.Config.ProviderExt["claudecode"])
-			if creds.APIKey != "" {
+			if creds.APIKey != "" && localCfg.APIKey == "" && localCfg.AuthToken == "" {
 				localCfg.APIKey = creds.APIKey
 			}
-			if creds.BaseURL != "" {
+			if creds.BaseURL != "" && localCfg.BaseURL == "" {
 				localCfg.BaseURL = creds.BaseURL
 			}
 			return providers.ClaudeEnv(localCfg)
@@ -93,10 +93,10 @@ func NewCodexRuntime(cfg providers.CodexConfig, resolveCreds func(ctx context.Co
 		parseEvent: providers.CodexParseEvent,
 		buildEnv: func(in RunInput, creds globalproviders.ModelCredentials) []string {
 			localCfg := mergeCodexConfig(cfg, in.Config.ProviderExt["codex"])
-			if creds.APIKey != "" {
+			if creds.APIKey != "" && localCfg.APIKey == "" {
 				localCfg.APIKey = creds.APIKey
 			}
-			if creds.BaseURL != "" {
+			if creds.BaseURL != "" && localCfg.BaseURL == "" {
 				localCfg.BaseURL = creds.BaseURL
 			}
 			return providers.CodexEnv(localCfg)
@@ -110,7 +110,7 @@ func NewCodexRuntime(cfg providers.CodexConfig, resolveCreds func(ctx context.Co
 
 func (c *cliRuntime) Name() string { return c.name }
 
-func (c *cliRuntime) IdleTimeout() time.Duration { return 10 * time.Minute }
+func (*cliRuntime) IdleTimeout() time.Duration { return 10 * time.Minute }
 
 // promptFor composes the CLI prompt from the run input. The system preamble is
 // prepended when present so the framework has the same high-level instructions
@@ -249,6 +249,14 @@ func mergeClaudeCodeConfig(base providers.ClaudeCodeConfig, ext any) providers.C
 	if len(overlay.AllowedTools) > 0 {
 		base.AllowedTools = overlay.AllowedTools
 	}
+	if len(overlay.CustomEnv) > 0 {
+		if base.CustomEnv == nil {
+			base.CustomEnv = make(map[string]string)
+		}
+		for k, v := range overlay.CustomEnv {
+			base.CustomEnv[k] = v
+		}
+	}
 	return base
 }
 
@@ -270,6 +278,7 @@ func mergeCodexConfig(base providers.CodexConfig, ext any) providers.CodexConfig
 	if overlay.Sandbox != "" {
 		base.Sandbox = overlay.Sandbox
 	}
+
 	return base
 }
 

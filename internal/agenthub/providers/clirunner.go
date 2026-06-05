@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"os"
 	"strings"
 	"time"
 )
@@ -81,9 +82,56 @@ func (r *CLIRunner) Run(ctx context.Context, prompt string, workDir string, exec
 	var stderrBuilder strings.Builder
 	var lineBuffer bytes.Buffer
 
+	// To log exactly what the subprocess sees, we must merge os.Environ() with our env
+	// just like exec.Cmd does (last occurrence wins).
+	finalEnvMap := make(map[string]string)
+	for _, e := range os.Environ() {
+		if parts := strings.SplitN(e, "=", 2); len(parts) == 2 {
+			finalEnvMap[parts[0]] = parts[1]
+		}
+	}
+	for _, e := range env {
+		if parts := strings.SplitN(e, "=", 2); len(parts) == 2 {
+			finalEnvMap[parts[0]] = parts[1]
+		}
+	}
+
+	var safeEnv []string
+	var apiBase, apiModel, apiKeyPreview string
+
+	for k, v := range finalEnvMap {
+		switch k {
+		case "ANTHROPIC_BASE_URL":
+			apiBase = v
+		case "ANTHROPIC_MODEL":
+			apiModel = v
+		case "ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN":
+		}
+
+		if strings.Contains(strings.ToLower(k), "key") || strings.Contains(strings.ToLower(k), "token") {
+			if len(v) > 4 {
+				preview := "***" + v[len(v)-4:]
+				safeEnv = append(safeEnv, k+"="+preview)
+				if k == "ANTHROPIC_AUTH_TOKEN" || k == "ANTHROPIC_API_KEY" {
+					apiKeyPreview = preview
+				}
+			} else {
+				safeEnv = append(safeEnv, k+"=***")
+			}
+		} else {
+			safeEnv = append(safeEnv, k+"="+v)
+		}
+	}
+
 	r.logger.Info("started streaming execution",
 		slog.String("binary", r.config.BinaryName),
 		slog.String("work_dir", workDir),
+		slog.String("api_base", apiBase),
+		slog.String("api_model", apiModel),
+		slog.String("api_key_preview", apiKeyPreview),
+		slog.Any("args", args),
+		slog.Any("env", safeEnv),
+		slog.String("prompt", prompt),
 	)
 
 	// 4. Stream processing loop with cross-chunk buffering.

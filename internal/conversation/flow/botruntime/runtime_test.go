@@ -11,15 +11,15 @@ import (
 type stubRuntime struct{ name string }
 
 func (s stubRuntime) Name() string { return s.name }
-func (s stubRuntime) Stream(context.Context, RunInput) <-chan agentpkg.StreamEvent {
+func (stubRuntime) Stream(context.Context, RunInput) <-chan agentpkg.StreamEvent {
 	ch := make(chan agentpkg.StreamEvent)
 	close(ch)
 	return ch
 }
-func (s stubRuntime) Generate(context.Context, RunInput) (*agentpkg.GenerateResult, error) {
+func (stubRuntime) Generate(context.Context, RunInput) (*agentpkg.GenerateResult, error) {
 	return &agentpkg.GenerateResult{}, nil
 }
-func (s stubRuntime) IdleTimeout() time.Duration { return 0 }
+func (stubRuntime) IdleTimeout() time.Duration { return 0 }
 
 func TestRegistryResolve(t *testing.T) {
 	memoh := stubRuntime{name: "memoh"}

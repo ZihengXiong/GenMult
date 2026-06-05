@@ -167,7 +167,7 @@ exit 1
 	}
 
 	res, err := p.Execute(context.Background(), req)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.False(t, res.Retryable)
 	assert.ErrorIs(t, err, ErrAuthFailure)
 }

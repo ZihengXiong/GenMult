@@ -464,7 +464,7 @@ func messageContextInfo(msg *waE2E.Message) *waE2E.ContextInfo {
 	return nil
 }
 
-func (a *WhatsAppAdapter) openClient(ctx context.Context, cfg Config) (*sqlstore.Container, *whatsmeow.Client, error) {
+func (*WhatsAppAdapter) openClient(ctx context.Context, cfg Config) (*sqlstore.Container, *whatsmeow.Client, error) {
 	if err := os.MkdirAll(filepath.Dir(cfg.StorePath), 0o700); err != nil {
 		return nil, nil, err
 	}
@@ -616,6 +616,7 @@ func (a *WhatsAppAdapter) downloadAttachment(
 		}
 		return att
 	}
+	//nolint:staticcheck // ignore SA1019: client.DownloadAny is deprecated
 	data, err := client.DownloadAny(ctx, msg)
 	if err != nil {
 		if a.logger != nil {
@@ -648,7 +649,7 @@ func encodeDataURL(mime string, data []byte) string {
 // Outbound media
 // ---------------------------------------------------------------------------
 
-func (a *WhatsAppAdapter) sendAttachment(
+func (*WhatsAppAdapter) sendAttachment(
 	ctx context.Context,
 	client *whatsmeow.Client,
 	jid types.JID,
@@ -804,7 +805,7 @@ func buildOutboundContextInfo(reply *channel.ReplyRef, chat types.JID) *waE2E.Co
 // ResolveAttachment satisfies channel.AttachmentResolver, returning an inline
 // reader for the (already-decrypted) inbound media that we cached on the
 // attachment as a data URL during ingestion.
-func (a *WhatsAppAdapter) ResolveAttachment(_ context.Context, _ channel.ChannelConfig, attachment channel.Attachment) (channel.AttachmentPayload, error) {
+func (*WhatsAppAdapter) ResolveAttachment(_ context.Context, _ channel.ChannelConfig, attachment channel.Attachment) (channel.AttachmentPayload, error) {
 	if strings.TrimSpace(attachment.Base64) == "" {
 		return channel.AttachmentPayload{}, errors.New("whatsapp attachment payload not available; download was skipped or failed")
 	}

@@ -18,10 +18,19 @@ import (
 // set (replacing any existing values).
 func ClaudeEnv(cfg ClaudeCodeConfig) []string {
 	var env []string
+	// Third-party Anthropic-compatible APIs (e.g. DeepSeek) use Bearer auth
+	// (ANTHROPIC_AUTH_TOKEN) rather than the Anthropic-specific x-api-key header
+	// (ANTHROPIC_API_KEY). Auto-detect based on whether the base URL points
+	// somewhere other than the official Anthropic API.
+	thirdParty := cfg.BaseURL != "" && !strings.Contains(cfg.BaseURL, "api.anthropic.com")
 	if cfg.AuthToken != "" {
 		env = append(env, "ANTHROPIC_AUTH_TOKEN="+cfg.AuthToken)
 	} else if cfg.APIKey != "" {
-		env = append(env, "ANTHROPIC_API_KEY="+cfg.APIKey)
+		if thirdParty {
+			env = append(env, "ANTHROPIC_AUTH_TOKEN="+cfg.APIKey)
+		} else {
+			env = append(env, "ANTHROPIC_API_KEY="+cfg.APIKey)
+		}
 	}
 	if cfg.BaseURL != "" {
 		env = append(env, "ANTHROPIC_BASE_URL="+cfg.BaseURL)
@@ -77,9 +86,10 @@ func ClaudeParseEvent(line []byte) (CLIEvent, error) {
 			var texts []string
 			var tools []string
 			for _, block := range ce.Message.Content {
-				if block.Type == "text" {
+				switch block.Type {
+				case "text":
 					texts = append(texts, block.Text)
-				} else if block.Type == "tool_use" {
+				case "tool_use":
 					tools = append(tools, block.Name)
 				}
 			}

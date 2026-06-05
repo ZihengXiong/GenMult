@@ -104,7 +104,7 @@ exit 1
 	}
 
 	res, err := p.Execute(context.Background(), req)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.True(t, res.Retryable)
 	assert.ErrorIs(t, err, ErrRateLimit)
 }

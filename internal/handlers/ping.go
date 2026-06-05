@@ -97,7 +97,7 @@ func (h *PingHandler) snapshotSupported(ctx context.Context) bool {
 	}
 }
 
-func (h *PingHandler) ValidateDirectory(c echo.Context) error {
+func (*PingHandler) ValidateDirectory(c echo.Context) error {
 	var req ValidateDirectoryRequest
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())

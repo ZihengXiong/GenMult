@@ -540,7 +540,7 @@ func (r *Resolver) buildBaseRunConfig(ctx context.Context, p baseRunConfigParams
 	if framework != bots.FrameworkMemoh {
 		_, err := r.checkProviderAvailable(ctx, framework)
 		if err != nil {
-			slog.Error("Check provider available failed in buildBaseRunConfig",
+			r.logger.Error("Check provider available failed in buildBaseRunConfig",
 				slog.String("bot_id", p.BotID),
 				slog.String("framework", framework),
 				slog.Any("error", err),

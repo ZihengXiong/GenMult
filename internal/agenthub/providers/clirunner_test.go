@@ -36,7 +36,8 @@ echo '{"type":"result"}'`
 
 			// Simple mapping for test.
 			var content string
-			if tType == "assistant" {
+			switch tType {
+			case "assistant":
 				tType = "text"
 				// Extract "Hello, " or "world!"
 				if msg, ok := m["message"].(map[string]any); ok {
@@ -46,7 +47,7 @@ echo '{"type":"result"}'`
 						}
 					}
 				}
-			} else if tType == "system" {
+			case "system":
 				tType = "init"
 			}
 			return CLIEvent{
@@ -118,7 +119,7 @@ func TestCLIRunner_Run_Timeout(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = runner.Run(ctx, script, workDir, nil, nil)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.True(t, errors.Is(err, context.DeadlineExceeded) || strings.Contains(err.Error(), "signal: killed") || strings.Contains(err.Error(), "context deadline exceeded"))
 }
 
