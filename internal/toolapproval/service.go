@@ -16,22 +16,29 @@ import (
 	"github.com/ZihengXiong/GenMult/internal/db/postgres/sqlc"
 	dbstore "github.com/ZihengXiong/GenMult/internal/db/store"
 	"github.com/ZihengXiong/GenMult/internal/settings"
+	"github.com/ZihengXiong/GenMult/internal/workspace"
 )
 
 type Service struct {
-	queries  dbstore.Queries
-	settings *settings.Service
-	logger   *slog.Logger
+	queries            dbstore.Queries
+	settings           *settings.Service
+	hostAccessResolver workspace.HostAccessResolver
+	logger             *slog.Logger
 }
 
-func NewService(log *slog.Logger, queries dbstore.Queries, settings *settings.Service) *Service {
+func NewService(log *slog.Logger, queries dbstore.Queries, settings *settings.Service, resolver ...workspace.HostAccessResolver) *Service {
 	if log == nil {
 		log = slog.Default()
 	}
+	var hostAccessResolver workspace.HostAccessResolver
+	if len(resolver) > 0 {
+		hostAccessResolver = resolver[0]
+	}
 	return &Service{
-		queries:  queries,
-		settings: settings,
-		logger:   log.With(slog.String("service", "toolapproval")),
+		queries:            queries,
+		settings:           settings,
+		hostAccessResolver: hostAccessResolver,
+		logger:             log.With(slog.String("service", "toolapproval")),
 	}
 }
 
@@ -48,6 +55,11 @@ func (s *Service) Evaluate(ctx context.Context, input CreatePendingInput) (Evalu
 }
 
 func (s *Service) EvaluatePolicy(ctx context.Context, input CreatePendingInput) (Evaluation, error) {
+	if eval, matched, err := s.evaluateHostAccessPolicy(ctx, input); err != nil {
+		return Evaluation{}, err
+	} else if matched {
+		return eval, nil
+	}
 	if s == nil || s.settings == nil {
 		return Evaluation{Decision: DecisionBypass}, nil
 	}
@@ -185,7 +197,14 @@ func (s *Service) Approve(ctx context.Context, approvalID, actorID, reason strin
 		Reason:                     strings.TrimSpace(reason),
 		DecidedByChannelIdentityID: decidedBy,
 	})
-	return requestFromRowOrErr(row, err)
+	req, err := requestFromRowOrErr(row, err)
+	if err != nil {
+		return Request{}, err
+	}
+	if persistErr := s.persistApprovedHostPath(ctx, req); persistErr != nil {
+		s.logger.Warn("persist approved host path failed", slog.String("approval_id", req.ID), slog.Any("error", persistErr))
+	}
+	return req, nil
 }
 
 func (s *Service) Reject(ctx context.Context, approvalID, actorID, reason string) (Request, error) {
@@ -255,6 +274,66 @@ func (s *Service) listBySession(ctx context.Context, botID, sessionID string, pe
 		result = append(result, requestFromRow(row))
 	}
 	return result, nil
+}
+
+func (s *Service) evaluateHostAccessPolicy(ctx context.Context, input CreatePendingInput) (Evaluation, bool, error) {
+	if s == nil || s.hostAccessResolver == nil {
+		return Evaluation{}, false, nil
+	}
+	access, err := s.hostAccessResolver(ctx, input.BotID)
+	if err != nil {
+		return Evaluation{}, false, err
+	}
+	if !needsLocalHostPathApproval(access, input.ToolName, input.ToolInput) {
+		return Evaluation{}, false, nil
+	}
+	return Evaluation{Decision: DecisionNeedsApproval}, true, nil
+}
+
+func (s *Service) persistApprovedHostPath(ctx context.Context, req Request) error {
+	if s == nil || s.queries == nil || s.hostAccessResolver == nil {
+		return nil
+	}
+	path := hostAccessApprovalPath(req.ToolName, req.ToolInput)
+	if path == "" {
+		return nil
+	}
+	access, err := s.hostAccessResolver(ctx, req.BotID)
+	if err != nil {
+		return err
+	}
+	if !access.IsLocalWorkspace() || !needsLocalHostPathApproval(access, req.ToolName, req.ToolInput) {
+		return nil
+	}
+
+	botUUID, err := db.ParseUUID(req.BotID)
+	if err != nil {
+		return err
+	}
+	row, err := s.queries.GetBotByID(ctx, botUUID)
+	if err != nil {
+		return err
+	}
+	metadata := map[string]any{}
+	if len(row.Metadata) > 0 {
+		if err := json.Unmarshal(row.Metadata, &metadata); err != nil {
+			return err
+		}
+	}
+	nextMetadata := workspace.WithApprovedHostPath(metadata, path)
+	payload, err := json.Marshal(nextMetadata)
+	if err != nil {
+		return err
+	}
+	_, err = s.queries.UpdateBotProfile(ctx, sqlc.UpdateBotProfileParams{
+		ID:          botUUID,
+		DisplayName: row.DisplayName,
+		AvatarUrl:   row.AvatarUrl,
+		Timezone:    row.Timezone,
+		IsActive:    row.IsActive,
+		Metadata:    payload,
+	})
+	return err
 }
 
 func requestFromRowOrErr(row sqlc.ToolApprovalRequest, err error) (Request, error) {

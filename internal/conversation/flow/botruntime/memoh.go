@@ -2,6 +2,7 @@ package botruntime
 
 import (
 	"context"
+	"time"
 
 	agentpkg "github.com/ZihengXiong/GenMult/internal/agent"
 	"github.com/ZihengXiong/GenMult/internal/bots"
@@ -27,3 +28,5 @@ func (m memohRuntime) Stream(ctx context.Context, in RunInput) <-chan agentpkg.S
 func (m memohRuntime) Generate(ctx context.Context, in RunInput) (*agentpkg.GenerateResult, error) {
 	return m.agent.Generate(ctx, in.Config)
 }
+
+func (m memohRuntime) IdleTimeout() time.Duration { return 0 }

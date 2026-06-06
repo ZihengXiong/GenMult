@@ -1,0 +1,10 @@
+#!/bin/sh
+TOOLKIT=/opt/memoh/runtime/toolkit
+if [ -f /lib/ld-musl-*.so.1 ] 2>/dev/null; then
+  NODEDIR="$TOOLKIT/node-musl"
+  export LD_LIBRARY_PATH="$NODEDIR/runtime-lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+else
+  NODEDIR="$TOOLKIT/node-glibc"
+fi
+CLAUDE_JS="$TOOLKIT/claude-cli/node_modules/@anthropic-ai/claude-code/cli-wrapper.cjs"
+exec "$NODEDIR/bin/node" "$CLAUDE_JS" "$@"

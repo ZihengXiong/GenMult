@@ -13,9 +13,11 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/ZihengXiong/GenMult/internal/acl"
+	"github.com/ZihengXiong/GenMult/internal/bots"
 	"github.com/ZihengXiong/GenMult/internal/db"
 	"github.com/ZihengXiong/GenMult/internal/db/postgres/sqlc"
 	dbstore "github.com/ZihengXiong/GenMult/internal/db/store"
+	"github.com/ZihengXiong/GenMult/internal/models"
 	netctl "github.com/ZihengXiong/GenMult/internal/network"
 	tzutil "github.com/ZihengXiong/GenMult/internal/timezone"
 )
@@ -28,8 +30,12 @@ type Service struct {
 }
 
 var (
-	ErrModelIDAmbiguous = errors.New("model_id is ambiguous across providers")
-	ErrInvalidModelRef  = errors.New("invalid model reference")
+	ErrModelIDAmbiguous            = errors.New("model_id is ambiguous across providers")
+	ErrInvalidModelRef             = errors.New("invalid model reference")
+	ErrClaudeCodeChatModelRequired = errors.New("claudecode bots require a configured chat model")
+	ErrClaudeCodeChatModelProvider = errors.New("claudecode bots require an anthropic-messages chat model")
+	ErrCodexChatModelRequired      = errors.New("codex bots require a configured chat model")
+	ErrCodexChatModelProvider      = errors.New("codex bots require an openai-codex chat model")
 )
 
 func NewService(log *slog.Logger, queries dbstore.Queries, aclService *acl.Service, networkService *netctl.Service) *Service {
@@ -225,6 +231,9 @@ func (s *Service) UpsertBot(ctx context.Context, botID string, req UpsertRequest
 	}
 	toolApprovalConfig, err := json.Marshal(current.ToolApprovalConfig)
 	if err != nil {
+		return Settings{}, err
+	}
+	if err := s.validateChatModelSelection(ctx, botRow.Framework, chatModelUUID, botRow.ChatModelID); err != nil {
 		return Settings{}, err
 	}
 
@@ -640,4 +649,51 @@ func normalizeOptionalTimezone(raw string) (pgtype.Text, error) {
 		return pgtype.Text{}, fmt.Errorf("invalid timezone: %w", err)
 	}
 	return pgtype.Text{String: loc.String(), Valid: true}, nil
+}
+
+func (s *Service) validateChatModelSelection(ctx context.Context, framework string, requested, existing pgtype.UUID) error {
+	selected := requested
+	if !selected.Valid {
+		selected = existing
+	}
+	switch strings.TrimSpace(framework) {
+	case bots.FrameworkClaudeCode:
+		return s.validateFrameworkChatModelSelection(ctx, selected, ErrClaudeCodeChatModelRequired, ErrClaudeCodeChatModelProvider, isClaudeCodeChatModelClientType)
+	case bots.FrameworkCodex:
+		return s.validateFrameworkChatModelSelection(ctx, selected, ErrCodexChatModelRequired, ErrCodexChatModelProvider, isCodexChatModelClientType)
+	default:
+		return nil
+	}
+}
+
+func (s *Service) validateFrameworkChatModelSelection(
+	ctx context.Context,
+	selected pgtype.UUID,
+	missingErr error,
+	providerErr error,
+	accept func(string) bool,
+) error {
+	if !selected.Valid {
+		return missingErr
+	}
+	modelRow, err := s.queries.GetModelByID(ctx, selected)
+	if err != nil {
+		return err
+	}
+	provider, err := s.queries.GetProviderByID(ctx, modelRow.ProviderID)
+	if err != nil {
+		return err
+	}
+	if !accept(provider.ClientType) {
+		return providerErr
+	}
+	return nil
+}
+
+func isClaudeCodeChatModelClientType(clientType string) bool {
+	return models.ClientType(strings.TrimSpace(clientType)) == models.ClientTypeAnthropicMessages
+}
+
+func isCodexChatModelClientType(clientType string) bool {
+	return models.ClientType(strings.TrimSpace(clientType)) == models.ClientTypeOpenAICodex
 }

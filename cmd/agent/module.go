@@ -66,7 +66,7 @@ func options() fx.Option {
 			accounts.NewService,
 			acl.NewService,
 			settings.NewService,
-			toolapproval.NewService,
+			provideToolApprovalService,
 			provideProvidersService,
 			searchproviders.NewService,
 			policy.NewService,

@@ -243,8 +243,12 @@ func provideBridgeProvider(manage *workspace.Manager) bridge.Provider {
 	return manage
 }
 
+func provideToolApprovalService(log *slog.Logger, queries dbstore.Queries, settingsService *settings.Service) *toolapproval.Service {
+	return toolapproval.NewService(log, queries, settingsService, workspace.NewBotHostAccessResolver(queries))
+}
+
 func provideWorkspaceManager(lc fx.Lifecycle, log *slog.Logger, service ctr.Service, networkController netctl.Controller, cfg config.Config, conn *pgxpool.Pool, queries dbstore.Queries) *workspace.Manager {
-	localSvc := workspace.NewLocalService(log, cfg.Local, cfg.Workspace.DataRoot)
+	localSvc := workspace.NewLocalService(log, cfg.Local, cfg.Workspace.DataRoot, workspace.NewBotHostAccessResolver(queries))
 	lc.Append(fx.Hook{
 		OnStop: func(context.Context) error {
 			localSvc.Close()

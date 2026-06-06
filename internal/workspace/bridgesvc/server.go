@@ -42,6 +42,7 @@ type Options struct {
 	WorkspaceRoot     string
 	DataMount         string
 	AllowHostAbsolute bool
+	AllowedHostPaths  []string
 }
 
 type Server struct {
@@ -50,6 +51,7 @@ type Server struct {
 	workspaceRoot     string
 	dataMount         string
 	allowHostAbsolute bool
+	allowedHostPaths  []string
 }
 
 func New(opts Options) *Server {
@@ -72,6 +74,7 @@ func New(opts Options) *Server {
 		workspaceRoot:     filepath.Clean(workspaceRoot),
 		dataMount:         filepath.Clean(dataMount),
 		allowHostAbsolute: opts.AllowHostAbsolute,
+		allowedHostPaths:  normalizeAllowedHostPaths(opts.AllowedHostPaths),
 	}
 }
 
@@ -665,12 +668,48 @@ func (s *Server) resolvePath(path string) string {
 			rel := strings.TrimPrefix(clean, s.dataMount)
 			return filepath.Join(s.workspaceRoot, strings.TrimPrefix(rel, string(filepath.Separator)))
 		}
-		if s.allowHostAbsolute || s.workspaceRoot == "." || clean == s.defaultWorkDir || strings.HasPrefix(clean, s.defaultWorkDir+string(filepath.Separator)) {
+		if s.allowHostAbsolute || s.workspaceRoot == "." || clean == s.defaultWorkDir || strings.HasPrefix(clean, s.defaultWorkDir+string(filepath.Separator)) || s.isAllowedHostPath(clean) {
 			return clean
 		}
 		return filepath.Join(s.defaultWorkDir, strings.TrimPrefix(clean, string(filepath.Separator)))
 	}
 	return filepath.Join(s.defaultWorkDir, clean)
+}
+
+func normalizeAllowedHostPaths(paths []string) []string {
+	if len(paths) == 0 {
+		return nil
+	}
+	seen := make(map[string]struct{}, len(paths))
+	out := make([]string, 0, len(paths))
+	for _, raw := range paths {
+		path := strings.TrimSpace(raw)
+		if path == "" {
+			continue
+		}
+		if abs, err := filepath.Abs(path); err == nil {
+			path = abs
+		}
+		path = filepath.Clean(path)
+		if _, ok := seen[path]; ok {
+			continue
+		}
+		seen[path] = struct{}{}
+		out = append(out, path)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func (s *Server) isAllowedHostPath(path string) bool {
+	for _, root := range s.allowedHostPaths {
+		if path == root || strings.HasPrefix(path, root+string(filepath.Separator)) {
+			return true
+		}
+	}
+	return false
 }
 
 func collapseHeavySubdirs(entries []*pb.FileEntry, threshold int) []*pb.FileEntry {

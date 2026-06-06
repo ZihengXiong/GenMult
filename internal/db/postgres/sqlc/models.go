@@ -16,6 +16,7 @@ type Bot struct {
 	Timezone               pgtype.Text        `json:"timezone"`
 	IsActive               bool               `json:"is_active"`
 	Status                 string             `json:"status"`
+	Framework              string             `json:"framework"`
 	Language               string             `json:"language"`
 	ReasoningEnabled       bool               `json:"reasoning_enabled"`
 	ReasoningEffort        string             `json:"reasoning_effort"`
@@ -46,7 +47,6 @@ type Bot struct {
 	CreatedAt              pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt              pgtype.Timestamptz `json:"updated_at"`
 	AclDefaultEffect       string             `json:"acl_default_effect"`
-	Framework              string             `json:"framework"`
 }
 
 type BotAclRule struct {

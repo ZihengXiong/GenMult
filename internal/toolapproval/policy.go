@@ -3,10 +3,12 @@ package toolapproval
 import (
 	"encoding/json"
 	"path"
+	"path/filepath"
 	"strconv"
 	"strings"
 
 	"github.com/ZihengXiong/GenMult/internal/settings"
+	"github.com/ZihengXiong/GenMult/internal/workspace"
 )
 
 func needsApproval(cfg settings.ToolApprovalConfig, toolName string, input any) bool {
@@ -157,4 +159,46 @@ func matchesCommand(exe string, allowed []string) bool {
 		}
 	}
 	return false
+}
+
+func needsLocalHostPathApproval(access workspace.WorkspaceHostAccess, toolName string, input any) bool {
+	if !access.IsLocalWorkspace() {
+		return false
+	}
+	target := hostAccessApprovalPath(toolName, input)
+	if target == "" {
+		return false
+	}
+	for _, allowed := range access.AllowedHostPaths() {
+		if target == allowed || strings.HasPrefix(target, allowed+string(filepath.Separator)) {
+			return false
+		}
+	}
+	return true
+}
+
+func hostAccessApprovalPath(toolName string, input any) string {
+	args := inputMap(input)
+	switch strings.ToLower(strings.TrimSpace(toolName)) {
+	case "read", "write", "edit":
+		target := strings.TrimSpace(readString(args, "path"))
+		if !filepath.IsAbs(target) {
+			return ""
+		}
+		return workspace.NormalizeApprovedHostPath(filepath.Dir(target))
+	case "list":
+		target := strings.TrimSpace(readString(args, "path"))
+		if !filepath.IsAbs(target) {
+			return ""
+		}
+		return workspace.NormalizeApprovedHostPath(target)
+	case "exec":
+		workDir := strings.TrimSpace(readString(args, "work_dir"))
+		if !filepath.IsAbs(workDir) {
+			return ""
+		}
+		return workspace.NormalizeApprovedHostPath(workDir)
+	default:
+		return ""
+	}
 }

@@ -311,6 +311,30 @@ install_uv() {
   chmod +x "$OUTDIR/uv"
 }
 
+install_npm_package_bundle() {
+  bundle_dir="$1"
+  shift
+
+  node_dir="node-glibc"
+  if [ -x "$OUTDIR/node-musl/bin/node" ]; then
+    node_dir="node-musl"
+  fi
+  node_bin="$OUTDIR/$node_dir/bin/node"
+  npm_cli="$OUTDIR/$node_dir/lib/node_modules/npm/bin/npm-cli.js"
+  if [ ! -x "$node_bin" ] || [ ! -f "$npm_cli" ]; then
+    return
+  fi
+
+  mkdir -p "$OUTDIR/$bundle_dir"
+  echo "{}" > "$OUTDIR/$bundle_dir/package.json"
+  if ! PATH="$OUTDIR/$node_dir/bin:$PATH" HOME=/tmp npm_config_cache=/tmp/.npm \
+    "$node_bin" "$npm_cli" install \
+      --prefix "$OUTDIR/$bundle_dir" \
+      --no-save --force "$@"; then
+    echo "WARN: failed to install npm bundle into $OUTDIR/$bundle_dir" >&2
+  fi
+}
+
 write_display_wrappers() {
   mkdir -p "$DISPLAY_OUTDIR/bin"
 
@@ -451,6 +475,16 @@ install_pinned_npm node-glibc
 install_pinned_npm node-musl
 
 install_uv
+
+# Claude Code CLI
+# --force: bypass platform checks when building on macOS for Linux containers.
+install_npm_package_bundle \
+  claude-cli \
+  @anthropic-ai/claude-code \
+  @anthropic-ai/claude-code-linux-arm64 \
+  @anthropic-ai/claude-code-linux-arm64-musl \
+  @anthropic-ai/claude-code-linux-x64 \
+  @anthropic-ai/claude-code-linux-x64-musl
 
 echo "Toolkit installed to $OUTDIR"
 install_display_bundle

@@ -32,11 +32,12 @@ const (
 var unsafeWorkspaceName = regexp.MustCompile(`[^A-Za-z0-9._-]+`)
 
 type LocalService struct {
-	cfg          config.LocalConfig
-	dataRoot     string
-	logger       *slog.Logger
-	mu           sync.Mutex
-	localClients map[string]*localBridgeClient
+	cfg                config.LocalConfig
+	dataRoot           string
+	logger             *slog.Logger
+	hostAccessResolver HostAccessResolver
+	mu                 sync.Mutex
+	localClients       map[string]*localBridgeClient
 }
 
 type localContainerMetadata struct {
@@ -51,21 +52,27 @@ type localContainerMetadata struct {
 }
 
 type localBridgeClient struct {
-	client   *bridge.Client
-	conn     *grpc.ClientConn
-	server   *grpc.Server
-	listener *bufconn.Listener
+	client           *bridge.Client
+	conn             *grpc.ClientConn
+	server           *grpc.Server
+	listener         *bufconn.Listener
+	allowedHostPaths []string
 }
 
-func NewLocalService(log *slog.Logger, cfg config.LocalConfig, dataRoot string) *LocalService {
+func NewLocalService(log *slog.Logger, cfg config.LocalConfig, dataRoot string, resolver ...HostAccessResolver) *LocalService {
 	if log == nil {
 		log = slog.Default()
 	}
+	var hostAccessResolver HostAccessResolver
+	if len(resolver) > 0 {
+		hostAccessResolver = resolver[0]
+	}
 	return &LocalService{
-		cfg:          cfg,
-		dataRoot:     dataRoot,
-		logger:       log.With(slog.String("service", "local-workspace")),
-		localClients: make(map[string]*localBridgeClient),
+		cfg:                cfg,
+		dataRoot:           dataRoot,
+		logger:             log.With(slog.String("service", "local-workspace")),
+		hostAccessResolver: hostAccessResolver,
+		localClients:       make(map[string]*localBridgeClient),
 	}
 }
 
@@ -291,7 +298,7 @@ func (*LocalService) SnapshotSupported(context.Context) bool {
 	return false
 }
 
-func (s *LocalService) MCPClient(_ context.Context, botID string) (*bridge.Client, error) {
+func (s *LocalService) MCPClient(ctx context.Context, botID string) (*bridge.Client, error) {
 	meta, err := s.readMetadata(LocalContainerPrefix + strings.TrimSpace(botID))
 	if err != nil {
 		return nil, err
@@ -302,12 +309,18 @@ func (s *LocalService) MCPClient(_ context.Context, botID string) (*bridge.Clien
 		}
 	}
 
+	allowedHostPaths := s.resolveAllowedHostPaths(ctx, botID)
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if cached, ok := s.localClients[botID]; ok {
-		return cached.client, nil
+		if stringSlicesEqual(cached.allowedHostPaths, allowedHostPaths) {
+			return cached.client, nil
+		}
+		cached.close()
+		delete(s.localClients, botID)
 	}
-	client, err := s.newBridgeClient(meta)
+	client, err := s.newBridgeClient(meta, allowedHostPaths)
 	if err != nil {
 		return nil, err
 	}
@@ -338,17 +351,17 @@ func (s *LocalService) DefaultWorkspacePath(botID, displayName string) string {
 	return filepath.Join(s.cfg.WorkspaceParent(), name)
 }
 
-func (s *LocalService) newBridgeClient(meta localContainerMetadata) (*localBridgeClient, error) {
+func (s *LocalService) newBridgeClient(meta localContainerMetadata, allowedHostPaths []string) (*localBridgeClient, error) {
 	listener := bufconn.Listen(16 * 1024 * 1024)
 	server := grpc.NewServer(
 		grpc.MaxRecvMsgSize(16*1024*1024),
 		grpc.MaxSendMsgSize(16*1024*1024),
 	)
 	pb.RegisterContainerServiceServer(server, bridgesvc.New(bridgesvc.Options{
-		DefaultWorkDir:    meta.WorkspacePath,
-		WorkspaceRoot:     meta.WorkspacePath,
-		DataMount:         config.DefaultDataMount,
-		AllowHostAbsolute: s.cfg.AllowAbsolutePaths,
+		DefaultWorkDir:   meta.WorkspacePath,
+		WorkspaceRoot:    meta.WorkspacePath,
+		DataMount:        config.DefaultDataMount,
+		AllowedHostPaths: allowedHostPaths,
 	}))
 	go func() {
 		if err := server.Serve(listener); err != nil && !errors.Is(err, grpc.ErrServerStopped) {
@@ -371,11 +384,36 @@ func (s *LocalService) newBridgeClient(meta localContainerMetadata) (*localBridg
 		return nil, err
 	}
 	return &localBridgeClient{
-		client:   bridge.NewClientFromConn(conn),
-		conn:     conn,
-		server:   server,
-		listener: listener,
+		client:           bridge.NewClientFromConn(conn),
+		conn:             conn,
+		server:           server,
+		listener:         listener,
+		allowedHostPaths: append([]string(nil), allowedHostPaths...),
 	}, nil
+}
+
+func (s *LocalService) resolveAllowedHostPaths(ctx context.Context, botID string) []string {
+	if s == nil || !s.cfg.AllowAbsolutePaths || s.hostAccessResolver == nil {
+		return nil
+	}
+	access, err := s.hostAccessResolver(ctx, botID)
+	if err != nil {
+		s.logger.Warn("resolve host access failed", slog.String("bot_id", botID), slog.Any("error", err))
+		return nil
+	}
+	return access.AllowedHostPaths()
+}
+
+func stringSlicesEqual(left, right []string) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for index := range left {
+		if left[index] != right[index] {
+			return false
+		}
+	}
+	return true
 }
 
 func (s *LocalService) closeClient(botID string) {

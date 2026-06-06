@@ -67,14 +67,28 @@ func NewSDKChatModel(cfg SDKModelConfig) *sdk.Model {
 		return p.ChatModel(cfg.ModelID)
 
 	case ClientTypeOpenAICodex:
-		opts := []openaicodex.Option{
-			openaicodex.WithAccessToken(cfg.APIKey),
+		if useNativeCodexBackend(cfg.APIKey, cfg.CodexAccountID) {
+			opts := []openaicodex.Option{
+				openaicodex.WithAccessToken(cfg.APIKey),
+			}
+			opts = append(opts, openaicodex.WithHTTPClient(cfg.HTTPClient))
+			if cfg.BaseURL != "" {
+				opts = append(opts, openaicodex.WithBaseURL(cfg.BaseURL))
+			}
+			if cfg.CodexAccountID != "" {
+				opts = append(opts, openaicodex.WithAccountID(cfg.CodexAccountID))
+			}
+			return openaicodex.New(opts...).ChatModel(cfg.ModelID)
 		}
-		opts = append(opts, openaicodex.WithHTTPClient(cfg.HTTPClient))
-		if cfg.CodexAccountID != "" {
-			opts = append(opts, openaicodex.WithAccountID(cfg.CodexAccountID))
+
+		opts := []openairesponses.Option{
+			openairesponses.WithAPIKey(cfg.APIKey),
 		}
-		return openaicodex.New(opts...).ChatModel(cfg.ModelID)
+		opts = append(opts, openairesponses.WithHTTPClient(cfg.HTTPClient))
+		if cfg.BaseURL != "" {
+			opts = append(opts, openairesponses.WithBaseURL(cfg.BaseURL))
+		}
+		return openairesponses.New(opts...).ChatModel(cfg.ModelID)
 
 	case ClientTypeGitHubCopilot:
 		return memohcopilot.NewModel(cfg.APIKey, cfg.ModelID, cfg.HTTPClient)

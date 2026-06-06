@@ -159,7 +159,7 @@ import SessionItem from './session-item.vue'
 const { t } = useI18n()
 const chatStore = useChatStore()
 const workspaceTabs = useWorkspaceTabsStore()
-const { sessions, sessionId, currentBotId, loadingChats } = storeToRefs(chatStore)
+const { sessionId, currentBotId, loadingChats } = storeToRefs(chatStore)
 
 const searchQuery = ref('')
 const filterType = ref<string>('chat')
@@ -198,16 +198,11 @@ const filterIconClass = computed(() => {
 })
 
 const filteredSessions = computed(() => {
-  let list = sessions.value
-  if (filterType.value === 'chat') {
-    list = list.filter(s => s.type === 'chat' || s.type === 'discuss')
-  } else {
-    list = list.filter(s => s.type === filterType.value)
-  }
+  let list = chatStore.listVisibleSessions(filterType.value)
   const q = searchQuery.value.trim().toLowerCase()
   if (q) {
     list = list.filter(s =>
-      (s.title ?? '').toLowerCase().includes(q)
+      chatStore.resolveSessionTitle(s).toLowerCase().includes(q)
       || (s.id ?? '').toLowerCase().includes(q),
     )
   }
@@ -215,7 +210,7 @@ const filteredSessions = computed(() => {
 })
 
 function handleSelect(session: SessionSummary) {
-  workspaceTabs.openChat(session.id, session.title ?? '')
+  workspaceTabs.openChat(session.id, chatStore.resolveSessionTitle(session))
 }
 
 function handleNewSession() {

@@ -1,6 +1,7 @@
 <template>
   <div class="flex h-full overflow-hidden">
     <template v-if="currentBotId">
+      <ChatSidebar />
       <ChatWorkspace />
     </template>
   </div>
@@ -13,6 +14,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useChatStore } from '@/store/chat-list'
 import { useWorkspaceTabsStore } from '@/store/workspace-tabs'
 import { openInFileManagerKey } from './composables/useFileManagerProvider'
+import ChatSidebar from './components/chat-sidebar.vue'
 import ChatWorkspace from './components/chat-workspace.vue'
 
 const route = useRoute()
@@ -20,6 +22,7 @@ const router = useRouter()
 const chatStore = useChatStore()
 const workspaceTabs = useWorkspaceTabsStore()
 const { currentBotId } = storeToRefs(chatStore)
+const { tabs, activeId } = storeToRefs(workspaceTabs)
 
 const FILE_MANAGER_ROOT = '/data'
 
@@ -41,25 +44,54 @@ provide(openInFileManagerKey, (path: string, _isDir = false) => {
   workspaceTabs.openFile(normalizedPath)
 })
 
-function openFreshBotWorkspace(botId: string) {
-  workspaceTabs.resetBot(botId)
+function openFreshBotWorkspace(_botId: string) {
+  if (tabs.value.length) {
+    const targetTabId = activeId.value ?? tabs.value[0]?.id ?? null
+    if (targetTabId) {
+      workspaceTabs.setActive(targetTabId)
+      return
+    }
+  }
+  const preferredSession = chatStore.getPreferredSession()
+  if (preferredSession) {
+    workspaceTabs.openChat(preferredSession.id, chatStore.resolveSessionTitle(preferredSession))
+    return
+  }
   workspaceTabs.openDraft()
 }
 
 const urlBotId = ((route.params.botId as string) ?? '').trim()
+let suppressUrlSync = false
 
 if (urlBotId) {
-  void chatStore.selectBot(urlBotId).then(() => nextTick(() => openFreshBotWorkspace(urlBotId)))
+  suppressUrlSync = true
+  void (async () => {
+    try {
+      const storeBot = (currentBotId.value ?? '').trim()
+      if (storeBot === urlBotId) {
+        await chatStore.initialize()
+      } else {
+        await chatStore.selectBot(urlBotId)
+      }
+      await nextTick()
+      openFreshBotWorkspace(urlBotId)
+    } finally {
+      suppressUrlSync = false
+    }
+  })()
 }
-
-let suppressUrlSync = false
 
 watch(currentBotId, (newBotId) => {
   if (suppressUrlSync) return
   const urlBot = ((route.params.botId as string) ?? '').trim()
   const storeBot = (newBotId ?? '').trim()
   if (storeBot) {
-    void nextTick(() => openFreshBotWorkspace(storeBot))
+    void (async () => {
+      await chatStore.initialize()
+      if ((currentBotId.value ?? '').trim() !== storeBot) return
+      await nextTick()
+      openFreshBotWorkspace(storeBot)
+    })()
   }
   if (storeBot === urlBot) return
   if (storeBot) {

@@ -48,6 +48,37 @@
 
       <Separator class="my-6" />
 
+      <div>
+        <h3 class="text-sm font-medium mb-4">
+          {{ $t('bots.steps.framework') }}
+        </h3>
+        <div class="flex flex-col gap-3">
+          <Label>
+            {{ $t('bots.framework') }}
+            <span class="text-destructive">*</span>
+          </Label>
+          <Select v-model="form.framework">
+            <SelectTrigger class="w-full">
+              <SelectValue :placeholder="$t('bots.frameworkPlaceholder')" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem
+                v-for="opt in frameworkOptions"
+                :key="opt.value"
+                :value="opt.value"
+              >
+                {{ opt.label }}
+              </SelectItem>
+            </SelectContent>
+          </Select>
+          <p class="text-xs text-muted-foreground">
+            {{ $t('bots.frameworkHelp') }}
+          </p>
+        </div>
+      </div>
+
+      <Separator class="my-6" />
+
       <!-- Workspace (conditional) -->
       <template v-if="localWorkspaceEnabled">
         <div>
@@ -218,7 +249,7 @@
         <Label class="mb-2">{{ $t('bots.settings.chatModel') }}</Label>
         <ModelSelect
           v-model="form.chat_model_id"
-          :models="models"
+          :models="chatSelectableModels"
           :providers="providers"
           model-type="chat"
           :placeholder="$t('common.none')"
@@ -413,8 +444,8 @@ watch(() => form.local_workspace_path, (newPath) => {
       if (data && !data.valid) {
         localWorkspaceError.value = data.error || 'Invalid directory'
       }
-    } catch (err: any) {
-      localWorkspaceError.value = err.message || 'Failed to validate directory'
+    } catch (err: unknown) {
+      localWorkspaceError.value = (err instanceof Error ? err.message : null) || 'Failed to validate directory'
     } finally {
       localWorkspaceValidating.value = false
     }
@@ -452,6 +483,24 @@ const { data: memoryProviderData } = useQuery({
 const models = computed(() => modelData.value ?? [])
 const providers = computed(() => providerData.value ?? [])
 const memoryProviders = computed(() => memoryProviderData.value ?? [])
+const codexProviderIds = computed(() =>
+  new Set(
+    providers.value
+      .filter((provider) => provider.client_type === 'openai-codex')
+      .map((provider) => provider.id)
+      .filter((id): id is string => Boolean(id)),
+  ),
+)
+const chatSelectableModels = computed(() => {
+  if (form.framework !== 'codex') return models.value
+  return models.value.filter((model) => codexProviderIds.value.has(model.provider_id ?? ''))
+})
+
+watch([() => form.framework, chatSelectableModels], () => {
+  if (!form.chat_model_id) return
+  if (chatSelectableModels.value.some((model) => model.id === form.chat_model_id)) return
+  form.chat_model_id = ''
+}, { immediate: true })
 
 watch(memoryProviders, (list) => {
   if (form.memory_provider_id) return
@@ -470,7 +519,9 @@ const aclDescription = computed(() => {
 // Validation
 const canSubmit = computed(() => {
   if (!form.display_name.trim()) return false
+  if (!form.framework) return false
   if (!form.acl_preset) return false
+  if (form.framework === 'codex' && !form.chat_model_id) return false
   if (localWorkspaceEnabled.value && form.workspace_backend === 'local') {
     if (!form.local_workspace_path.trim()) return false
     if (localWorkspaceError.value) return false

@@ -7,6 +7,7 @@ package botruntime
 
 import (
 	"context"
+	"time"
 
 	agentpkg "github.com/ZihengXiong/GenMult/internal/agent"
 )
@@ -30,6 +31,7 @@ type BotRuntime interface {
 	Stream(ctx context.Context, in RunInput) <-chan agentpkg.StreamEvent
 	// Generate runs the turn and returns the final result.
 	Generate(ctx context.Context, in RunInput) (*agentpkg.GenerateResult, error)
+	IdleTimeout() time.Duration
 }
 
 // Registry resolves a framework identifier to its BotRuntime, falling back to a

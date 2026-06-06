@@ -118,17 +118,24 @@ func GenerateSystemPrompt(params SystemPromptParams) string {
 		timezoneName = "UTC"
 	}
 
-	readToolDesc := "- `read`: read file content"
-	if params.SupportsImageInput {
-		readToolDesc += " (also supports images: PNG, JPEG, GIF, WebP)"
+	var basicTools []string
+	if params.SupportsToolCall {
+		readToolDesc := "- `read`: read file content"
+		if params.SupportsImageInput {
+			readToolDesc += " (also supports images: PNG, JPEG, GIF, WebP)"
+		}
+		basicTools = []string{readToolDesc}
+		basicTools = append(basicTools,
+			"- `write`: write file content",
+			"- `list`: list directory entries",
+			"- `edit`: replace exact text in a file",
+			"- `exec`: execute command",
+		)
+	} else {
+		basicTools = []string{
+			"No direct tools are available in this session. Do not claim to run commands, read files, edit files, browse, or call tools.",
+		}
 	}
-	basicTools := []string{readToolDesc}
-	basicTools = append(basicTools,
-		"- `write`: write file content",
-		"- `list`: list directory entries",
-		"- `edit`: replace exact text in a file",
-		"- `exec`: execute command",
-	)
 
 	skillsSection := buildSkillsSection(params.Skills)
 
@@ -163,6 +170,7 @@ type SystemPromptParams struct {
 	Now                       time.Time
 	Timezone                  string
 	SupportsImageInput        bool
+	SupportsToolCall          bool
 	PlatformIdentitiesSection string
 }
 

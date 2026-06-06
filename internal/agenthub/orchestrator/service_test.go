@@ -143,6 +143,40 @@ func TestCancelRunCancelsNonTerminalTasks(t *testing.T) {
 	}
 }
 
+func TestGetLatestRunForRoomReturnsNewestRun(t *testing.T) {
+	store := NewMemoryStore()
+	svc := NewService(store, fixedPlanner{plan: Plan{PlannerVersion: "test", Tasks: []TaskDraft{
+		{ClientKey: "a", Title: "a", Description: "first", ProviderName: "noop", MaxRetries: 0, Timeout: time.Second},
+	}}}, NewProviderRegistry(NoopProvider{}), nil, Config{})
+
+	first, err := svc.StartRun(context.Background(), StartRunInput{RoomID: "room-1", Objective: "ship api", AutoDispatch: true})
+	if err != nil {
+		t.Fatalf("first StartRun returned error: %v", err)
+	}
+	second, err := svc.StartRun(context.Background(), StartRunInput{RoomID: "room-2", Objective: "ship web", AutoDispatch: true})
+	if err != nil {
+		t.Fatalf("second StartRun returned error: %v", err)
+	}
+	latest, err := svc.StartRun(context.Background(), StartRunInput{RoomID: "room-1", Objective: "ship tests", AutoDispatch: true})
+	if err != nil {
+		t.Fatalf("latest StartRun returned error: %v", err)
+	}
+
+	snap, err := svc.GetLatestRunForRoom(context.Background(), "room-1")
+	if err != nil {
+		t.Fatalf("GetLatestRunForRoom returned error: %v", err)
+	}
+	if snap.Run.ID != latest.Run.ID {
+		t.Fatalf("expected latest run %s, got %s", latest.Run.ID, snap.Run.ID)
+	}
+	if snap.Run.Objective != "ship tests" {
+		t.Fatalf("expected latest objective ship tests, got %s", snap.Run.Objective)
+	}
+	if snap.Run.ID == first.Run.ID || snap.Run.ID == second.Run.ID {
+		t.Fatalf("expected newest room-1 run, got old run %s", snap.Run.ID)
+	}
+}
+
 func TestTimeoutMarksTaskFailed(t *testing.T) {
 	store := NewMemoryStore()
 	slowProvider := &slowProvider{delay: 200 * time.Millisecond}

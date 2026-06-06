@@ -188,6 +188,7 @@ import BotNetwork from './components/bot-network.vue'
 import BotChannels from './components/bot-channels.vue'
 import BotMcp from './components/bot-mcp.vue'
 import BotMemory from './components/bot-memory.vue'
+import BotHostAccess from './components/bot-host-access.vue'
 import BotSkills from './components/bot-skills.vue'
 import BotHeartbeat from './components/bot-heartbeat.vue'
 import BotCompaction from './components/bot-compaction.vue'
@@ -239,6 +240,7 @@ const tabList = computed(() => {
     { value: 'memory', label: 'bots.tabs.memory', component: BotMemory, params: { 'bot-id': bot_id } },
     { value: 'channels', label: 'bots.tabs.channels', component: BotChannels, params: { 'bot-id': bot_id } },
     { value: 'access', label: 'bots.tabs.access', component: BotAccess, params: { 'bot-id': bot_id, 'bot-type': bot.value?.type } },
+    { value: 'host-access', label: 'bots.tabs.hostAccess', component: BotHostAccess, params: { 'bot-id': bot_id } },
     { value: 'tool-approval', label: 'bots.tabs.toolApproval', component: BotToolApproval, params: { 'bot-id': bot_id } },
     { value: 'email', label: 'bots.tabs.email', component: BotEmail, params: { 'bot-id': bot_id } },
     { value: 'mcp', label: 'bots.tabs.mcp', component: BotMcp, params: { 'bot-id': bot_id } },
