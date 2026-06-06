@@ -126,19 +126,38 @@
                   {{ $t('bots.localWorkspacePath') }}
                   <span class="text-destructive">*</span>
                 </Label>
-                <div class="relative">
-                  <Input
-                    v-model="form.local_workspace_path"
-                    type="text"
-                    :placeholder="$t('bots.localWorkspacePathPlaceholder')"
-                    :class="{ 'border-destructive': localWorkspaceError }"
-                  />
+                <div class="flex items-center gap-2">
                   <div
-                    v-if="localWorkspaceValidating"
-                    class="absolute right-3 top-2.5"
+                    class="flex h-9 min-w-0 flex-1 items-center rounded-md border bg-background px-3 text-sm"
+                    :class="localWorkspaceError ? 'border-destructive' : 'border-input'"
                   >
-                    <Spinner class="size-4" />
+                    <Folder
+                      v-if="form.local_workspace_path"
+                      class="mr-2 size-4 shrink-0 text-muted-foreground"
+                    />
+                    <span
+                      v-if="form.local_workspace_path"
+                      class="truncate"
+                    >{{ form.local_workspace_path }}</span>
+                    <span
+                      v-else
+                      class="truncate text-muted-foreground"
+                    >{{ $t('bots.localWorkspacePathPlaceholder') }}</span>
+                    <Spinner
+                      v-if="localWorkspaceValidating"
+                      class="ml-auto size-4 shrink-0"
+                    />
                   </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    class="shrink-0 gap-1.5"
+                    @click="openFolderBrowser"
+                  >
+                    <FolderOpen class="size-3.5" />
+                    选择文件夹
+                  </Button>
                 </div>
                 <p
                   v-if="localWorkspaceError"
@@ -150,6 +169,75 @@
               <div class="rounded-md border border-warning-border bg-warning-soft px-3 py-2 text-xs text-warning-foreground">
                 {{ $t('bots.localWorkspaceWarning') }}
               </div>
+
+              <Dialog
+                v-model:open="folderDialogOpen"
+              >
+                <DialogContent class="sm:max-w-lg">
+                  <DialogHeader>
+                    <DialogTitle>选择工作目录</DialogTitle>
+                  </DialogHeader>
+
+                  <div class="space-y-3">
+                    <div class="flex items-center gap-2 rounded-md border border-border bg-muted/50 px-3 py-2">
+                      <Folder class="size-4 shrink-0 text-muted-foreground" />
+                      <span class="min-w-0 flex-1 truncate text-sm">{{ folderBrowserPath }}</span>
+                    </div>
+
+                    <ScrollArea class="h-[320px] rounded-md border border-border">
+                      <div
+                        v-if="folderBrowserLoading"
+                        class="flex items-center justify-center py-12 text-sm text-muted-foreground"
+                      >
+                        <Spinner class="mr-2" />
+                        加载中…
+                      </div>
+                      <div
+                        v-else
+                        class="p-1"
+                      >
+                        <button
+                          v-if="folderBrowserParent"
+                          type="button"
+                          class="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors hover:bg-accent"
+                          @click="browseTo(folderBrowserParent)"
+                        >
+                          <FolderUp class="size-4 shrink-0 text-muted-foreground" />
+                          <span class="text-muted-foreground">..</span>
+                        </button>
+                        <button
+                          v-for="entry in folderBrowserEntries"
+                          :key="entry.path"
+                          type="button"
+                          class="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors hover:bg-accent"
+                          @click="browseTo(entry.path)"
+                        >
+                          <Folder class="size-4 shrink-0 text-amber-500" />
+                          <span class="min-w-0 flex-1 truncate text-left">{{ entry.name }}</span>
+                          <ChevronRight class="size-3.5 shrink-0 text-muted-foreground" />
+                        </button>
+                        <div
+                          v-if="!folderBrowserEntries.length && !folderBrowserParent"
+                          class="py-8 text-center text-sm text-muted-foreground"
+                        >
+                          空目录
+                        </div>
+                      </div>
+                    </ScrollArea>
+                  </div>
+
+                  <DialogFooter>
+                    <DialogClose as-child>
+                      <Button variant="outline">
+                        取消
+                      </Button>
+                    </DialogClose>
+                    <Button @click="selectFolder">
+                      选择当前目录
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </template>
           </div>
         </div>
@@ -344,7 +432,8 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@memohai/ui'
-import { SquarePen, CircleHelp } from 'lucide-vue-next'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose, ScrollArea } from '@memohai/ui'
+import { SquarePen, CircleHelp, FolderOpen, FolderUp, Folder, ChevronRight } from 'lucide-vue-next'
 import { ref, reactive, computed, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { toast } from 'vue-sonner'
@@ -451,6 +540,46 @@ watch(() => form.local_workspace_path, (newPath) => {
     }
   }, 500)
 })
+
+interface DirEntry {
+  name: string
+  path: string
+  is_dir: boolean
+}
+
+const folderDialogOpen = ref(false)
+const folderBrowserPath = ref('')
+const folderBrowserParent = ref('')
+const folderBrowserEntries = ref<DirEntry[]>([])
+const folderBrowserLoading = ref(false)
+
+async function openFolderBrowser() {
+  folderDialogOpen.value = true
+  await browseTo(form.local_workspace_path || '')
+}
+
+async function browseTo(path: string) {
+  folderBrowserLoading.value = true
+  try {
+    const { data } = await client.post<{ 200: { path: string; parent: string; entries: DirEntry[] } }, { path: string }, true>({
+      url: '/system/list-directory',
+      body: { path: path.trim() },
+      throwOnError: true,
+    })
+    folderBrowserPath.value = data.path
+    folderBrowserParent.value = data.parent || ''
+    folderBrowserEntries.value = data.entries || []
+  } catch {
+    folderBrowserEntries.value = []
+  } finally {
+    folderBrowserLoading.value = false
+  }
+}
+
+function selectFolder() {
+  form.local_workspace_path = folderBrowserPath.value
+  folderDialogOpen.value = false
+}
 
 const avatarDialogOpen = ref(false)
 const avatarFallback = useAvatarInitials(() => form.display_name || '')

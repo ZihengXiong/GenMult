@@ -3,14 +3,12 @@
     <div class="max-w-3xl mx-auto space-y-6">
       <!-- Header: Logo + Version + Check Button -->
       <div class="flex items-center gap-3">
-        <img
-          src="/logo.svg"
-          alt="Memoh"
-          class="size-10 shrink-0 rounded-lg"
-        >
+        <div class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+          <Network class="size-5" />
+        </div>
         <div class="min-w-0 flex-1">
           <p class="text-sm font-semibold">
-            Memoh
+            GenMult
           </p>
           <div class="flex items-center gap-2 mt-0.5">
             <Badge
@@ -97,7 +95,7 @@
             <ExternalLink class="size-3 ml-auto text-muted-foreground" />
           </a>
           <a
-            href="https://docs.memoh.ai"
+            href="https://github.com/ZihengXiong/GenMult/wiki"
             target="_blank"
             rel="noopener noreferrer"
             class="flex h-9 items-center gap-3 rounded-lg px-3 text-xs text-foreground hover:bg-accent transition-colors"
@@ -127,13 +125,13 @@ import { computed, ref, onMounted } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useI18n } from 'vue-i18n'
 import { toast } from 'vue-sonner'
-import { RefreshCw, ExternalLink, Github, BookOpen, MessageSquare, CircleCheck } from 'lucide-vue-next'
+import { RefreshCw, ExternalLink, Github, BookOpen, MessageSquare, CircleCheck, Network } from 'lucide-vue-next'
 import { Badge, Button, Separator, Spinner } from '@memohai/ui'
 import MarkdownRender from 'markstream-vue'
 import { useCapabilitiesStore } from '@/store/capabilities'
 import { useSettingsStore } from '@/store/settings'
 
-const GITHUB_REPO = 'memohai/memoh'
+const GITHUB_REPO = 'ZihengXiong/GenMult'
 
 interface CheckResult {
   isUpToDate: boolean

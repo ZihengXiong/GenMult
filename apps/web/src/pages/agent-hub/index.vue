@@ -264,28 +264,32 @@
 
         <template v-else>
           <div class="space-y-2">
-            <RouterLink
-              v-for="entry in libraryCards"
-              :key="entry.title"
-              :to="entry.to"
-              class="block rounded-md border border-border bg-background p-3 transition-colors hover:bg-accent"
+            <button
+              type="button"
+              class="flex w-full items-center gap-2 rounded-md border border-border bg-background p-3 text-left transition-colors hover:bg-accent"
+              @click="selectSpecialTab('skills')"
             >
-              <div class="flex items-center gap-2">
-                <span
-                  class="flex size-8 items-center justify-center rounded-md border"
-                  :class="entry.tone"
-                >
-                  <component
-                    :is="entry.icon"
-                    class="size-4"
-                  />
-                </span>
-                <span class="min-w-0">
-                  <span class="block truncate text-xs font-semibold">{{ entry.title }}</span>
-                  <span class="block truncate text-[11px] text-muted-foreground">{{ entry.caption }}</span>
-                </span>
-              </div>
-            </RouterLink>
+              <span class="flex size-8 items-center justify-center rounded-md border border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300">
+                <Zap class="size-4" />
+              </span>
+              <span class="min-w-0">
+                <span class="block truncate text-xs font-semibold">Skills 库</span>
+                <span class="block truncate text-[11px] text-muted-foreground">会议纪要、制表、审查、发布检查</span>
+              </span>
+            </button>
+            <button
+              type="button"
+              class="flex w-full items-center gap-2 rounded-md border border-border bg-background p-3 text-left transition-colors hover:bg-accent"
+              @click="selectSpecialTab('mcp')"
+            >
+              <span class="flex size-8 items-center justify-center rounded-md border border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-300">
+                <Plug class="size-4" />
+              </span>
+              <span class="min-w-0">
+                <span class="block truncate text-xs font-semibold">MCP 库</span>
+                <span class="block truncate text-[11px] text-muted-foreground">GitHub、文档、搜索和内部系统</span>
+              </span>
+            </button>
           </div>
         </template>
       </div>
@@ -299,10 +303,10 @@
             :key="room.id"
             type="button"
             class="flex h-8 max-w-[190px] shrink-0 items-center gap-2 rounded-md border px-2.5 text-xs transition-colors"
-            :class="selectedRoomId === room.id
+            :class="activeMainPanel === 'room' && selectedRoomId === room.id
               ? 'border-border bg-background text-foreground shadow-sm'
               : 'border-transparent text-muted-foreground hover:bg-background hover:text-foreground'"
-            @click="selectedRoomId = room.id"
+            @click="selectRoomTab(room.id)"
           >
             <span
               class="size-1.5 rounded-full"
@@ -310,8 +314,44 @@
             />
             <span class="truncate">{{ room.name }}</span>
             <X
-              v-if="selectedRoomId === room.id"
+              v-if="activeMainPanel === 'room' && selectedRoomId === room.id"
               class="size-3 text-muted-foreground"
+            />
+          </button>
+
+          <button
+            v-if="openSpecialTabs.has('skills')"
+            type="button"
+            class="flex h-8 max-w-[190px] shrink-0 items-center gap-2 rounded-md border px-2.5 text-xs transition-colors"
+            :class="activeMainPanel === 'skills'
+              ? 'border-border bg-background text-foreground shadow-sm'
+              : 'border-transparent text-muted-foreground hover:bg-background hover:text-foreground'"
+            @click="selectSpecialTab('skills')"
+          >
+            <Zap class="size-3 text-amber-500" />
+            <span class="truncate">Skills 库</span>
+            <X
+              v-if="activeMainPanel === 'skills'"
+              class="size-3 text-muted-foreground"
+              @click.stop="closeSpecialTab('skills')"
+            />
+          </button>
+
+          <button
+            v-if="openSpecialTabs.has('mcp')"
+            type="button"
+            class="flex h-8 max-w-[190px] shrink-0 items-center gap-2 rounded-md border px-2.5 text-xs transition-colors"
+            :class="activeMainPanel === 'mcp'
+              ? 'border-border bg-background text-foreground shadow-sm'
+              : 'border-transparent text-muted-foreground hover:bg-background hover:text-foreground'"
+            @click="selectSpecialTab('mcp')"
+          >
+            <Plug class="size-3 text-blue-500" />
+            <span class="truncate">MCP 库</span>
+            <X
+              v-if="activeMainPanel === 'mcp'"
+              class="size-3 text-muted-foreground"
+              @click.stop="closeSpecialTab('mcp')"
             />
           </button>
         </div>
@@ -337,7 +377,11 @@
       </header>
 
       <div class="min-h-0 flex-1 overflow-y-auto">
-        <div class="mx-auto flex min-h-full w-full max-w-4xl flex-col px-6 py-5">
+        <!-- Room content -->
+        <div
+          v-if="activeMainPanel === 'room'"
+          class="mx-auto flex min-h-full w-full max-w-4xl flex-col px-6 py-5"
+        >
           <section class="mb-5 rounded-md border border-border bg-card p-4 shadow-sm">
             <div class="flex items-start justify-between gap-4">
               <div class="min-w-0">
@@ -423,6 +467,7 @@
                   :key="chip"
                   type="button"
                   class="rounded-sm border border-border bg-background px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                  @click="insertChip(chip)"
                 >
                   {{ chip }}
                 </button>
@@ -450,6 +495,108 @@
               </div>
             </div>
           </section>
+        </div>
+
+        <!-- Skills panel -->
+        <div
+          v-else-if="activeMainPanel === 'skills'"
+          class="mx-auto w-full max-w-5xl px-6 py-5"
+        >
+          <div class="mb-5 flex items-center justify-between">
+            <div>
+              <h2 class="text-base font-semibold">
+                Skills 库
+              </h2>
+              <p class="mt-1 text-sm text-muted-foreground">
+                浏览和安装可用的 Skills
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              class="gap-1.5"
+              @click="loadSupermarketSkills"
+            >
+              <RefreshCw class="size-3.5" />
+              刷新
+            </Button>
+          </div>
+
+          <div
+            v-if="skillsLoading"
+            class="flex items-center justify-center py-16 text-sm text-muted-foreground"
+          >
+            <Spinner class="mr-2" />
+            加载中…
+          </div>
+          <div
+            v-else-if="!supermarketSkills.length"
+            class="py-16 text-center text-sm text-muted-foreground"
+          >
+            暂无 Skills
+          </div>
+          <div
+            v-else
+            class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3"
+          >
+            <SkillCard
+              v-for="skill in supermarketSkills"
+              :key="skill.id"
+              :skill="skill"
+              @install="openSkillInstall"
+            />
+          </div>
+        </div>
+
+        <!-- MCP panel -->
+        <div
+          v-else-if="activeMainPanel === 'mcp'"
+          class="mx-auto w-full max-w-5xl px-6 py-5"
+        >
+          <div class="mb-5 flex items-center justify-between">
+            <div>
+              <h2 class="text-base font-semibold">
+                MCP 库
+              </h2>
+              <p class="mt-1 text-sm text-muted-foreground">
+                浏览和安装可用的 MCP 服务
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              class="gap-1.5"
+              @click="loadSupermarketMcps"
+            >
+              <RefreshCw class="size-3.5" />
+              刷新
+            </Button>
+          </div>
+
+          <div
+            v-if="mcpLoading"
+            class="flex items-center justify-center py-16 text-sm text-muted-foreground"
+          >
+            <Spinner class="mr-2" />
+            加载中…
+          </div>
+          <div
+            v-else-if="!supermarketMcps.length"
+            class="py-16 text-center text-sm text-muted-foreground"
+          >
+            暂无 MCP
+          </div>
+          <div
+            v-else
+            class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3"
+          >
+            <McpCard
+              v-for="mcp in supermarketMcps"
+              :key="mcp.id"
+              :mcp="mcp"
+              @install="openMcpInstall"
+            />
+          </div>
         </div>
       </div>
     </section>
@@ -683,6 +830,16 @@
         </div>
       </section>
     </aside>
+
+    <InstallSkillDialog
+      v-model:open="skillDialogOpen"
+      :skill="selectedSkill"
+      @installed="loadSupermarketSkills"
+    />
+    <InstallMcpDialog
+      v-model:open="mcpDialogOpen"
+      :mcp="selectedMcp"
+    />
   </main>
 </template>
 
@@ -692,6 +849,12 @@ import { RouterLink, useRouter } from 'vue-router'
 import { useMutation, useQuery, useQueryCache } from '@pinia/colada'
 import { getBotsQuery } from '@memohai/sdk/colada'
 import type { BotsBot } from '@memohai/sdk'
+import {
+  getSupermarketSkills,
+  getSupermarketMcps,
+  type HandlersSupermarketMcpEntry,
+  type HandlersSupermarketSkillEntry,
+} from '@memohai/sdk'
 import { client } from '@memohai/sdk/client'
 import {
   Button,
@@ -700,7 +863,14 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  Spinner,
 } from '@memohai/ui'
+import { toast } from 'vue-sonner'
+import { resolveApiErrorMessage } from '@/utils/api-error'
+import SkillCard from '@/pages/supermarket/components/skill-card.vue'
+import McpCard from '@/pages/supermarket/components/mcp-card.vue'
+import InstallSkillDialog from '@/pages/supermarket/components/install-skill-dialog.vue'
+import InstallMcpDialog from '@/pages/supermarket/components/install-mcp-dialog.vue'
 import { connectWebSocket, createSession, type UIMessage, type UIStreamEvent } from '@/composables/api/useChat'
 import { useChatSelectionStore } from '@/store/chat-selection'
 import { useWorkspaceTabsStore } from '@/store/workspace-tabs'
@@ -725,7 +895,6 @@ import {
   SendHorizontal,
   Settings,
   ShieldCheck,
-  Sparkles,
   SquarePen,
   TerminalSquare,
   UserPlus,
@@ -734,6 +903,7 @@ import {
   Workflow,
   Wrench,
   X,
+  Zap,
 } from 'lucide-vue-next'
 
 type ActivityId = 'rooms' | 'agents' | 'tasks' | 'skills' | 'mcp'
@@ -875,6 +1045,8 @@ const router = useRouter()
 const chatSelectionStore = useChatSelectionStore()
 const workspaceTabsStore = useWorkspaceTabsStore()
 const activeActivity = ref<ActivityId>('rooms')
+const activeMainPanel = ref<'room' | 'skills' | 'mcp'>('room')
+const openSpecialTabs = ref(new Set<'skills' | 'mcp'>())
 const selectedRoomId = ref('payment')
 const selectedAgentId = ref('orchestrator')
 const hostAccessDialogOpen = ref(false)
@@ -1322,27 +1494,117 @@ const connectors = computed<ConnectorItem[]>(() => [
   },
 ])
 
-const libraryCards = [
-  {
-    title: 'Skills 库',
-    caption: '会议纪要、制表、审查、发布检查',
-    to: '/settings/supermarket',
-    icon: Sparkles,
-    tone: 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300',
-  },
-  {
-    title: 'MCP 库',
-    caption: 'GitHub、文档、搜索和内部系统',
-    to: '/settings/supermarket',
-    icon: Plug,
-    tone: 'border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-300',
-  },
-]
 
 const composerChips = computed(() => [
   ...selectedRoomAgents.value.map((agent) => `@${agent.name}`),
   '@@all(config)',
 ])
+
+function insertChip(chip: string) {
+  const current = composerText.value
+  const needsSpace = current.length > 0 && !current.endsWith(' ')
+  composerText.value = current + (needsSpace ? ' ' : '') + chip + ' '
+}
+
+const supermarketSkills = ref<HandlersSupermarketSkillEntry[]>([])
+const supermarketMcps = ref<HandlersSupermarketMcpEntry[]>([])
+const skillsLoading = ref(false)
+const mcpLoading = ref(false)
+const skillDialogOpen = ref(false)
+const mcpDialogOpen = ref(false)
+const selectedSkill = ref<HandlersSupermarketSkillEntry | null>(null)
+const selectedMcp = ref<HandlersSupermarketMcpEntry | null>(null)
+
+async function loadSupermarketSkills() {
+  skillsLoading.value = true
+  try {
+    const { data } = await getSupermarketSkills({
+      query: {
+        q: normalizedSearch.value || undefined,
+        limit: 50,
+      },
+      throwOnError: true,
+    })
+    supermarketSkills.value = data.data ?? []
+  } catch (error) {
+    toast.error(resolveApiErrorMessage(error, '加载 Skills 失败'))
+  } finally {
+    skillsLoading.value = false
+  }
+}
+
+async function loadSupermarketMcps() {
+  mcpLoading.value = true
+  try {
+    const { data } = await getSupermarketMcps({
+      query: {
+        q: normalizedSearch.value || undefined,
+        limit: 50,
+      },
+      throwOnError: true,
+    })
+    supermarketMcps.value = data.data ?? []
+  } catch (error) {
+    toast.error(resolveApiErrorMessage(error, '加载 MCP 失败'))
+  } finally {
+    mcpLoading.value = false
+  }
+}
+
+function selectRoomTab(roomId: string) {
+  selectedRoomId.value = roomId
+  activeMainPanel.value = 'room'
+}
+
+function selectSpecialTab(tab: 'skills' | 'mcp') {
+  activeMainPanel.value = tab
+  activeActivity.value = tab
+  if (tab === 'skills' && !supermarketSkills.value.length && !skillsLoading.value) {
+    loadSupermarketSkills()
+  }
+  if (tab === 'mcp' && !supermarketMcps.value.length && !mcpLoading.value) {
+    loadSupermarketMcps()
+  }
+}
+
+function closeSpecialTab(tab: 'skills' | 'mcp') {
+  openSpecialTabs.value.delete(tab)
+  if (activeMainPanel.value === tab) {
+    activeMainPanel.value = 'room'
+  }
+}
+
+function openSkillInstall(skill: HandlersSupermarketSkillEntry) {
+  selectedSkill.value = skill
+  skillDialogOpen.value = true
+}
+
+function openMcpInstall(mcp: HandlersSupermarketMcpEntry) {
+  selectedMcp.value = mcp
+  mcpDialogOpen.value = true
+}
+
+watch(activeActivity, (activity) => {
+  if (activity === 'skills') {
+    openSpecialTabs.value.add('skills')
+    activeMainPanel.value = 'skills'
+    if (!supermarketSkills.value.length && !skillsLoading.value) {
+      loadSupermarketSkills()
+    }
+  }
+  if (activity === 'mcp') {
+    openSpecialTabs.value.add('mcp')
+    activeMainPanel.value = 'mcp'
+    if (!supermarketMcps.value.length && !mcpLoading.value) {
+      loadSupermarketMcps()
+    }
+  }
+})
+
+watch(normalizedSearch, () => {
+  if (activeActivity.value === 'skills') loadSupermarketSkills()
+  if (activeActivity.value === 'mcp') loadSupermarketMcps()
+})
 
 async function listAgentHubRooms(): Promise<AgentHubRoomList> {
   const { data } = await client.request<{ 200: AgentHubRoomList }, unknown, true>({

@@ -5,6 +5,8 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -34,6 +36,22 @@ type ValidateDirectoryResponse struct {
 	Error string `json:"error,omitempty"`
 }
 
+type ListDirectoryRequest struct {
+	Path string `json:"path"`
+}
+
+type ListDirectoryEntry struct {
+	Name  string `json:"name"`
+	Path  string `json:"path"`
+	IsDir bool   `json:"is_dir"`
+}
+
+type ListDirectoryResponse struct {
+	Path    string               `json:"path"`
+	Parent  string               `json:"parent,omitempty"`
+	Entries []ListDirectoryEntry `json:"entries"`
+}
+
 type PingHandler struct {
 	logger  *slog.Logger
 	runtime *boot.RuntimeConfig
@@ -58,6 +76,7 @@ func (h *PingHandler) Register(e *echo.Echo) {
 	e.GET("/ping", h.Ping)
 	e.HEAD("/health", h.PingHead)
 	e.POST("/system/validate-directory", h.ValidateDirectory)
+	e.POST("/system/list-directory", h.ListDirectory)
 }
 
 // Ping godoc
@@ -121,4 +140,65 @@ func (h *PingHandler) ValidateDirectory(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, ValidateDirectoryResponse{Valid: true})
+}
+
+func (h *PingHandler) ListDirectory(c echo.Context) error {
+	var req ListDirectoryRequest
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
+
+	dirPath := strings.TrimSpace(req.Path)
+	if dirPath == "" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, "cannot determine home directory")
+		}
+		dirPath = home
+	}
+
+	dirPath = filepath.Clean(dirPath)
+
+	info, err := os.Stat(dirPath)
+	if err != nil {
+		return c.JSON(http.StatusOK, ListDirectoryResponse{Path: dirPath, Entries: []ListDirectoryEntry{}})
+	}
+	if !info.IsDir() {
+		dirPath = filepath.Dir(dirPath)
+	}
+
+	dirEntries, err := os.ReadDir(dirPath)
+	if err != nil {
+		return c.JSON(http.StatusOK, ListDirectoryResponse{Path: dirPath, Entries: []ListDirectoryEntry{}})
+	}
+
+	var entries []ListDirectoryEntry
+	for _, e := range dirEntries {
+		if strings.HasPrefix(e.Name(), ".") {
+			continue
+		}
+		if !e.IsDir() {
+			continue
+		}
+		entries = append(entries, ListDirectoryEntry{
+			Name:  e.Name(),
+			Path:  filepath.Join(dirPath, e.Name()),
+			IsDir: true,
+		})
+	}
+
+	sort.Slice(entries, func(i, j int) bool {
+		return strings.ToLower(entries[i].Name) < strings.ToLower(entries[j].Name)
+	})
+
+	parent := filepath.Dir(dirPath)
+	if parent == dirPath {
+		parent = ""
+	}
+
+	return c.JSON(http.StatusOK, ListDirectoryResponse{
+		Path:    dirPath,
+		Parent:  parent,
+		Entries: entries,
+	})
 }
