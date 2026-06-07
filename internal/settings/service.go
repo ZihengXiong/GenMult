@@ -668,6 +668,17 @@ func normalizeOptionalTimezone(raw string) (pgtype.Text, error) {
 	return pgtype.Text{String: loc.String(), Valid: true}, nil
 }
 
+// validateChatModelSelection enforces that claudecode/codex bots select a chat
+// model whose provider type matches the framework.
+//
+// NOTE(merge): this comes from main's "codex as a model backend" design and is
+// currently in tension with this branch's decoupled framework design, where
+// non-memoh bots do NOT select a provider/model — buildBaseRunConfig takes a
+// placeholder path and resolves credentials by framework via
+// ResolveCredentialsForFramework, ignoring any selected model. Under the
+// decoupled UI this validation can reject saves (no model selected) and has no
+// runtime effect. Kept as-is for the merge; revisit to either drop it or make
+// the runtime consume the selected model.
 func (s *Service) validateChatModelSelection(ctx context.Context, framework string, requested, existing pgtype.UUID) error {
 	selected := requested
 	if !selected.Valid {
