@@ -95,6 +95,23 @@ func codexAccountIDFromToken(token string) (string, error) {
 }
 
 // ResolveCredentialsForFramework resolves the credentials of the active provider matching the given framework ("claudecode" or "codex").
+//
+// NOTE(design): a CLI framework does not strictly depend on a same-typed
+// provider. Claude Code in particular can authenticate via per-bot
+// provider_ext["claudecode"] (APIKey / AuthToken / BaseURL — see
+// mergeClaudeCodeConfig in botruntime/cli.go), which supports both the official
+// Anthropic API and third-party Anthropic-compatible endpoints (auth token +
+// custom base_url configured in the bot's agent settings). This function is the
+// fallback credential source: it locates an enabled anthropic-typed provider
+// (codex: openai-typed) and uses its key when the bot has no provider_ext
+// override.
+//
+// CAVEAT(current): runtime still calls this unconditionally (cli.go run ->
+// resolveCreds) and it errors when no matching provider exists, so today a
+// provider_ext-only bot ALSO needs a matching enabled provider present. The
+// "claudecode doesn't depend on an anthropic provider" goal is therefore only
+// partially realized; to fully decouple, skip/relax this lookup when the bot's
+// provider_ext already carries APIKey/AuthToken+BaseURL.
 func ResolveCredentialsForFramework(ctx context.Context, queries dbstore.Queries, framework string) (ModelCredentials, error) {
 	providersList, err := queries.ListProviders(ctx)
 	if err != nil {
