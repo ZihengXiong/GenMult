@@ -149,7 +149,7 @@ type Plan struct {
 
 // TaskDraft is a planned task. ClientKey is used to express dependencies before DB IDs exist.
 type TaskDraft struct {
-	ClientKey       string         `json:"client_key"`
+	ClientKey       string         `json:"client_key"` //nolint:gosec // JSON field name
 	ParentClientKey string         `json:"parent_client_key,omitempty"`
 	Title           string         `json:"title"`
 	Description     string         `json:"description"`

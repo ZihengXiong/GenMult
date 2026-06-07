@@ -22,10 +22,14 @@
       v-if="open"
       class="mt-1 ml-5 border-l border-border pl-3 py-1"
     >
-      <div
-        class="whitespace-pre-wrap text-xs text-muted-foreground leading-relaxed"
-        v-text="block.content"
-      />
+      <div class="prose prose-sm dark:prose-invert max-w-none *:first:mt-0 text-muted-foreground opacity-90 leading-relaxed text-[13px]">
+        <MarkdownRender
+          :content="block.content"
+          :is-dark="isDark"
+          :typewriter="streaming"
+          custom-id="thinking-msg"
+        />
+      </div>
     </div>
   </div>
 </template>
@@ -35,6 +39,8 @@ import { computed, ref } from 'vue'
 import { ChevronDown, ChevronRight, Lightbulb } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import type { ThinkingBlock } from '@/store/chat-list'
+import MarkdownRender from 'markstream-vue'
+import { useSettingsStore } from '@/store/settings'
 
 const props = defineProps<{
   block: ThinkingBlock
@@ -42,6 +48,9 @@ const props = defineProps<{
 }>()
 
 const { t } = useI18n()
+
+const settingsStore = useSettingsStore()
+const isDark = computed(() => settingsStore.theme === 'dark')
 
 const open = ref(props.streaming)
 

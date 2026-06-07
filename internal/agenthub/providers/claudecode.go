@@ -16,10 +16,15 @@ import (
 
 // ClaudeEvent represents a raw JSON line output from the Claude CLI stream.
 type ClaudeEvent struct {
-	Type    string          `json:"type"`
-	Role    string          `json:"role,omitempty"`
-	Content json.RawMessage `json:"content,omitempty"`
-	Message *ClaudeMessage  `json:"message,omitempty"`
+	Type        string          `json:"type"`
+	Subtype     string          `json:"subtype,omitempty"`
+	Role        string          `json:"role,omitempty"`
+	Content     json.RawMessage `json:"content,omitempty"`
+	Message     *ClaudeMessage  `json:"message,omitempty"`
+	Result      string          `json:"result,omitempty"`
+	IsError     bool            `json:"is_error,omitempty"`
+	ErrorStatus int             `json:"api_error_status,omitempty"`
+	SessionID   string          `json:"session_id,omitempty"`
 }
 
 // ClaudeMessage represents a message wrapper inside ClaudeEvent.
@@ -30,11 +35,14 @@ type ClaudeMessage struct {
 
 // ContentBlock represents a single content piece in a Claude message.
 type ContentBlock struct {
-	Type  string `json:"type"`
-	Text  string `json:"text,omitempty"`
-	Name  string `json:"name,omitempty"`
-	ID    string `json:"id,omitempty"`
-	Input any    `json:"input,omitempty"`
+	Type      string          `json:"type"`
+	Text      string          `json:"text,omitempty"`
+	Thinking  string          `json:"thinking,omitempty"`
+	Name      string          `json:"name,omitempty"`
+	ID        string          `json:"id,omitempty"`
+	Input     any             `json:"input,omitempty"`
+	Content   json.RawMessage `json:"content,omitempty"`
+	ToolUseID string          `json:"tool_use_id,omitempty"`
 }
 
 // ClaudeCodeProvider implements orchestrator.AgentProvider using Claude Code CLI.
@@ -61,12 +69,12 @@ func NewClaudeCodeProvider(config ClaudeCodeConfig, wsInfo WorkspaceResolver, st
 }
 
 // Name returns the provider's registered name.
-func (p *ClaudeCodeProvider) Name() string {
+func (*ClaudeCodeProvider) Name() string {
 	return "claudecode"
 }
 
 // Capabilities returns the provider's supported capabilities.
-func (p *ClaudeCodeProvider) Capabilities() []string {
+func (*ClaudeCodeProvider) Capabilities() []string {
 	return []string{"code", "review"}
 }
 
@@ -80,6 +88,12 @@ func (p *ClaudeCodeProvider) Execute(ctx context.Context, req orchestrator.Execu
 	if err != nil {
 		return orchestrator.ExecuteTaskResult{Retryable: false}, fmt.Errorf("failed to resolve workspace directory: %w", err)
 	}
+
+	p.logger.Info("starting Claude Code task execution",
+		slog.String("task_id", req.Task.ID),
+		slog.String("run_id", req.Run.ID),
+		slog.String("work_dir", workDir),
+	)
 
 	// Set up custom environment containing the API key.
 	env := ClaudeEnv(p.config)
@@ -124,6 +138,11 @@ func (p *ClaudeCodeProvider) Execute(ctx context.Context, req orchestrator.Execu
 
 	output, err := runner.Run(ctx, prompt, workDir, p.executor, env)
 	if err != nil {
+		p.logger.Error("Claude Code execution failed",
+			slog.String("task_id", req.Task.ID),
+			slog.String("run_id", req.Run.ID),
+			slog.Any("error", err),
+		)
 		if errors.Is(err, ErrCLINotFound) {
 			return orchestrator.ExecuteTaskResult{Retryable: false}, err
 		}
@@ -137,6 +156,11 @@ func (p *ClaudeCodeProvider) Execute(ctx context.Context, req orchestrator.Execu
 		}
 		return orchestrator.ExecuteTaskResult{Retryable: true}, err
 	}
+
+	p.logger.Info("Claude Code task execution completed successfully",
+		slog.String("task_id", req.Task.ID),
+		slog.String("run_id", req.Run.ID),
+	)
 
 	return orchestrator.ExecuteTaskResult{
 		Output:    map[string]any{"raw_output": output},

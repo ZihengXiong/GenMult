@@ -2,6 +2,9 @@ name: DeepSeek
 client_type: openai-completions
 icon: deepseek-color
 base_url: https://api.deepseek.com/v1
+env_fallbacks:
+  api_key: ["DEEPSEEK_API_KEY", "DS_API_KEY", "OPENAI_API_KEY"]
+  base_url: ["DEEPSEEK_API_URL", "OPENAI_BASE_URL"]
 
 models:
   - model_id: deepseek-v4-flash

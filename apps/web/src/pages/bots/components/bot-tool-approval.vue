@@ -21,6 +21,21 @@
     <Separator />
 
     <div
+      v-if="bot?.framework === 'claudecode'"
+      class="rounded-md border border-warning/50 bg-warning/5 p-4 flex items-start gap-3"
+    >
+      <ShieldAlert class="size-5 text-warning-foreground mt-0.5 shrink-0" />
+      <div class="space-y-1">
+        <h4 class="text-sm font-medium text-warning-foreground">
+          Notice for Claude Code
+        </h4>
+        <p class="text-xs text-muted-foreground">
+          This section configures approvals for Memoh's native fallback tools. To configure Claude Code's native CLI permissions, please adjust the Permission Mode in the General tab.
+        </p>
+      </div>
+    </div>
+
+    <div
       class="space-y-6 transition-opacity"
       :class="{ 'opacity-60 pointer-events-none': !form.tool_approval_config.enabled }"
       :aria-disabled="!form.tool_approval_config.enabled"
@@ -154,7 +169,7 @@ import type { Component, Ref } from 'vue'
 import { toast } from 'vue-sonner'
 import { useI18n } from 'vue-i18n'
 import { useQuery, useMutation, useQueryCache } from '@pinia/colada'
-import { getBotsByBotIdSettings, putBotsByBotIdSettings } from '@memohai/sdk'
+import { getBotsById, getBotsByBotIdSettings, putBotsByBotIdSettings } from '@memohai/sdk'
 import type { SettingsSettings } from '@memohai/sdk'
 import SettingsShell from '@/components/settings-shell/index.vue'
 import { resolveApiErrorMessage } from '@/utils/api-error'
@@ -216,6 +231,15 @@ const { t } = useI18n()
 const botIdRef = computed(() => props.botId) as Ref<string>
 
 const queryCache = useQueryCache()
+
+const { data: bot } = useQuery({
+  key: () => ['bot', botIdRef.value],
+  query: async () => {
+    const { data } = await getBotsById({ path: { id: botIdRef.value }, throwOnError: true })
+    return data
+  },
+  enabled: () => !!botIdRef.value,
+})
 
 const { data: settings } = useQuery({
   key: () => ['bot-settings', botIdRef.value],

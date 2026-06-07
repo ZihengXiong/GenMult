@@ -164,7 +164,7 @@ type Queries interface {
 	ListActiveMessagesSince(ctx context.Context, arg dbsqlc.ListActiveMessagesSinceParams) ([]dbsqlc.ListActiveMessagesSinceRow, error)
 	ListActiveMessagesSinceBySession(ctx context.Context, arg dbsqlc.ListActiveMessagesSinceBySessionParams) ([]dbsqlc.ListActiveMessagesSinceBySessionRow, error)
 	ListAutoStartContainers(ctx context.Context) ([]dbsqlc.Container, error)
-	ListAgentHubRoomAgentsByOwner(ctx context.Context, ownerUserID pgtype.UUID) ([]dbsqlc.ListAgentHubRoomAgentsByOwnerRow, error)
+	ListAgentHubRoomAgentsByOwner(ctx context.Context, ownerUserID pgtype.UUID) ([]dbsqlc.AgentHubRoomAgent, error)
 	ListAgentHubRoomMessages(ctx context.Context, arg dbsqlc.ListAgentHubRoomMessagesParams) ([]dbsqlc.AgentHubRoomMessage, error)
 	ListAgentHubRooms(ctx context.Context, ownerUserID pgtype.UUID) ([]dbsqlc.AgentHubRoom, error)
 	ListBotACLRules(ctx context.Context, botID pgtype.UUID) ([]dbsqlc.ListBotACLRulesRow, error)

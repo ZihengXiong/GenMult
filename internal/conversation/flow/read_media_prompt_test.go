@@ -17,6 +17,7 @@ func TestPrepareRunConfigIncludesImageReadHintWhenImageInputIsSupported(t *testi
 	cfg := agentpkg.RunConfig{
 		Query:              "describe this image",
 		SupportsImageInput: true,
+		SupportsToolCall:   true,
 		Identity: agentpkg.SessionContext{
 			BotID: "bot-1",
 		},

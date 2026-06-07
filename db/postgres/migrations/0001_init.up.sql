@@ -150,7 +150,6 @@ CREATE TABLE IF NOT EXISTS bots (
   timezone TEXT,
   is_active BOOLEAN NOT NULL DEFAULT true,
   status TEXT NOT NULL DEFAULT 'ready',
-  framework TEXT NOT NULL DEFAULT 'memoh',
   language TEXT NOT NULL DEFAULT 'auto',
   reasoning_enabled BOOLEAN NOT NULL DEFAULT false,
   reasoning_effort TEXT NOT NULL DEFAULT 'medium',
@@ -177,12 +176,12 @@ CREATE TABLE IF NOT EXISTS bots (
   overlay_provider TEXT NOT NULL DEFAULT '',
   overlay_enabled BOOLEAN NOT NULL DEFAULT false,
   overlay_config JSONB NOT NULL DEFAULT '{}'::jsonb,
+  provider_ext JSONB NOT NULL DEFAULT '{}'::jsonb,
   metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   CONSTRAINT bots_type_check CHECK (type IN ('personal', 'public')),
   CONSTRAINT bots_status_check CHECK (status IN ('creating', 'ready', 'deleting')),
-  CONSTRAINT bots_framework_check CHECK (framework IN ('memoh', 'claudecode', 'codex')),
   CONSTRAINT bots_reasoning_effort_check CHECK (reasoning_effort IN ('low', 'medium', 'high'))
 );
 
@@ -248,6 +247,7 @@ CREATE TABLE IF NOT EXISTS agent_hub_rooms (
   status_class TEXT NOT NULL DEFAULT 'bg-slate-500',
   attention INTEGER NOT NULL DEFAULT 0,
   metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+  orchestrator_agent_id TEXT NOT NULL DEFAULT '',
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );

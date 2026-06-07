@@ -2,7 +2,11 @@ package providers
 
 import (
 	"context"
+	"errors"
+	"io"
+	"os"
 	"os/exec"
+	"strings"
 	"sync"
 	"time"
 )
@@ -13,7 +17,7 @@ type ExecRequest struct {
 	Args    []string
 	WorkDir string
 	Stdin   string
-	Env     []string      // Environment variables, e.g. API keys.
+	Env     []string // Environment variables, e.g. API keys.
 	Timeout time.Duration
 }
 
@@ -44,36 +48,78 @@ func NewHostExecutor() *HostExecutor {
 }
 
 // LookPath searches for an executable binary in the host's PATH.
-func (e *HostExecutor) LookPath(bin string) (string, error) {
+func (*HostExecutor) LookPath(bin string) (string, error) {
 	return exec.LookPath(bin)
 }
 
 // Start spawns a command locally and streams output.
-func (e *HostExecutor) Start(ctx context.Context, req ExecRequest) (ExecHandle, error) {
+func (*HostExecutor) Start(ctx context.Context, req ExecRequest) (ExecHandle, error) {
 	binPath, err := exec.LookPath(req.Bin)
 	if err != nil {
 		return nil, err
 	}
 
-	cmd := exec.CommandContext(ctx, binPath, req.Args...)
+	cmd := exec.CommandContext(ctx, binPath, req.Args...) //nolint:gosec // intentional: execution of agent-provided commands
 	cmd.Dir = req.WorkDir
-	cmd.Env = req.Env
+	if len(req.Env) > 0 {
+		// Merge os.Environ with req.Env so that req.Env takes precedence on
+		// duplicate keys (req.Env is iterated second, overwriting host values).
+		// A req.Env entry with an empty value (e.g. "ANTHROPIC_API_KEY=") is
+		// treated as an explicit unset: the key is removed from the merged env
+		// entirely rather than passed through as present-but-empty, since some
+		// programs (Claude Code) behave differently for an empty-but-present
+		// variable than for a missing one.
+		merged := make(map[string]string, len(req.Env))
+		for _, e := range os.Environ() {
+			k, v, _ := strings.Cut(e, "=")
+			merged[k] = v
+		}
+		for _, e := range req.Env {
+			k, v, _ := strings.Cut(e, "=")
+			if v == "" {
+				delete(merged, k)
+				continue
+			}
+			merged[k] = v
+		}
+		cmd.Env = make([]string, 0, len(merged))
+		for k, v := range merged {
+			cmd.Env = append(cmd.Env, k+"="+v)
+		}
+	}
 
+	stdinPipe, err := cmd.StdinPipe()
+	if err != nil {
+		return nil, err
+	}
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
+		_ = stdinPipe.Close()
 		return nil, err
 	}
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
 		_ = stdout.Close()
+		_ = stdinPipe.Close()
 		return nil, err
 	}
 
 	if err := cmd.Start(); err != nil {
+		_ = stdinPipe.Close()
 		_ = stdout.Close()
 		_ = stderr.Close()
 		return nil, err
 	}
+
+	// Feed stdin (if any) and always close it so the child sees EOF. The
+	// stream-json input path (claude --input-format stream-json) blocks until
+	// stdin is closed; leaving the pipe open would hang the process.
+	go func() {
+		if req.Stdin != "" {
+			_, _ = io.WriteString(stdinPipe, req.Stdin)
+		}
+		_ = stdinPipe.Close()
+	}()
 
 	chunksChan := make(chan ExecChunk, 100)
 	handle := &hostExecHandle{
@@ -126,10 +172,10 @@ func (e *HostExecutor) Start(ctx context.Context, req ExecRequest) (ExecHandle, 
 }
 
 type hostExecHandle struct {
-	cmd        *exec.Cmd
-	chunksChan chan ExecChunk
-	wg         sync.WaitGroup
-	waitOnce   sync.Once
+	cmd          *exec.Cmd
+	chunksChan   chan ExecChunk
+	wg           sync.WaitGroup
+	waitOnce     sync.Once
 	waitExitCode int
 	waitErr      error
 }
@@ -145,7 +191,8 @@ func (h *hostExecHandle) Wait() (int, error) {
 	h.waitOnce.Do(func() {
 		h.waitErr = h.cmd.Wait()
 		if h.waitErr != nil {
-			if exitErr, ok := h.waitErr.(*exec.ExitError); ok {
+			exitErr := &exec.ExitError{}
+			if errors.As(h.waitErr, &exitErr) {
 				h.waitExitCode = exitErr.ExitCode()
 			} else {
 				h.waitExitCode = -1

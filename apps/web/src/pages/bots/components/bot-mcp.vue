@@ -21,6 +21,18 @@
 
     <template #sidebar-content>
       <div
+        v-if="bot?.framework === 'claudecode'"
+        class="m-4 rounded-md border border-success/50 bg-success/5 p-3 flex items-start gap-2"
+      >
+        <CheckCircle2 class="size-4 text-success mt-0.5 shrink-0" />
+        <div class="space-y-1">
+          <p class="text-xs text-success-foreground">
+            MCP servers configured here will be automatically injected into Claude Code's <code class="font-mono bg-success/10 px-1 py-0.5 rounded">.claude.json</code> environment.
+          </p>
+        </div>
+      </div>
+
+      <div
         v-if="loading && items.length === 0"
         class="flex items-center gap-2 text-xs text-muted-foreground p-4"
       >
@@ -640,11 +652,11 @@
 </template>
 
 <script setup lang="ts">
-import { Search, Plus, RefreshCw, Lock, Copy, KeyRound, Wrench, Plug } from 'lucide-vue-next'
+import { Search, Plus, RefreshCw, Lock, Copy, KeyRound, Wrench, Plug, CheckCircle2 } from 'lucide-vue-next'
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { toast } from 'vue-sonner'
-import { useQueryCache } from '@pinia/colada'
+import { useQueryCache, useQuery } from '@pinia/colada'
 import {
   Badge,
   Button,
@@ -692,6 +704,7 @@ import KeyValueEditor from '@/components/key-value-editor/index.vue'
 import type { KeyValuePair } from '@/components/key-value-editor/index.vue'
 import ConfirmPopover from '@/components/confirm-popover/index.vue'
 import {
+  getBotsById,
   getBotsByBotIdMcp,
   postBotsByBotIdMcp,
   putBotsByBotIdMcpById,
@@ -746,6 +759,15 @@ const IMPORT_EXAMPLE = JSON.stringify({
 }, null, 2)
 
 const props = defineProps<{ botId: string }>()
+
+const { data: bot } = useQuery({
+  key: () => ['bot', props.botId],
+  query: async () => {
+    const { data } = await getBotsById({ path: { id: props.botId }, throwOnError: true })
+    return data
+  },
+  enabled: () => !!props.botId,
+})
 const { t } = useI18n()
 const { copyText } = useClipboard()
 

@@ -762,7 +762,7 @@ func (a *Agent) assembleTools(ctx context.Context, cfg RunConfig, emitter tools.
 func markApprovalTools(tools []sdk.Tool) []sdk.Tool {
 	for i := range tools {
 		switch tools[i].Name {
-		case "read", "list", "write", "edit", "exec":
+		case "write", "edit", "exec":
 			tools[i].RequireApproval = true
 		}
 	}

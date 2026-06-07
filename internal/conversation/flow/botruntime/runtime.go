@@ -31,6 +31,8 @@ type BotRuntime interface {
 	Stream(ctx context.Context, in RunInput) <-chan agentpkg.StreamEvent
 	// Generate runs the turn and returns the final result.
 	Generate(ctx context.Context, in RunInput) (*agentpkg.GenerateResult, error)
+	// IdleTimeout returns the base idle timeout for this runtime.
+	// Returns 0 to use the default timeout.
 	IdleTimeout() time.Duration
 }
 

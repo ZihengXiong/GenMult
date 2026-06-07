@@ -10,6 +10,7 @@ import (
 	sdk "github.com/memohai/twilight-ai/sdk"
 
 	agentpkg "github.com/ZihengXiong/GenMult/internal/agent"
+	"github.com/ZihengXiong/GenMult/internal/bots"
 	"github.com/ZihengXiong/GenMult/internal/conversation"
 	"github.com/ZihengXiong/GenMult/internal/conversation/flow/botruntime"
 )
@@ -104,13 +105,14 @@ func (r *Resolver) StreamChat(ctx context.Context, req conversation.ChatRequest)
 		go r.maybeGenerateSessionTitle(context.WithoutCancel(ctx), streamReq, streamReq.Query)
 
 		cfg := rc.runConfig
-		cfg = r.prepareRunConfig(ctx, cfg)
 		rt := r.runtimeForBot(ctx, cfg.Identity.BotID)
+		if rt.Name() == bots.FrameworkMemoh {
+			cfg = r.prepareRunConfig(ctx, cfg)
+		}
 
 		// Wrap with idle timeout: if no events arrive within the adaptive timeout, cancel the stream.
 		idleCtx, idleCancel := withIdleTimeout(ctx, rt.IdleTimeout())
 		defer idleCancel.Stop()
-
 		eventCh := rt.Stream(idleCtx, botruntime.RunInput{Config: cfg})
 		stored := false
 		clientGone := false
@@ -254,13 +256,14 @@ func (r *Resolver) StreamChatWS(
 	}()
 
 	cfg := rc.runConfig
-	cfg = r.prepareRunConfig(streamCtx, cfg)
 	rt := r.runtimeForBot(streamCtx, cfg.Identity.BotID)
+	if rt.Name() == bots.FrameworkMemoh {
+		cfg = r.prepareRunConfig(streamCtx, cfg)
+	}
 
 	// Wrap with idle timeout: if no events arrive within the adaptive timeout, cancel the stream.
 	idleCtx, idleCancel := withIdleTimeout(streamCtx, rt.IdleTimeout())
 	defer idleCancel.Stop()
-
 	agentEventCh := rt.Stream(idleCtx, botruntime.RunInput{Config: cfg})
 	modelID := rc.model.ID
 	stored := false

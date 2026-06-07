@@ -51,24 +51,3 @@ func canTransitionTask(from, to TaskStatus) bool {
 		return false
 	}
 }
-
-func taskEventForStatus(status TaskStatus) EventType {
-	switch status {
-	case TaskStatusPending:
-		return EventTaskCreated
-	case TaskStatusReady:
-		return EventTaskReady
-	case TaskStatusRunning:
-		return EventTaskDispatched
-	case TaskStatusSucceeded:
-		return EventTaskSucceeded
-	case TaskStatusFailed:
-		return EventTaskFailed
-	case TaskStatusBlocked:
-		return EventTaskBlocked
-	case TaskStatusCancelled:
-		return EventTaskCancelled
-	default:
-		return EventRunStatusChanged
-	}
-}

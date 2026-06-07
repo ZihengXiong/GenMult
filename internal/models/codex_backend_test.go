@@ -2,6 +2,8 @@ package models
 
 import "testing"
 
+const codexCompatTestKey = "plain-api-key" //nolint:gosec // G101: test fixture, not a real credential
+
 func TestUseNativeCodexBackend(t *testing.T) {
 	t.Parallel()
 
@@ -12,8 +14,8 @@ func TestUseNativeCodexBackend(t *testing.T) {
 		want           bool
 	}{
 		{name: "jwt token uses native backend", apiKey: "a.b.c", want: true},
-		{name: "account id forces native backend", apiKey: "plain-api-key", codexAccountID: "acct_123", want: true},
-		{name: "plain api key uses responses backend", apiKey: "plain-api-key", want: false},
+		{name: "account id forces native backend", apiKey: codexCompatTestKey, codexAccountID: "acct_123", want: true},
+		{name: "plain api key uses responses backend", apiKey: codexCompatTestKey, want: false},
 		{name: "empty credentials do not use native backend", want: false},
 	}
 
@@ -35,7 +37,7 @@ func TestNewSDKProviderOpenAICodexSelectsBackendByCredentialShape(t *testing.T) 
 		t.Fatalf("expected native codex provider, got %q", got)
 	}
 
-	compat := NewSDKProvider("https://www.autodl.art/api/v1", "plain-api-key", "", ClientTypeOpenAICodex, 0, nil)
+	compat := NewSDKProvider("https://www.autodl.art/api/v1", codexCompatTestKey, "", ClientTypeOpenAICodex, 0, nil)
 	if got := compat.Name(); got != "openai-responses" {
 		t.Fatalf("expected responses-compatible provider, got %q", got)
 	}
@@ -57,7 +59,7 @@ func TestNewSDKChatModelOpenAICodexSelectsBackendByCredentialShape(t *testing.T)
 	compat := NewSDKChatModel(SDKModelConfig{
 		ModelID:    "gpt-5.3-codex",
 		ClientType: string(ClientTypeOpenAICodex),
-		APIKey:     "plain-api-key",
+		APIKey:     codexCompatTestKey,
 		BaseURL:    "https://www.autodl.art/api/v1",
 	})
 	if got := compat.Provider.Name(); got != "openai-responses" {

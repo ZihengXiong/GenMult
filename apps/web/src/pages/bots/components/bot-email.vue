@@ -12,6 +12,21 @@
       </div>
     </div>
 
+    <div
+      v-if="bot?.framework === 'claudecode'"
+      class="rounded-md border border-blue-500/50 bg-blue-500/5 p-4 flex items-start gap-3"
+    >
+      <Info class="size-5 text-blue-500 mt-0.5 shrink-0" />
+      <div class="space-y-1">
+        <h4 class="text-sm font-medium text-blue-600 dark:text-blue-400">
+          Notice for Claude Code
+        </h4>
+        <p class="text-xs text-muted-foreground">
+          Claude Code does not natively integrate with Memoh's email system. To allow Claude Code to read these emails, you must configure a Memoh Email MCP Server in the MCP tab.
+        </p>
+      </div>
+    </div>
+
     <!-- Bindings section -->
     <div class="space-y-3">
       <div class="flex items-center justify-between">
@@ -207,12 +222,13 @@ import {
   Switch,
 } from '@memohai/ui'
 import ConfirmPopover from '@/components/confirm-popover/index.vue'
-import { Plus } from 'lucide-vue-next'
+import { Plus, Info } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
 import { toast } from 'vue-sonner'
 import { useI18n } from 'vue-i18n'
 import { useQuery, useQueryCache } from '@pinia/colada'
 import {
+  getBotsById,
   getEmailProviders,
   getBotsByBotIdEmailBindings,
   postBotsByBotIdEmailBindings,
@@ -227,6 +243,15 @@ const props = defineProps<{ botId: string }>()
 const { t } = useI18n()
 
 const queryCache = useQueryCache()
+
+const { data: bot } = useQuery({
+  key: () => ['bot', props.botId],
+  query: async () => {
+    const { data } = await getBotsById({ path: { id: props.botId }, throwOnError: true })
+    return data
+  },
+  enabled: () => !!props.botId,
+})
 
 const { data: providersData } = useQuery({
   key: () => ['email-providers'],

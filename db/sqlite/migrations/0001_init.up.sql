@@ -146,7 +146,6 @@ CREATE TABLE IF NOT EXISTS bots (
   is_active INTEGER NOT NULL DEFAULT 1,
   status TEXT NOT NULL DEFAULT 'ready',
   acl_default_effect TEXT NOT NULL DEFAULT 'allow',
-  framework TEXT NOT NULL DEFAULT 'memoh',
   language TEXT NOT NULL DEFAULT 'auto',
   reasoning_enabled INTEGER NOT NULL DEFAULT 0,
   reasoning_effort TEXT NOT NULL DEFAULT 'medium',
@@ -173,13 +172,13 @@ CREATE TABLE IF NOT EXISTS bots (
   overlay_provider TEXT NOT NULL DEFAULT '',
   overlay_enabled INTEGER NOT NULL DEFAULT 0,
   overlay_config TEXT NOT NULL DEFAULT '{}',
+  provider_ext TEXT NOT NULL DEFAULT '{}',
   metadata TEXT NOT NULL DEFAULT '{}',
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT bots_type_check CHECK (type IN ('personal', 'public')),
   CONSTRAINT bots_status_check CHECK (status IN ('creating', 'ready', 'deleting')),
   CONSTRAINT bots_acl_default_effect_check CHECK (acl_default_effect IN ('allow', 'deny')),
-  CONSTRAINT bots_framework_check CHECK (framework IN ('memoh', 'claudecode', 'codex')),
   CONSTRAINT bots_reasoning_effort_check CHECK (reasoning_effort IN ('low', 'medium', 'high'))
 );
 
@@ -240,6 +239,7 @@ CREATE TABLE IF NOT EXISTS agent_hub_rooms (
   status_class TEXT NOT NULL DEFAULT 'bg-slate-500',
   attention INTEGER NOT NULL DEFAULT 0,
   metadata TEXT NOT NULL DEFAULT '{}',
+  orchestrator_agent_id TEXT NOT NULL DEFAULT '',
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );

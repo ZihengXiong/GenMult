@@ -10,7 +10,8 @@ INSERT INTO agent_hub_rooms (
   accent,
   status_class,
   attention,
-  metadata
+  metadata,
+  orchestrator_agent_id
 )
 VALUES (
   sqlc.arg(owner_user_id),
@@ -23,18 +24,19 @@ VALUES (
   sqlc.arg(accent),
   sqlc.arg(status_class),
   sqlc.arg(attention),
-  sqlc.arg(metadata)
+  sqlc.arg(metadata),
+  sqlc.arg(orchestrator_agent_id)
 )
-RETURNING id, owner_user_id, name, short_name, subtitle, summary, privacy, live, accent, status_class, attention, metadata, created_at, updated_at;
+RETURNING id, owner_user_id, name, short_name, subtitle, summary, privacy, live, accent, status_class, attention, metadata, orchestrator_agent_id, created_at, updated_at;
 
 -- name: GetAgentHubRoom :one
-SELECT id, owner_user_id, name, short_name, subtitle, summary, privacy, live, accent, status_class, attention, metadata, created_at, updated_at
+SELECT id, owner_user_id, name, short_name, subtitle, summary, privacy, live, accent, status_class, attention, metadata, orchestrator_agent_id, created_at, updated_at
 FROM agent_hub_rooms
 WHERE id = sqlc.arg(id)
   AND owner_user_id = sqlc.arg(owner_user_id);
 
 -- name: ListAgentHubRooms :many
-SELECT id, owner_user_id, name, short_name, subtitle, summary, privacy, live, accent, status_class, attention, metadata, created_at, updated_at
+SELECT id, owner_user_id, name, short_name, subtitle, summary, privacy, live, accent, status_class, attention, metadata, orchestrator_agent_id, created_at, updated_at
 FROM agent_hub_rooms
 WHERE owner_user_id = sqlc.arg(owner_user_id)
 ORDER BY updated_at DESC, created_at DESC;
@@ -51,10 +53,11 @@ SET name = sqlc.arg(name),
     status_class = sqlc.arg(status_class),
     attention = sqlc.arg(attention),
     metadata = sqlc.arg(metadata),
+    orchestrator_agent_id = sqlc.arg(orchestrator_agent_id),
     updated_at = now()
 WHERE id = sqlc.arg(id)
   AND owner_user_id = sqlc.arg(owner_user_id)
-RETURNING id, owner_user_id, name, short_name, subtitle, summary, privacy, live, accent, status_class, attention, metadata, created_at, updated_at;
+RETURNING id, owner_user_id, name, short_name, subtitle, summary, privacy, live, accent, status_class, attention, metadata, orchestrator_agent_id, created_at, updated_at;
 
 -- name: DeleteAgentHubRoom :exec
 DELETE FROM agent_hub_rooms

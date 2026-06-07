@@ -201,7 +201,7 @@ func (c *Client) ExecWithStdin(ctx context.Context, command, workDir string, tim
 
 // ExecStream returns a bidirectional stream for interactive exec.
 // Caller can send stdin data and receive stdout/stderr in real-time.
-func (c *Client) ExecStream(ctx context.Context, command, workDir string, timeout int32) (*ExecStream, error) {
+func (c *Client) ExecStream(ctx context.Context, command, workDir string, timeout int32, env []string) (*ExecStream, error) {
 	stream, err := c.svc.Exec(ctx)
 	if err != nil {
 		return nil, mapError(err)
@@ -211,6 +211,7 @@ func (c *Client) ExecStream(ctx context.Context, command, workDir string, timeou
 	err = stream.Send(&pb.ExecInput{
 		Command:        command,
 		WorkDir:        workDir,
+		Env:            env,
 		TimeoutSeconds: timeout,
 	})
 	if err != nil {

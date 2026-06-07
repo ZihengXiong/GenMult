@@ -86,6 +86,12 @@ services:
       GOFLAGS: -buildvcs=false
       MEMOH_DISPLAY_WEBRTC_UDP_PORT_MIN: "${MEMOH_DEV_DISPLAY_WEBRTC_UDP_PORT_MIN:-30000}"
       MEMOH_DISPLAY_WEBRTC_UDP_PORT_MAX: "${MEMOH_DEV_DISPLAY_WEBRTC_UDP_PORT_MAX:-30100}"
+      ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY:-}"
+      OPENAI_API_KEY: "${OPENAI_API_KEY:-}"
+      OPENAI_BASE_URL: "${OPENAI_BASE_URL:-}"
+      DS_API_KEY: "${DS_API_KEY:-}"
+      DEEPSEEK_API_KEY: "${DEEPSEEK_API_KEY:-}"
+      DEEPSEEK_API_URL: "${DEEPSEEK_API_URL:-}"
     volumes:
       - ..:/workspace
       - go_mod_cache:/go/pkg/mod

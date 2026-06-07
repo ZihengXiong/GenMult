@@ -279,7 +279,7 @@ func (h *ContainerdHandler) PrepareDisplay(c echo.Context) error {
 		Percent: 5,
 	})
 
-	stream, err := client.ExecStream(ctx, displayPrepareCommand(), "/", 1200)
+	stream, err := client.ExecStream(ctx, displayPrepareCommand(), "/", 1200, nil)
 	if err != nil {
 		sendError("checking", "start display preparation failed: "+err.Error())
 		return nil

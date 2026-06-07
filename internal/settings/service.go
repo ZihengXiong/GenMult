@@ -99,6 +99,9 @@ func (s *Service) UpsertBot(ctx context.Context, botID string, req UpsertRequest
 	current.OverlayEnabled = overlayBindingRow.OverlayEnabled
 	current.OverlayProvider = strings.TrimSpace(overlayBindingRow.OverlayProvider)
 	current.OverlayConfig = normalizeJSONObject(overlayBindingRow.OverlayConfig)
+	if settingsRow, err := s.queries.GetSettingsByBotID(ctx, pgID); err == nil {
+		current.ProviderExt = normalizeJSONObject(settingsRow.ProviderExt)
+	}
 	if strings.TrimSpace(req.Language) != "" {
 		current.Language = strings.TrimSpace(req.Language)
 	}
@@ -154,6 +157,9 @@ func (s *Service) UpsertBot(ctx context.Context, botID string, req UpsertRequest
 	}
 	if req.OverlayConfig != nil {
 		current.OverlayConfig = req.OverlayConfig
+	}
+	if req.ProviderExt != nil {
+		current.ProviderExt = req.ProviderExt
 	}
 	chatModelUUID := pgtype.UUID{}
 	if value := strings.TrimSpace(req.ChatModelID); value != "" {
@@ -233,6 +239,7 @@ func (s *Service) UpsertBot(ctx context.Context, botID string, req UpsertRequest
 	if err != nil {
 		return Settings{}, err
 	}
+
 	if err := s.validateChatModelSelection(ctx, botRow.Framework, chatModelUUID, botRow.ChatModelID); err != nil {
 		return Settings{}, err
 	}
@@ -264,6 +271,10 @@ func (s *Service) UpsertBot(ctx context.Context, botID string, req UpsertRequest
 	if err != nil {
 		return Settings{}, rollbackNetworkChange(fmt.Errorf("marshal network config: %w", err))
 	}
+	providerExtJSON, err := json.Marshal(current.ProviderExt)
+	if err != nil {
+		return Settings{}, rollbackNetworkChange(fmt.Errorf("marshal provider_ext: %w", err))
+	}
 	updated, err := s.queries.UpsertBotSettings(ctx, sqlc.UpsertBotSettingsParams{
 		ID:                     pgID,
 		Timezone:               timezoneValue,
@@ -292,6 +303,7 @@ func (s *Service) UpsertBot(ctx context.Context, botID string, req UpsertRequest
 		OverlayProvider:        normalizedNetwork.OverlayProvider,
 		OverlayEnabled:         normalizedNetwork.OverlayEnabled,
 		OverlayConfig:          overlayConfigJSON,
+		ProviderExt:            providerExtJSON,
 	})
 	if err != nil {
 		return Settings{}, rollbackNetworkChange(err)
@@ -355,6 +367,7 @@ func normalizeBotSetting(language string, aclDefaultEffect string, reasoningEnab
 		settings.CompactionRatio = 80
 	}
 	settings.OverlayConfig = map[string]any{}
+	settings.ProviderExt = map[string]any{}
 	return settings
 }
 
@@ -394,6 +407,7 @@ func normalizeBotSettingsReadRow(row sqlc.GetSettingsByBotIDRow) Settings {
 		row.OverlayProvider,
 		row.OverlayEnabled,
 		row.OverlayConfig,
+		row.ProviderExt,
 	)
 }
 
@@ -424,6 +438,7 @@ func normalizeBotSettingsWriteRow(row sqlc.UpsertBotSettingsRow) Settings {
 		row.OverlayProvider,
 		row.OverlayEnabled,
 		row.OverlayConfig,
+		row.ProviderExt,
 	)
 }
 
@@ -453,6 +468,7 @@ func normalizeBotSettingsFields(
 	overlayProvider string,
 	overlayEnabled bool,
 	overlayConfig []byte,
+	providerExt []byte,
 ) Settings {
 	settings := normalizeBotSetting(language, "", reasoningEnabled, reasoningEffort, heartbeatEnabled, heartbeatInterval, compactionEnabled, compactionThreshold, compactionRatio)
 	if timezone.Valid {
@@ -492,6 +508,7 @@ func normalizeBotSettingsFields(
 	settings.OverlayProvider = strings.TrimSpace(overlayProvider)
 	settings.OverlayEnabled = overlayEnabled
 	settings.OverlayConfig = normalizeJSONObject(overlayConfig)
+	settings.ProviderExt = normalizeJSONObject(providerExt)
 	return settings
 }
 
@@ -651,10 +668,30 @@ func normalizeOptionalTimezone(raw string) (pgtype.Text, error) {
 	return pgtype.Text{String: loc.String(), Valid: true}, nil
 }
 
+// validateChatModelSelection enforces that claudecode/codex bots select a chat
+// model whose provider type matches the framework.
+//
+// NOTE(merge): this comes from main's "codex as a model backend" design and is
+// in tension with this branch's decoupled framework design, where non-memoh
+// bots do NOT select a provider/model — buildBaseRunConfig takes a placeholder
+// path and resolves credentials by framework via ResolveCredentialsForFramework,
+// ignoring any selected model. To let all three frameworks run under the
+// decoupled UI, we relaxed "must select a model" to "validate only if a model is
+// selected" (see the early `return nil` below). If a future change re-couples
+// frameworks to a selected model, revisit this and the placeholder path in
+// buildBaseRunConfig together.
+//
+// FIXME(merge): the one-line relaxation below is the likely culprit if model
+// validation ever misbehaves — start debugging here.
 func (s *Service) validateChatModelSelection(ctx context.Context, framework string, requested, existing pgtype.UUID) error {
 	selected := requested
 	if !selected.Valid {
 		selected = existing
+	}
+	// Decoupled frameworks (claudecode/codex) don't require a selected model;
+	// only validate provider-type match when a model was actually chosen.
+	if !selected.Valid {
+		return nil
 	}
 	switch strings.TrimSpace(framework) {
 	case bots.FrameworkClaudeCode:

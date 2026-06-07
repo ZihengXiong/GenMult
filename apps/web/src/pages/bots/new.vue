@@ -48,18 +48,17 @@
 
       <Separator class="my-6" />
 
+      <!-- Agent Framework (placed early so subsequent sections adapt) -->
       <div>
         <h3 class="text-sm font-medium mb-4">
           {{ $t('bots.steps.framework') }}
+          <span class="text-destructive">*</span>
         </h3>
         <div class="flex flex-col gap-3">
-          <Label>
-            {{ $t('bots.framework') }}
-            <span class="text-destructive">*</span>
-          </Label>
+          <Label>{{ $t('bots.framework') }}</Label>
           <Select v-model="form.framework">
             <SelectTrigger class="w-full">
-              <SelectValue :placeholder="$t('bots.frameworkPlaceholder')" />
+              <SelectValue :placeholder="$t('bots.frameworkPlaceholder') || $t('bots.framework')" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem
@@ -67,7 +66,10 @@
                 :key="opt.value"
                 :value="opt.value"
               >
-                {{ opt.label }}
+                <div class="flex flex-col">
+                  <span>{{ opt.label }}</span>
+                  <span class="text-xs text-muted-foreground">{{ opt.description }}</span>
+                </div>
               </SelectItem>
             </SelectContent>
           </Select>
@@ -297,70 +299,43 @@
 
       <Separator class="my-6" />
 
-      <!-- Agent Framework -->
-      <div>
-        <h3 class="text-sm font-medium mb-4">
-          {{ $t('bots.steps.framework') }}
-        </h3>
-        <div class="flex flex-col gap-3">
-          <Label>{{ $t('bots.framework') }}</Label>
-          <Select v-model="form.framework">
-            <SelectTrigger class="w-full">
-              <SelectValue :placeholder="$t('bots.framework')" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem
-                v-for="opt in frameworkOptions"
-                :key="opt.value"
-                :value="opt.value"
-              >
-                {{ opt.label }}
-              </SelectItem>
-            </SelectContent>
-          </Select>
-          <p class="text-xs text-muted-foreground">
-            {{ $t('bots.frameworkHelp') }}
+      <!-- Model (only for memoh framework) -->
+      <template v-if="form.framework === 'memoh'">
+        <div>
+          <h3 class="text-sm font-medium mb-4">
+            {{ $t('bots.steps.model') }}
+          </h3>
+          <p class="text-xs text-muted-foreground mb-3">
+            {{ $t('bots.steps.modelDesc') }}
           </p>
+          <Label class="mb-2">{{ $t('bots.settings.chatModel') }}</Label>
+          <ModelSelect
+            v-model="form.chat_model_id"
+            :models="models"
+            :providers="providers"
+            model-type="chat"
+            :placeholder="$t('common.none')"
+          />
         </div>
-      </div>
 
-      <Separator class="my-6" />
+        <Separator class="my-6" />
 
-      <!-- Model -->
-      <div>
-        <h3 class="text-sm font-medium mb-4">
-          {{ $t('bots.steps.model') }}
-        </h3>
-        <p class="text-xs text-muted-foreground mb-3">
-          {{ $t('bots.steps.modelDesc') }}
-        </p>
-        <Label class="mb-2">{{ $t('bots.settings.chatModel') }}</Label>
-        <ModelSelect
-          v-model="form.chat_model_id"
-          :models="chatSelectableModels"
-          :providers="providers"
-          model-type="chat"
-          :placeholder="$t('common.none')"
-        />
-      </div>
-
-      <Separator class="my-6" />
-
-      <!-- Memory -->
-      <div>
-        <h3 class="text-sm font-medium mb-4">
-          {{ $t('bots.steps.memory') }}
-        </h3>
-        <p class="text-xs text-muted-foreground mb-3">
-          {{ $t('bots.steps.memoryDesc') }}
-        </p>
-        <Label class="mb-2">{{ $t('bots.settings.memoryProvider') }}</Label>
-        <MemoryProviderSelect
-          v-model="form.memory_provider_id"
-          :providers="memoryProviders"
-          :placeholder="$t('common.none')"
-        />
-      </div>
+        <!-- Memory -->
+        <div>
+          <h3 class="text-sm font-medium mb-4">
+            {{ $t('bots.steps.memory') }}
+          </h3>
+          <p class="text-xs text-muted-foreground mb-3">
+            {{ $t('bots.steps.memoryDesc') }}
+          </p>
+          <Label class="mb-2">{{ $t('bots.settings.memoryProvider') }}</Label>
+          <MemoryProviderSelect
+            v-model="form.memory_provider_id"
+            :providers="memoryProviders"
+            :placeholder="$t('common.none')"
+          />
+        </div>
+      </template>
 
       <Separator class="my-6" />
 
@@ -464,16 +439,16 @@ onMounted(() => {
 const localWorkspaceEnabled = computed(() => capabilities.localWorkspaceEnabled)
 
 const frameworkOptions = [
-  { value: 'memoh', label: 'Memoh' },
-  { value: 'claudecode', label: 'Claude Code' },
-  { value: 'codex', label: 'Codex' },
+  { value: 'memoh', label: 'Memoh', description: '内置 AI Agent，支持模型、记忆、工具调用' },
+  { value: 'claudecode', label: 'Claude Code', description: 'Anthropic CLI Agent，自带模型和工具链' },
+  { value: 'codex', label: 'Codex', description: 'OpenAI CLI Agent，自带模型和工具链' },
 ] as const
 
 const form = reactive({
   display_name: '',
   avatar_url: '',
   acl_preset: defaultAclPreset as string,
-  framework: 'memoh' as string,
+  framework: '' as string,
   chat_model_id: '',
   memory_provider_id: '',
   timezone: emptyTimezoneValue,

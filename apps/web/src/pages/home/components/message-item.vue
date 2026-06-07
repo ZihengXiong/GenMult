@@ -242,60 +242,52 @@
         </p> -->
 
         <template
-          v-for="(block, i) in message.messages"
-          :key="i"
+          v-for="item in renderGroups"
+          :key="item.key"
         >
-          <!-- Thinking block -->
-          <ThinkingBlock
-            v-if="block.type === 'reasoning'"
-            :block="(block as ThinkingBlockType)"
-            :streaming="isAssistantBlockStreaming(i)"
-          />
-
-          <!-- Tool call block -->
-          <ToolCallBlock
-            v-else-if="block.type === 'tool'"
-            :block="(block as ToolCallBlockType)"
+          <!-- Grouped thinking + tool activity panel -->
+          <AgentActivityBlock
+            v-if="item.kind === 'activity'"
+            :blocks="item.blocks"
+            :streaming="isAssistantBlockStreaming(item.endIndex)"
           />
 
           <!-- Text block -->
           <div
-            v-else-if="block.type === 'text' && block.content"
+            v-else-if="item.block.type === 'text' && item.block.content"
             class="prose prose-sm dark:prose-invert max-w-none *:first:mt-0"
           >
             <MarkdownRender
-              :content="block.content"
+              :content="item.block.content"
               :is-dark="isDark"
-              :typewriter="isAssistantBlockStreaming(i)"
+              :typewriter="isAssistantBlockStreaming(item.index)"
               custom-id="chat-msg"
             />
           </div>
 
           <!-- Error block -->
           <div
-            v-else-if="block.type === 'error' && block.content"
+            v-else-if="item.block.type === 'error' && item.block.content"
             class="flex items-start gap-2 rounded-md border border-destructive/25 bg-destructive/10 px-3 py-2 text-xs text-destructive"
           >
             <CircleAlert class="mt-0.5 size-3.5 shrink-0" />
-            <span class="min-w-0 whitespace-pre-wrap break-words">{{ block.content }}</span>
+            <span class="min-w-0 whitespace-pre-wrap break-words">{{ item.block.content }}</span>
           </div>
 
           <!-- Attachment block -->
           <AttachmentBlock
-            v-else-if="block.type === 'attachments'"
-            :block="(block as AttachmentBlockType)"
+            v-else-if="item.block.type === 'attachments'"
+            :block="(item.block as AttachmentBlockType)"
             :on-open-media="onOpenMedia"
           />
         </template>
 
-        <!-- Streaming indicator -->
-        <div
+        <!-- Initial thinking state, before any block has streamed in -->
+        <AgentActivityBlock
           v-if="message.streaming && !hasVisibleAssistantBlocks"
-          class="flex items-center gap-2 text-xs text-muted-foreground h-6"
-        >
-          <LoaderCircle class="size-3.5 animate-spin" />
-          {{ $t('chat.thinking') }}
-        </div>
+          :blocks="[]"
+          :streaming="true"
+        />
         <p
           class="text-xs text-muted-foreground/80 mt-1"
           :title="fullTimestamp"
@@ -309,13 +301,12 @@
 
 <script setup lang="ts">
 import { computed, toRef, useTemplateRef, watch } from 'vue'
-import { CircleAlert, LoaderCircle } from 'lucide-vue-next'
+import { CircleAlert } from 'lucide-vue-next'
 import { formatRelativeTime, formatDateTime } from '@/utils/date-time'
 import { Avatar, AvatarImage, AvatarFallback } from '@memohai/ui'
 import MarkdownRender, { enableKatex, enableMermaid } from 'markstream-vue'
 import { useSettingsStore } from '@/store/settings'
-import ThinkingBlock from './thinking-block.vue'
-import ToolCallBlock from './tool-call-block.vue'
+import AgentActivityBlock from './agent-activity-block.vue'
 import AttachmentBlock from './attachment-block.vue'
 import BackgroundTaskBlock from './background-task-block.vue'
 import HeartbeatTriggerBlock from './heartbeat-trigger-block.vue'
@@ -328,8 +319,7 @@ import { useI18n } from 'vue-i18n'
 import type {
   AttachmentItem,
   ChatMessage,
-  ThinkingBlock as ThinkingBlockType,
-  ToolCallBlock as ToolCallBlockType,
+  ContentBlock,
   AttachmentBlock as AttachmentBlockType,
 } from '@/store/chat-list'
 
@@ -470,6 +460,44 @@ const hasVisibleAssistantBlocks = computed(() =>
   props.message.role === 'assistant'
   && props.message.messages.length > 0,
 )
+
+type RenderItem =
+  | { kind: 'activity', blocks: ContentBlock[], endIndex: number, key: string }
+  | { kind: 'block', block: ContentBlock, index: number, key: string }
+
+// Collapse consecutive reasoning/tool blocks into a single activity group so
+// they render inside one expandable panel; text/error/attachment blocks stay
+// standalone (the final answer shows outside the panel).
+const renderGroups = computed<RenderItem[]>(() => {
+  if (props.message.role !== 'assistant') return []
+  const items: RenderItem[] = []
+  let group: ContentBlock[] | null = null
+  let startIdx = 0
+  props.message.messages.forEach((block, i) => {
+    if (block.type === 'reasoning' || block.type === 'tool') {
+      if (!group) {
+        group = []
+        startIdx = i
+      }
+      group.push(block)
+      return
+    }
+    if (group) {
+      items.push({ kind: 'activity', blocks: group, endIndex: i - 1, key: `act-${startIdx}` })
+      group = null
+    }
+    items.push({ kind: 'block', block, index: i, key: `blk-${i}` })
+  })
+  if (group) {
+    items.push({
+      kind: 'activity',
+      blocks: group,
+      endIndex: props.message.messages.length - 1,
+      key: `act-${startIdx}`,
+    })
+  }
+  return items
+})
 
 const relativeTimestamp = computed(() =>
   formatRelativeTime(props.message.timestamp),

@@ -34,6 +34,7 @@ type Settings struct {
 	OverlayEnabled         bool               `json:"overlay_enabled"`
 	OverlayProvider        string             `json:"overlay_provider,omitempty"`
 	OverlayConfig          map[string]any     `json:"overlay_config,omitempty"`
+	ProviderExt            map[string]any     `json:"provider_ext,omitempty"`
 }
 
 type UpsertRequest struct {
@@ -64,6 +65,7 @@ type UpsertRequest struct {
 	OverlayEnabled         *bool               `json:"overlay_enabled,omitempty"`
 	OverlayProvider        *string             `json:"overlay_provider,omitempty"`
 	OverlayConfig          map[string]any      `json:"overlay_config,omitempty"`
+	ProviderExt            map[string]any      `json:"provider_ext,omitempty"`
 }
 
 type ToolApprovalConfig struct {

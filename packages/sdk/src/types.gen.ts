@@ -290,6 +290,95 @@ export type AdaptersUsageResponse = {
     total_text_bytes?: number;
 };
 
+export type AgenthubAddAgentRequest = {
+    agent_id?: string;
+};
+
+export type AgenthubCreateMessageRequest = {
+    body?: string;
+    kind?: string;
+    metadata?: {
+        [key: string]: unknown;
+    };
+    sender_id?: string;
+    sender_name?: string;
+    sender_type?: string;
+    title?: string;
+};
+
+export type AgenthubListMessagesResponse = {
+    items?: Array<AgenthubMessage>;
+};
+
+export type AgenthubListRoomsResponse = {
+    items?: Array<AgenthubRoom>;
+};
+
+export type AgenthubMessage = {
+    body?: string;
+    created_at?: string;
+    id?: string;
+    kind?: string;
+    metadata?: {
+        [key: string]: unknown;
+    };
+    room_id?: string;
+    sender_id?: string;
+    sender_name?: string;
+    sender_type?: string;
+    title?: string;
+};
+
+export type AgenthubRoom = {
+    accent?: string;
+    agent_ids?: Array<string>;
+    attention?: number;
+    created_at?: string;
+    id?: string;
+    live?: string;
+    members?: number;
+    metadata?: {
+        [key: string]: unknown;
+    };
+    name?: string;
+    orchestrator_agent_id?: string;
+    privacy?: string;
+    short_name?: string;
+    status_class?: string;
+    subtitle?: string;
+    summary?: string;
+    updated_at?: string;
+};
+
+export type AgenthubStartRunRequest = {
+    agents?: Array<OrchestratorAgentDescriptor>;
+    auto_dispatch?: boolean;
+    created_by?: string;
+    metadata?: {
+        [key: string]: unknown;
+    };
+    objective?: string;
+    trigger_message_id?: string;
+};
+
+export type AgenthubUpsertRoomRequest = {
+    accent?: string;
+    agent_ids?: Array<string>;
+    attention?: number;
+    live?: string;
+    members?: number;
+    metadata?: {
+        [key: string]: unknown;
+    };
+    name?: string;
+    orchestrator_agent_id?: string;
+    privacy?: string;
+    short_name?: string;
+    status_class?: string;
+    subtitle?: string;
+    summary?: string;
+};
+
 export type AudioConfigSchema = {
     fields?: Array<AudioFieldSchema>;
 };
@@ -584,7 +673,7 @@ export type ChannelChannelIdentityBinding = {
     updated_at?: string;
 };
 
-export type ChannelChannelType = 'telegram' | 'feishu' | 'dingtalk' | 'matrix' | 'discord' | 'qq' | 'wecom' | 'weixin' | 'wechatoa' | 'local' | 'slack';
+export type ChannelChannelType = 'telegram' | 'feishu' | 'dingtalk' | 'matrix' | 'discord' | 'qq' | 'wecom' | 'weixin' | 'whatsapp' | 'wechatoa' | 'local' | 'slack';
 
 export type ChannelConfigSchema = {
     fields?: {
@@ -827,7 +916,7 @@ export type EmailUpdateProviderRequest = {
     provider?: string;
 };
 
-export type GithubComMemohaiMemohInternalMcpConnection = {
+export type GithubComZihengXiongGenMultInternalMcpConnection = {
     auth_type?: string;
     bot_id?: string;
     config?: {
@@ -1436,7 +1525,7 @@ export type McpImportRequest = {
 };
 
 export type McpListResponse = {
-    items?: Array<GithubComMemohaiMemohInternalMcpConnection>;
+    items?: Array<GithubComZihengXiongGenMultInternalMcpConnection>;
 };
 
 export type McpMcpServerEntry = {
@@ -1576,6 +1665,106 @@ export type ModelsUpdateRequest = {
     provider_id?: string;
     type?: ModelsModelType;
 };
+
+export type OrchestratorAgentDescriptor = {
+    capabilities?: Array<string>;
+    id?: string;
+    metadata?: {
+        [key: string]: unknown;
+    };
+    name?: string;
+    provider_name?: string;
+};
+
+export type OrchestratorAttemptStatus = 'running' | 'succeeded' | 'failed' | 'timed_out' | 'cancelled';
+
+export type OrchestratorEventType = 'run_created' | 'run_planned' | 'run_status_changed' | 'task_created' | 'task_ready' | 'task_dispatched' | 'task_succeeded' | 'task_failed' | 'task_blocked' | 'task_retried' | 'task_timed_out' | 'task_cancelled' | 'agent_tool_call' | 'agent_output';
+
+export type OrchestratorRun = {
+    created_at?: string;
+    created_by?: string;
+    id?: string;
+    metadata?: {
+        [key: string]: unknown;
+    };
+    objective?: string;
+    planner_version?: string;
+    room_id?: string;
+    status?: OrchestratorRunStatus;
+    trigger_message_id?: string;
+    updated_at?: string;
+};
+
+export type OrchestratorRunEvent = {
+    created_at?: string;
+    id?: string;
+    payload?: {
+        [key: string]: unknown;
+    };
+    run_id?: string;
+    seq?: number;
+    task_id?: string;
+    type?: OrchestratorEventType;
+};
+
+export type OrchestratorRunSnapshot = {
+    attempts?: Array<OrchestratorTaskAttempt>;
+    dependencies?: Array<OrchestratorTaskDependency>;
+    run?: OrchestratorRun;
+    tasks?: Array<OrchestratorTask>;
+};
+
+export type OrchestratorRunStatus = 'draft' | 'planning' | 'dispatching' | 'collecting' | 'completed' | 'failed' | 'cancelled';
+
+export type OrchestratorTask = {
+    assigned_agent_id?: string;
+    attempt_count?: number;
+    created_at?: string;
+    description?: string;
+    id?: string;
+    idempotency_key?: string;
+    max_retries?: number;
+    metadata?: {
+        [key: string]: unknown;
+    };
+    parent_task_id?: string;
+    priority?: number;
+    provider_name?: string;
+    run_id?: string;
+    status?: OrchestratorTaskStatus;
+    timeout?: TimeDuration;
+    title?: string;
+    updated_at?: string;
+};
+
+export type OrchestratorTaskAttempt = {
+    agent_id?: string;
+    attempt_no?: number;
+    error_message?: string;
+    finished_at?: string;
+    id?: string;
+    idempotency_key?: string;
+    input_payload?: {
+        [key: string]: unknown;
+    };
+    output_payload?: {
+        [key: string]: unknown;
+    };
+    provider_name?: string;
+    retryable?: boolean;
+    run_id?: string;
+    started_at?: string;
+    status?: OrchestratorAttemptStatus;
+    task_id?: string;
+};
+
+export type OrchestratorTaskDependency = {
+    depends_on_task_id?: string;
+    run_id?: string;
+    task_id?: string;
+};
+
+export type OrchestratorTaskStatus = 'pending' | 'ready' | 'running' | 'succeeded' | 'failed' | 'blocked' | 'cancelled';
 
 export type ProvidersCountResponse = {
     count?: number;
@@ -1819,6 +2008,9 @@ export type SettingsSettings = {
     overlay_enabled?: boolean;
     overlay_provider?: string;
     persist_full_tool_results?: boolean;
+    provider_ext?: {
+        [key: string]: unknown;
+    };
     reasoning_effort?: string;
     reasoning_enabled?: boolean;
     search_provider_id?: string;
@@ -1870,6 +2062,9 @@ export type SettingsUpsertRequest = {
     overlay_enabled?: boolean;
     overlay_provider?: string;
     persist_full_tool_results?: boolean;
+    provider_ext?: {
+        [key: string]: unknown;
+    };
     reasoning_effort?: string;
     reasoning_enabled?: boolean;
     search_provider_id?: string;
@@ -1880,6 +2075,630 @@ export type SettingsUpsertRequest = {
     transcription_model_id?: string;
     tts_model_id?: string;
 };
+
+export type TimeDuration = -9223372036854776000 | 9223372036854776000 | 1 | 1000 | 1000000 | 1000000000 | 60000000000 | 3600000000000;
+
+export type GetAgentHubRoomsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/agent-hub/rooms';
+};
+
+export type GetAgentHubRoomsErrors = {
+    /**
+     * Unauthorized
+     */
+    401: HandlersErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: HandlersErrorResponse;
+};
+
+export type GetAgentHubRoomsError = GetAgentHubRoomsErrors[keyof GetAgentHubRoomsErrors];
+
+export type GetAgentHubRoomsResponses = {
+    /**
+     * OK
+     */
+    200: AgenthubListRoomsResponse;
+};
+
+export type GetAgentHubRoomsResponse = GetAgentHubRoomsResponses[keyof GetAgentHubRoomsResponses];
+
+export type PostAgentHubRoomsData = {
+    /**
+     * Room payload
+     */
+    body: AgenthubUpsertRoomRequest;
+    path?: never;
+    query?: never;
+    url: '/agent-hub/rooms';
+};
+
+export type PostAgentHubRoomsErrors = {
+    /**
+     * Bad Request
+     */
+    400: HandlersErrorResponse;
+    /**
+     * Unauthorized
+     */
+    401: HandlersErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: HandlersErrorResponse;
+};
+
+export type PostAgentHubRoomsError = PostAgentHubRoomsErrors[keyof PostAgentHubRoomsErrors];
+
+export type PostAgentHubRoomsResponses = {
+    /**
+     * Created
+     */
+    201: AgenthubRoom;
+};
+
+export type PostAgentHubRoomsResponse = PostAgentHubRoomsResponses[keyof PostAgentHubRoomsResponses];
+
+export type DeleteAgentHubRoomsByRoomIdData = {
+    body?: never;
+    path: {
+        /**
+         * Room ID
+         */
+        room_id: string;
+    };
+    query?: never;
+    url: '/agent-hub/rooms/{room_id}';
+};
+
+export type DeleteAgentHubRoomsByRoomIdErrors = {
+    /**
+     * Bad Request
+     */
+    400: HandlersErrorResponse;
+    /**
+     * Unauthorized
+     */
+    401: HandlersErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: HandlersErrorResponse;
+};
+
+export type DeleteAgentHubRoomsByRoomIdError = DeleteAgentHubRoomsByRoomIdErrors[keyof DeleteAgentHubRoomsByRoomIdErrors];
+
+export type DeleteAgentHubRoomsByRoomIdResponses = {
+    /**
+     * No Content
+     */
+    204: unknown;
+};
+
+export type GetAgentHubRoomsByRoomIdData = {
+    body?: never;
+    path: {
+        /**
+         * Room ID
+         */
+        room_id: string;
+    };
+    query?: never;
+    url: '/agent-hub/rooms/{room_id}';
+};
+
+export type GetAgentHubRoomsByRoomIdErrors = {
+    /**
+     * Bad Request
+     */
+    400: HandlersErrorResponse;
+    /**
+     * Unauthorized
+     */
+    401: HandlersErrorResponse;
+    /**
+     * Not Found
+     */
+    404: HandlersErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: HandlersErrorResponse;
+};
+
+export type GetAgentHubRoomsByRoomIdError = GetAgentHubRoomsByRoomIdErrors[keyof GetAgentHubRoomsByRoomIdErrors];
+
+export type GetAgentHubRoomsByRoomIdResponses = {
+    /**
+     * OK
+     */
+    200: AgenthubRoom;
+};
+
+export type GetAgentHubRoomsByRoomIdResponse = GetAgentHubRoomsByRoomIdResponses[keyof GetAgentHubRoomsByRoomIdResponses];
+
+export type PutAgentHubRoomsByRoomIdData = {
+    /**
+     * Room payload
+     */
+    body: AgenthubUpsertRoomRequest;
+    path: {
+        /**
+         * Room ID
+         */
+        room_id: string;
+    };
+    query?: never;
+    url: '/agent-hub/rooms/{room_id}';
+};
+
+export type PutAgentHubRoomsByRoomIdErrors = {
+    /**
+     * Bad Request
+     */
+    400: HandlersErrorResponse;
+    /**
+     * Unauthorized
+     */
+    401: HandlersErrorResponse;
+    /**
+     * Not Found
+     */
+    404: HandlersErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: HandlersErrorResponse;
+};
+
+export type PutAgentHubRoomsByRoomIdError = PutAgentHubRoomsByRoomIdErrors[keyof PutAgentHubRoomsByRoomIdErrors];
+
+export type PutAgentHubRoomsByRoomIdResponses = {
+    /**
+     * OK
+     */
+    200: AgenthubRoom;
+};
+
+export type PutAgentHubRoomsByRoomIdResponse = PutAgentHubRoomsByRoomIdResponses[keyof PutAgentHubRoomsByRoomIdResponses];
+
+export type PostAgentHubRoomsByRoomIdAgentsData = {
+    /**
+     * Agent payload
+     */
+    body: AgenthubAddAgentRequest;
+    path: {
+        /**
+         * Room ID
+         */
+        room_id: string;
+    };
+    query?: never;
+    url: '/agent-hub/rooms/{room_id}/agents';
+};
+
+export type PostAgentHubRoomsByRoomIdAgentsErrors = {
+    /**
+     * Bad Request
+     */
+    400: HandlersErrorResponse;
+    /**
+     * Unauthorized
+     */
+    401: HandlersErrorResponse;
+    /**
+     * Not Found
+     */
+    404: HandlersErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: HandlersErrorResponse;
+};
+
+export type PostAgentHubRoomsByRoomIdAgentsError = PostAgentHubRoomsByRoomIdAgentsErrors[keyof PostAgentHubRoomsByRoomIdAgentsErrors];
+
+export type PostAgentHubRoomsByRoomIdAgentsResponses = {
+    /**
+     * OK
+     */
+    200: AgenthubRoom;
+};
+
+export type PostAgentHubRoomsByRoomIdAgentsResponse = PostAgentHubRoomsByRoomIdAgentsResponses[keyof PostAgentHubRoomsByRoomIdAgentsResponses];
+
+export type DeleteAgentHubRoomsByRoomIdAgentsByAgentIdData = {
+    body?: never;
+    path: {
+        /**
+         * Room ID
+         */
+        room_id: string;
+        /**
+         * Agent ID
+         */
+        agent_id: string;
+    };
+    query?: never;
+    url: '/agent-hub/rooms/{room_id}/agents/{agent_id}';
+};
+
+export type DeleteAgentHubRoomsByRoomIdAgentsByAgentIdErrors = {
+    /**
+     * Bad Request
+     */
+    400: HandlersErrorResponse;
+    /**
+     * Unauthorized
+     */
+    401: HandlersErrorResponse;
+    /**
+     * Not Found
+     */
+    404: HandlersErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: HandlersErrorResponse;
+};
+
+export type DeleteAgentHubRoomsByRoomIdAgentsByAgentIdError = DeleteAgentHubRoomsByRoomIdAgentsByAgentIdErrors[keyof DeleteAgentHubRoomsByRoomIdAgentsByAgentIdErrors];
+
+export type DeleteAgentHubRoomsByRoomIdAgentsByAgentIdResponses = {
+    /**
+     * OK
+     */
+    200: AgenthubRoom;
+};
+
+export type DeleteAgentHubRoomsByRoomIdAgentsByAgentIdResponse = DeleteAgentHubRoomsByRoomIdAgentsByAgentIdResponses[keyof DeleteAgentHubRoomsByRoomIdAgentsByAgentIdResponses];
+
+export type GetAgentHubRoomsByRoomIdMessagesData = {
+    body?: never;
+    path: {
+        /**
+         * Room ID
+         */
+        room_id: string;
+    };
+    query?: {
+        /**
+         * Maximum messages
+         */
+        limit?: number;
+    };
+    url: '/agent-hub/rooms/{room_id}/messages';
+};
+
+export type GetAgentHubRoomsByRoomIdMessagesErrors = {
+    /**
+     * Bad Request
+     */
+    400: HandlersErrorResponse;
+    /**
+     * Unauthorized
+     */
+    401: HandlersErrorResponse;
+    /**
+     * Not Found
+     */
+    404: HandlersErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: HandlersErrorResponse;
+};
+
+export type GetAgentHubRoomsByRoomIdMessagesError = GetAgentHubRoomsByRoomIdMessagesErrors[keyof GetAgentHubRoomsByRoomIdMessagesErrors];
+
+export type GetAgentHubRoomsByRoomIdMessagesResponses = {
+    /**
+     * OK
+     */
+    200: AgenthubListMessagesResponse;
+};
+
+export type GetAgentHubRoomsByRoomIdMessagesResponse = GetAgentHubRoomsByRoomIdMessagesResponses[keyof GetAgentHubRoomsByRoomIdMessagesResponses];
+
+export type PostAgentHubRoomsByRoomIdMessagesData = {
+    /**
+     * Message payload
+     */
+    body: AgenthubCreateMessageRequest;
+    path: {
+        /**
+         * Room ID
+         */
+        room_id: string;
+    };
+    query?: never;
+    url: '/agent-hub/rooms/{room_id}/messages';
+};
+
+export type PostAgentHubRoomsByRoomIdMessagesErrors = {
+    /**
+     * Bad Request
+     */
+    400: HandlersErrorResponse;
+    /**
+     * Unauthorized
+     */
+    401: HandlersErrorResponse;
+    /**
+     * Not Found
+     */
+    404: HandlersErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: HandlersErrorResponse;
+};
+
+export type PostAgentHubRoomsByRoomIdMessagesError = PostAgentHubRoomsByRoomIdMessagesErrors[keyof PostAgentHubRoomsByRoomIdMessagesErrors];
+
+export type PostAgentHubRoomsByRoomIdMessagesResponses = {
+    /**
+     * Created
+     */
+    201: AgenthubMessage;
+};
+
+export type PostAgentHubRoomsByRoomIdMessagesResponse = PostAgentHubRoomsByRoomIdMessagesResponses[keyof PostAgentHubRoomsByRoomIdMessagesResponses];
+
+export type PostAgentHubRoomsByRoomIdRunsData = {
+    /**
+     * Start run payload
+     */
+    body: AgenthubStartRunRequest;
+    path: {
+        /**
+         * Room ID
+         */
+        room_id: string;
+    };
+    query?: never;
+    url: '/agent-hub/rooms/{room_id}/runs';
+};
+
+export type PostAgentHubRoomsByRoomIdRunsErrors = {
+    /**
+     * Bad Request
+     */
+    400: HandlersErrorResponse;
+    /**
+     * Unauthorized
+     */
+    401: HandlersErrorResponse;
+    /**
+     * Not Found
+     */
+    404: HandlersErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: HandlersErrorResponse;
+};
+
+export type PostAgentHubRoomsByRoomIdRunsError = PostAgentHubRoomsByRoomIdRunsErrors[keyof PostAgentHubRoomsByRoomIdRunsErrors];
+
+export type PostAgentHubRoomsByRoomIdRunsResponses = {
+    /**
+     * Created
+     */
+    201: OrchestratorRunSnapshot;
+};
+
+export type PostAgentHubRoomsByRoomIdRunsResponse = PostAgentHubRoomsByRoomIdRunsResponses[keyof PostAgentHubRoomsByRoomIdRunsResponses];
+
+export type PostAgentHubRunsReconcileActiveData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/agent-hub/runs/reconcile-active';
+};
+
+export type PostAgentHubRunsReconcileActiveErrors = {
+    /**
+     * Unauthorized
+     */
+    401: HandlersErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: HandlersErrorResponse;
+};
+
+export type PostAgentHubRunsReconcileActiveError = PostAgentHubRunsReconcileActiveErrors[keyof PostAgentHubRunsReconcileActiveErrors];
+
+export type PostAgentHubRunsReconcileActiveResponses = {
+    /**
+     * OK
+     */
+    200: Array<OrchestratorRunSnapshot>;
+};
+
+export type PostAgentHubRunsReconcileActiveResponse = PostAgentHubRunsReconcileActiveResponses[keyof PostAgentHubRunsReconcileActiveResponses];
+
+export type GetAgentHubRunsByRunIdData = {
+    body?: never;
+    path: {
+        /**
+         * Run ID
+         */
+        run_id: string;
+    };
+    query?: never;
+    url: '/agent-hub/runs/{run_id}';
+};
+
+export type GetAgentHubRunsByRunIdErrors = {
+    /**
+     * Bad Request
+     */
+    400: HandlersErrorResponse;
+    /**
+     * Unauthorized
+     */
+    401: HandlersErrorResponse;
+    /**
+     * Not Found
+     */
+    404: HandlersErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: HandlersErrorResponse;
+};
+
+export type GetAgentHubRunsByRunIdError = GetAgentHubRunsByRunIdErrors[keyof GetAgentHubRunsByRunIdErrors];
+
+export type GetAgentHubRunsByRunIdResponses = {
+    /**
+     * OK
+     */
+    200: OrchestratorRunSnapshot;
+};
+
+export type GetAgentHubRunsByRunIdResponse = GetAgentHubRunsByRunIdResponses[keyof GetAgentHubRunsByRunIdResponses];
+
+export type PostAgentHubRunsByRunIdCancelData = {
+    body?: never;
+    path: {
+        /**
+         * Run ID
+         */
+        run_id: string;
+    };
+    query?: never;
+    url: '/agent-hub/runs/{run_id}/cancel';
+};
+
+export type PostAgentHubRunsByRunIdCancelErrors = {
+    /**
+     * Bad Request
+     */
+    400: HandlersErrorResponse;
+    /**
+     * Unauthorized
+     */
+    401: HandlersErrorResponse;
+    /**
+     * Not Found
+     */
+    404: HandlersErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: HandlersErrorResponse;
+};
+
+export type PostAgentHubRunsByRunIdCancelError = PostAgentHubRunsByRunIdCancelErrors[keyof PostAgentHubRunsByRunIdCancelErrors];
+
+export type PostAgentHubRunsByRunIdCancelResponses = {
+    /**
+     * OK
+     */
+    200: OrchestratorRunSnapshot;
+};
+
+export type PostAgentHubRunsByRunIdCancelResponse = PostAgentHubRunsByRunIdCancelResponses[keyof PostAgentHubRunsByRunIdCancelResponses];
+
+export type GetAgentHubRunsByRunIdEventsData = {
+    body?: never;
+    path: {
+        /**
+         * Run ID
+         */
+        run_id: string;
+    };
+    query?: {
+        /**
+         * Return events with seq > after_seq
+         */
+        after_seq?: number;
+        /**
+         * Maximum events
+         */
+        limit?: number;
+    };
+    url: '/agent-hub/runs/{run_id}/events';
+};
+
+export type GetAgentHubRunsByRunIdEventsErrors = {
+    /**
+     * Bad Request
+     */
+    400: HandlersErrorResponse;
+    /**
+     * Unauthorized
+     */
+    401: HandlersErrorResponse;
+    /**
+     * Not Found
+     */
+    404: HandlersErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: HandlersErrorResponse;
+};
+
+export type GetAgentHubRunsByRunIdEventsError = GetAgentHubRunsByRunIdEventsErrors[keyof GetAgentHubRunsByRunIdEventsErrors];
+
+export type GetAgentHubRunsByRunIdEventsResponses = {
+    /**
+     * OK
+     */
+    200: Array<OrchestratorRunEvent>;
+};
+
+export type GetAgentHubRunsByRunIdEventsResponse = GetAgentHubRunsByRunIdEventsResponses[keyof GetAgentHubRunsByRunIdEventsResponses];
+
+export type PostAgentHubRunsByRunIdReconcileData = {
+    body?: never;
+    path: {
+        /**
+         * Run ID
+         */
+        run_id: string;
+    };
+    query?: never;
+    url: '/agent-hub/runs/{run_id}/reconcile';
+};
+
+export type PostAgentHubRunsByRunIdReconcileErrors = {
+    /**
+     * Bad Request
+     */
+    400: HandlersErrorResponse;
+    /**
+     * Unauthorized
+     */
+    401: HandlersErrorResponse;
+    /**
+     * Not Found
+     */
+    404: HandlersErrorResponse;
+    /**
+     * Internal Server Error
+     */
+    500: HandlersErrorResponse;
+};
+
+export type PostAgentHubRunsByRunIdReconcileError = PostAgentHubRunsByRunIdReconcileErrors[keyof PostAgentHubRunsByRunIdReconcileErrors];
+
+export type PostAgentHubRunsByRunIdReconcileResponses = {
+    /**
+     * OK
+     */
+    200: OrchestratorRunSnapshot;
+};
+
+export type PostAgentHubRunsByRunIdReconcileResponse = PostAgentHubRunsByRunIdReconcileResponses[keyof PostAgentHubRunsByRunIdReconcileResponses];
 
 export type PostAuthLoginData = {
     /**
@@ -4150,7 +4969,7 @@ export type PostBotsByBotIdMcpResponses = {
     /**
      * Created
      */
-    201: GithubComMemohaiMemohInternalMcpConnection;
+    201: GithubComZihengXiongGenMultInternalMcpConnection;
 };
 
 export type PostBotsByBotIdMcpResponse = PostBotsByBotIdMcpResponses[keyof PostBotsByBotIdMcpResponses];
@@ -4425,7 +5244,7 @@ export type GetBotsByBotIdMcpByIdResponses = {
     /**
      * OK
      */
-    200: GithubComMemohaiMemohInternalMcpConnection;
+    200: GithubComZihengXiongGenMultInternalMcpConnection;
 };
 
 export type GetBotsByBotIdMcpByIdResponse = GetBotsByBotIdMcpByIdResponses[keyof GetBotsByBotIdMcpByIdResponses];
@@ -4470,7 +5289,7 @@ export type PutBotsByBotIdMcpByIdResponses = {
     /**
      * OK
      */
-    200: GithubComMemohaiMemohInternalMcpConnection;
+    200: GithubComZihengXiongGenMultInternalMcpConnection;
 };
 
 export type PutBotsByBotIdMcpByIdResponse = PutBotsByBotIdMcpByIdResponses[keyof PutBotsByBotIdMcpByIdResponses];
@@ -5967,7 +6786,7 @@ export type PostBotsByBotIdSupermarketInstallMcpResponses = {
     /**
      * OK
      */
-    200: GithubComMemohaiMemohInternalMcpConnection;
+    200: GithubComZihengXiongGenMultInternalMcpConnection;
 };
 
 export type PostBotsByBotIdSupermarketInstallMcpResponse = PostBotsByBotIdSupermarketInstallMcpResponses[keyof PostBotsByBotIdSupermarketInstallMcpResponses];

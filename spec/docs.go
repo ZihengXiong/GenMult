@@ -15,6 +15,817 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/agent-hub/rooms": {
+            "get": {
+                "description": "List AgentHub group rooms owned by the current user.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agent-hub"
+                ],
+                "summary": "List AgentHub rooms",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/agenthub.ListRoomsResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Create an AgentHub group room and optional initial agent membership.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agent-hub"
+                ],
+                "summary": "Create AgentHub room",
+                "parameters": [
+                    {
+                        "description": "Room payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/agenthub.UpsertRoomRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/agenthub.Room"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/agent-hub/rooms/{room_id}": {
+            "get": {
+                "description": "Get an AgentHub group room by id.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agent-hub"
+                ],
+                "summary": "Get AgentHub room",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Room ID",
+                        "name": "room_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/agenthub.Room"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Update an AgentHub group room and its agent membership.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agent-hub"
+                ],
+                "summary": "Update AgentHub room",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Room ID",
+                        "name": "room_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Room payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/agenthub.UpsertRoomRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/agenthub.Room"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Delete an AgentHub group room.",
+                "tags": [
+                    "agent-hub"
+                ],
+                "summary": "Delete AgentHub room",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Room ID",
+                        "name": "room_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/agent-hub/rooms/{room_id}/agents": {
+            "post": {
+                "description": "Add an agent member to an AgentHub group room.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agent-hub"
+                ],
+                "summary": "Add AgentHub room agent",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Room ID",
+                        "name": "room_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Agent payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/agenthub.AddAgentRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/agenthub.Room"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/agent-hub/rooms/{room_id}/agents/{agent_id}": {
+            "delete": {
+                "description": "Remove an agent member from an AgentHub group room.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agent-hub"
+                ],
+                "summary": "Remove AgentHub room agent",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Room ID",
+                        "name": "room_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Agent ID",
+                        "name": "agent_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/agenthub.Room"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/agent-hub/rooms/{room_id}/messages": {
+            "get": {
+                "description": "List persisted timeline messages for an AgentHub group room.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agent-hub"
+                ],
+                "summary": "List AgentHub room messages",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Room ID",
+                        "name": "room_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Maximum messages",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/agenthub.ListMessagesResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Append a message to an AgentHub group room timeline.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agent-hub"
+                ],
+                "summary": "Create AgentHub room message",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Room ID",
+                        "name": "room_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Message payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/agenthub.CreateMessageRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/agenthub.Message"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/agent-hub/rooms/{room_id}/runs": {
+            "post": {
+                "description": "Plan objective into tasks and optionally dispatch immediately.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agent-hub"
+                ],
+                "summary": "Start AgentHub orchestration run",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Room ID",
+                        "name": "room_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Start run payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/agenthub.StartRunRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/orchestrator.RunSnapshot"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/agent-hub/runs/reconcile-active": {
+            "post": {
+                "description": "Trigger reconciliation for planning/dispatching/collecting runs.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agent-hub"
+                ],
+                "summary": "Reconcile all active AgentHub runs for current owner",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/orchestrator.RunSnapshot"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/agent-hub/runs/{run_id}": {
+            "get": {
+                "description": "Return run state, tasks, dependencies and attempts.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agent-hub"
+                ],
+                "summary": "Get AgentHub orchestration run snapshot",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Run ID",
+                        "name": "run_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/orchestrator.RunSnapshot"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/agent-hub/runs/{run_id}/cancel": {
+            "post": {
+                "description": "Cancel a run and mark non-terminal tasks cancelled.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agent-hub"
+                ],
+                "summary": "Cancel AgentHub run",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Run ID",
+                        "name": "run_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/orchestrator.RunSnapshot"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/agent-hub/runs/{run_id}/events": {
+            "get": {
+                "description": "Return append-only orchestrator events for timeline projection.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agent-hub"
+                ],
+                "summary": "List AgentHub run events",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Run ID",
+                        "name": "run_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Return events with seq \u003e after_seq",
+                        "name": "after_seq",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Maximum events",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/orchestrator.RunEvent"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/agent-hub/runs/{run_id}/reconcile": {
+            "post": {
+                "description": "Recompute task readiness, dispatch runnable tasks, and advance run status.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agent-hub"
+                ],
+                "summary": "Reconcile AgentHub run",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Run ID",
+                        "name": "run_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/orchestrator.RunSnapshot"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/auth/login": {
             "post": {
                 "description": "Validate user credentials and issue a JWT",
@@ -2717,7 +3528,7 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/github_com_memohai_memoh_internal_mcp.Connection"
+                            "$ref": "#/definitions/github_com_ZihengXiong_GenMult_internal_mcp.Connection"
                         }
                     },
                     "400": {
@@ -3004,7 +3815,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_memohai_memoh_internal_mcp.Connection"
+                            "$ref": "#/definitions/github_com_ZihengXiong_GenMult_internal_mcp.Connection"
                         }
                     },
                     "400": {
@@ -3061,7 +3872,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_memohai_memoh_internal_mcp.Connection"
+                            "$ref": "#/definitions/github_com_ZihengXiong_GenMult_internal_mcp.Connection"
                         }
                     },
                     "400": {
@@ -4945,7 +5756,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_memohai_memoh_internal_mcp.Connection"
+                            "$ref": "#/definitions/github_com_ZihengXiong_GenMult_internal_mcp.Connection"
                         }
                     },
                     "400": {
@@ -10220,6 +11031,231 @@ const docTemplate = `{
                 }
             }
         },
+        "agenthub.AddAgentRequest": {
+            "type": "object",
+            "properties": {
+                "agent_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "agenthub.CreateMessageRequest": {
+            "type": "object",
+            "properties": {
+                "body": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "metadata": {
+                    "type": "object",
+                    "additionalProperties": {}
+                },
+                "sender_id": {
+                    "type": "string"
+                },
+                "sender_name": {
+                    "type": "string"
+                },
+                "sender_type": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "agenthub.ListMessagesResponse": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/agenthub.Message"
+                    }
+                }
+            }
+        },
+        "agenthub.ListRoomsResponse": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/agenthub.Room"
+                    }
+                }
+            }
+        },
+        "agenthub.Message": {
+            "type": "object",
+            "properties": {
+                "body": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "metadata": {
+                    "type": "object",
+                    "additionalProperties": {}
+                },
+                "room_id": {
+                    "type": "string"
+                },
+                "sender_id": {
+                    "type": "string"
+                },
+                "sender_name": {
+                    "type": "string"
+                },
+                "sender_type": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "agenthub.Room": {
+            "type": "object",
+            "properties": {
+                "accent": {
+                    "type": "string"
+                },
+                "agent_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "attention": {
+                    "type": "integer"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "live": {
+                    "type": "string"
+                },
+                "members": {
+                    "type": "integer"
+                },
+                "metadata": {
+                    "type": "object",
+                    "additionalProperties": {}
+                },
+                "name": {
+                    "type": "string"
+                },
+                "orchestrator_agent_id": {
+                    "type": "string"
+                },
+                "privacy": {
+                    "type": "string"
+                },
+                "short_name": {
+                    "type": "string"
+                },
+                "status_class": {
+                    "type": "string"
+                },
+                "subtitle": {
+                    "type": "string"
+                },
+                "summary": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "agenthub.StartRunRequest": {
+            "type": "object",
+            "properties": {
+                "agents": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/orchestrator.AgentDescriptor"
+                    }
+                },
+                "auto_dispatch": {
+                    "type": "boolean"
+                },
+                "created_by": {
+                    "type": "string"
+                },
+                "metadata": {
+                    "type": "object",
+                    "additionalProperties": {}
+                },
+                "objective": {
+                    "type": "string"
+                },
+                "trigger_message_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "agenthub.UpsertRoomRequest": {
+            "type": "object",
+            "properties": {
+                "accent": {
+                    "type": "string"
+                },
+                "agent_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "attention": {
+                    "type": "integer"
+                },
+                "live": {
+                    "type": "string"
+                },
+                "members": {
+                    "type": "integer"
+                },
+                "metadata": {
+                    "type": "object",
+                    "additionalProperties": {}
+                },
+                "name": {
+                    "type": "string"
+                },
+                "orchestrator_agent_id": {
+                    "type": "string"
+                },
+                "privacy": {
+                    "type": "string"
+                },
+                "short_name": {
+                    "type": "string"
+                },
+                "status_class": {
+                    "type": "string"
+                },
+                "subtitle": {
+                    "type": "string"
+                },
+                "summary": {
+                    "type": "string"
+                }
+            }
+        },
         "audio.ConfigSchema": {
             "type": "object",
             "properties": {
@@ -10593,6 +11629,9 @@ const docTemplate = `{
                 "display_name": {
                     "type": "string"
                 },
+                "framework": {
+                    "type": "string"
+                },
                 "id": {
                     "type": "string"
                 },
@@ -10657,6 +11696,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "display_name": {
+                    "type": "string"
+                },
+                "framework": {
                     "type": "string"
                 },
                 "is_active": {
@@ -10947,6 +11989,7 @@ const docTemplate = `{
                 "qq",
                 "wecom",
                 "weixin",
+                "whatsapp",
                 "wechatoa",
                 "local",
                 "slack"
@@ -10960,6 +12003,7 @@ const docTemplate = `{
                 "ChannelTypeQQ",
                 "ChannelTypeWecom",
                 "ChannelTypeWeixin",
+                "ChannelTypeWhatsApp",
                 "ChannelTypeWeChatOA",
                 "ChannelTypeLocal",
                 "ChannelTypeSlack"
@@ -11587,7 +12631,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_memohai_memoh_internal_mcp.Connection": {
+        "github_com_ZihengXiong_GenMult_internal_mcp.Connection": {
             "type": "object",
             "properties": {
                 "auth_type": {
@@ -13127,7 +14171,7 @@ const docTemplate = `{
                 "items": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_memohai_memoh_internal_mcp.Connection"
+                        "$ref": "#/definitions/github_com_ZihengXiong_GenMult_internal_mcp.Connection"
                     }
                 }
             }
@@ -13505,6 +14549,330 @@ const docTemplate = `{
                     "$ref": "#/definitions/models.ModelType"
                 }
             }
+        },
+        "orchestrator.AgentDescriptor": {
+            "type": "object",
+            "properties": {
+                "capabilities": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "id": {
+                    "type": "string"
+                },
+                "metadata": {
+                    "type": "object",
+                    "additionalProperties": {}
+                },
+                "name": {
+                    "type": "string"
+                },
+                "provider_name": {
+                    "type": "string"
+                }
+            }
+        },
+        "orchestrator.AttemptStatus": {
+            "type": "string",
+            "enum": [
+                "running",
+                "succeeded",
+                "failed",
+                "timed_out",
+                "cancelled"
+            ],
+            "x-enum-varnames": [
+                "AttemptStatusRunning",
+                "AttemptStatusSucceeded",
+                "AttemptStatusFailed",
+                "AttemptStatusTimedOut",
+                "AttemptStatusCancelled"
+            ]
+        },
+        "orchestrator.EventType": {
+            "type": "string",
+            "enum": [
+                "run_created",
+                "run_planned",
+                "run_status_changed",
+                "task_created",
+                "task_ready",
+                "task_dispatched",
+                "task_succeeded",
+                "task_failed",
+                "task_blocked",
+                "task_retried",
+                "task_timed_out",
+                "task_cancelled",
+                "agent_tool_call",
+                "agent_output"
+            ],
+            "x-enum-varnames": [
+                "EventRunCreated",
+                "EventRunPlanned",
+                "EventRunStatusChanged",
+                "EventTaskCreated",
+                "EventTaskReady",
+                "EventTaskDispatched",
+                "EventTaskSucceeded",
+                "EventTaskFailed",
+                "EventTaskBlocked",
+                "EventTaskRetried",
+                "EventTaskTimedOut",
+                "EventTaskCancelled",
+                "EventAgentToolCall",
+                "EventAgentOutput"
+            ]
+        },
+        "orchestrator.Run": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "created_by": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "metadata": {
+                    "type": "object",
+                    "additionalProperties": {}
+                },
+                "objective": {
+                    "type": "string"
+                },
+                "planner_version": {
+                    "type": "string"
+                },
+                "room_id": {
+                    "type": "string"
+                },
+                "status": {
+                    "$ref": "#/definitions/orchestrator.RunStatus"
+                },
+                "trigger_message_id": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "orchestrator.RunEvent": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "payload": {
+                    "type": "object",
+                    "additionalProperties": {}
+                },
+                "run_id": {
+                    "type": "string"
+                },
+                "seq": {
+                    "type": "integer"
+                },
+                "task_id": {
+                    "type": "string"
+                },
+                "type": {
+                    "$ref": "#/definitions/orchestrator.EventType"
+                }
+            }
+        },
+        "orchestrator.RunSnapshot": {
+            "type": "object",
+            "properties": {
+                "attempts": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/orchestrator.TaskAttempt"
+                    }
+                },
+                "dependencies": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/orchestrator.TaskDependency"
+                    }
+                },
+                "run": {
+                    "$ref": "#/definitions/orchestrator.Run"
+                },
+                "tasks": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/orchestrator.Task"
+                    }
+                }
+            }
+        },
+        "orchestrator.RunStatus": {
+            "type": "string",
+            "enum": [
+                "draft",
+                "planning",
+                "dispatching",
+                "collecting",
+                "completed",
+                "failed",
+                "cancelled"
+            ],
+            "x-enum-varnames": [
+                "RunStatusDraft",
+                "RunStatusPlanning",
+                "RunStatusDispatching",
+                "RunStatusCollecting",
+                "RunStatusCompleted",
+                "RunStatusFailed",
+                "RunStatusCancelled"
+            ]
+        },
+        "orchestrator.Task": {
+            "type": "object",
+            "properties": {
+                "assigned_agent_id": {
+                    "type": "string"
+                },
+                "attempt_count": {
+                    "type": "integer"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "idempotency_key": {
+                    "type": "string"
+                },
+                "max_retries": {
+                    "type": "integer"
+                },
+                "metadata": {
+                    "type": "object",
+                    "additionalProperties": {}
+                },
+                "parent_task_id": {
+                    "type": "string"
+                },
+                "priority": {
+                    "type": "integer"
+                },
+                "provider_name": {
+                    "type": "string"
+                },
+                "run_id": {
+                    "type": "string"
+                },
+                "status": {
+                    "$ref": "#/definitions/orchestrator.TaskStatus"
+                },
+                "timeout": {
+                    "$ref": "#/definitions/time.Duration"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "orchestrator.TaskAttempt": {
+            "type": "object",
+            "properties": {
+                "agent_id": {
+                    "type": "string"
+                },
+                "attempt_no": {
+                    "type": "integer"
+                },
+                "error_message": {
+                    "type": "string"
+                },
+                "finished_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "idempotency_key": {
+                    "type": "string"
+                },
+                "input_payload": {
+                    "type": "object",
+                    "additionalProperties": {}
+                },
+                "output_payload": {
+                    "type": "object",
+                    "additionalProperties": {}
+                },
+                "provider_name": {
+                    "type": "string"
+                },
+                "retryable": {
+                    "type": "boolean"
+                },
+                "run_id": {
+                    "type": "string"
+                },
+                "started_at": {
+                    "type": "string"
+                },
+                "status": {
+                    "$ref": "#/definitions/orchestrator.AttemptStatus"
+                },
+                "task_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "orchestrator.TaskDependency": {
+            "type": "object",
+            "properties": {
+                "depends_on_task_id": {
+                    "type": "string"
+                },
+                "run_id": {
+                    "type": "string"
+                },
+                "task_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "orchestrator.TaskStatus": {
+            "type": "string",
+            "enum": [
+                "pending",
+                "ready",
+                "running",
+                "succeeded",
+                "failed",
+                "blocked",
+                "cancelled"
+            ],
+            "x-enum-varnames": [
+                "TaskStatusPending",
+                "TaskStatusReady",
+                "TaskStatusRunning",
+                "TaskStatusSucceeded",
+                "TaskStatusFailed",
+                "TaskStatusBlocked",
+                "TaskStatusCancelled"
+            ]
         },
         "providers.CountResponse": {
             "type": "object",
@@ -14110,6 +15478,10 @@ const docTemplate = `{
                 "persist_full_tool_results": {
                     "type": "boolean"
                 },
+                "provider_ext": {
+                    "type": "object",
+                    "additionalProperties": {}
+                },
                 "reasoning_effort": {
                     "type": "string"
                 },
@@ -14254,6 +15626,10 @@ const docTemplate = `{
                 "persist_full_tool_results": {
                     "type": "boolean"
                 },
+                "provider_ext": {
+                    "type": "object",
+                    "additionalProperties": {}
+                },
                 "reasoning_effort": {
                     "type": "string"
                 },
@@ -14282,6 +15658,30 @@ const docTemplate = `{
                     "type": "string"
                 }
             }
+        },
+        "time.Duration": {
+            "type": "integer",
+            "format": "int64",
+            "enum": [
+                -9223372036854775808,
+                9223372036854775807,
+                1,
+                1000,
+                1000000,
+                1000000000,
+                60000000000,
+                3600000000000
+            ],
+            "x-enum-varnames": [
+                "minDuration",
+                "maxDuration",
+                "Nanosecond",
+                "Microsecond",
+                "Millisecond",
+                "Second",
+                "Minute",
+                "Hour"
+            ]
         }
     }
 }`

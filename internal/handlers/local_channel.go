@@ -484,12 +484,6 @@ func (h *LocalChannelHandler) HandleWebSocket(c echo.Context) error {
 							writer.SendJSON(map[string]string{"type": "start"})
 							continue
 						case agentpkg.EventAgentEnd, agentpkg.EventAgentAbort:
-							for _, uiMessage := range conversation.ConvertRawModelMessagesToUIAssistantMessages(streamEvent.Messages) {
-								writer.SendJSON(map[string]any{
-									"type": "message",
-									"data": uiMessage,
-								})
-							}
 							writer.SendJSON(map[string]string{"type": "end"})
 							continue
 						case agentpkg.EventError:
@@ -591,12 +585,6 @@ func (h *LocalChannelHandler) HandleWebSocket(c echo.Context) error {
 							writer.SendJSON(map[string]string{"type": "start"})
 							continue
 						case agentpkg.EventAgentEnd, agentpkg.EventAgentAbort:
-							for _, uiMessage := range conversation.ConvertRawModelMessagesToUIAssistantMessages(streamEvent.Messages) {
-								writer.SendJSON(map[string]any{
-									"type": "message",
-									"data": uiMessage,
-								})
-							}
 							writer.SendJSON(map[string]string{"type": "end"})
 							continue
 						case agentpkg.EventError:

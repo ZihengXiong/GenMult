@@ -207,8 +207,7 @@ func WithApprovedHostPath(metadata map[string]any, source string) map[string]any
 	hostAccessSection = cloneAnyMap(hostAccessSection)
 
 	var existing []any
-	switch typed := hostAccessSection[workspaceApprovedPathsMetadataKey].(type) {
-	case []any:
+	if typed, ok := hostAccessSection[workspaceApprovedPathsMetadataKey].([]any); ok {
 		existing = append(existing, typed...)
 	}
 

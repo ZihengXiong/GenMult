@@ -9,6 +9,7 @@ import (
 	"github.com/ZihengXiong/GenMult/internal/bots"
 	"github.com/ZihengXiong/GenMult/internal/conversation/flow/botruntime"
 	"github.com/ZihengXiong/GenMult/internal/db"
+	"github.com/ZihengXiong/GenMult/internal/providers"
 	"github.com/ZihengXiong/GenMult/internal/settings"
 )
 
@@ -98,4 +99,13 @@ func parseLoopDetectionEnabledFromMetadata(payload []byte) bool {
 		return false
 	}
 	return enabled
+}
+
+// checkProviderAvailable checks if an enabled provider is available for the given framework.
+// If it is, it returns the resolved credentials, otherwise it returns a descriptive validation error.
+func (r *Resolver) checkProviderAvailable(ctx context.Context, framework string) (providers.ModelCredentials, error) {
+	if r.queries == nil {
+		return providers.ModelCredentials{}, errors.New("database queries not configured")
+	}
+	return providers.ResolveCredentialsForFramework(ctx, r.queries, framework)
 }

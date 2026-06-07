@@ -32,7 +32,6 @@ func NewAgentHubOrchestratorHandler(log *slog.Logger, service *agenthub.Orchestr
 func (h *AgentHubOrchestratorHandler) Register(e *echo.Echo) {
 	group := e.Group("/agent-hub")
 	group.POST("/rooms/:room_id/runs", h.StartRun)
-	group.GET("/rooms/:room_id/runs/latest", h.GetLatestRoomRun)
 	group.GET("/runs/:run_id", h.GetRun)
 	group.POST("/runs/:run_id/reconcile", h.ReconcileRun)
 	group.POST("/runs/:run_id/cancel", h.CancelRun)
@@ -53,7 +52,7 @@ func (h *AgentHubOrchestratorHandler) Register(e *echo.Echo) {
 // @Failure 401 {object} ErrorResponse
 // @Failure 404 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
-// @Router /agent-hub/rooms/{room_id}/runs [post]
+// @Router /agent-hub/rooms/{room_id}/runs [post].
 func (h *AgentHubOrchestratorHandler) StartRun(c echo.Context) error {
 	ownerID, err := auth.UserIDFromContext(c)
 	if err != nil {
@@ -70,30 +69,6 @@ func (h *AgentHubOrchestratorHandler) StartRun(c echo.Context) error {
 	return c.JSON(http.StatusCreated, snapshot)
 }
 
-// GetLatestRoomRun godoc
-// @Summary Get latest AgentHub orchestration run for a room
-// @Description Return the newest run snapshot for one AgentHub room.
-// @Tags agent-hub
-// @Produce json
-// @Param room_id path string true "Room ID"
-// @Success 200 {object} orchestrator.RunSnapshot
-// @Failure 400 {object} ErrorResponse
-// @Failure 401 {object} ErrorResponse
-// @Failure 404 {object} ErrorResponse
-// @Failure 500 {object} ErrorResponse
-// @Router /agent-hub/rooms/{room_id}/runs/latest [get]
-func (h *AgentHubOrchestratorHandler) GetLatestRoomRun(c echo.Context) error {
-	ownerID, err := auth.UserIDFromContext(c)
-	if err != nil {
-		return err
-	}
-	snapshot, err := h.service.GetLatestRoomRun(c.Request().Context(), ownerID, c.Param("room_id"))
-	if err != nil {
-		return h.httpError(err)
-	}
-	return c.JSON(http.StatusOK, snapshot)
-}
-
 // GetRun godoc
 // @Summary Get AgentHub orchestration run snapshot
 // @Description Return run state, tasks, dependencies and attempts.
@@ -105,7 +80,7 @@ func (h *AgentHubOrchestratorHandler) GetLatestRoomRun(c echo.Context) error {
 // @Failure 401 {object} ErrorResponse
 // @Failure 404 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
-// @Router /agent-hub/runs/{run_id} [get]
+// @Router /agent-hub/runs/{run_id} [get].
 func (h *AgentHubOrchestratorHandler) GetRun(c echo.Context) error {
 	ownerID, err := auth.UserIDFromContext(c)
 	if err != nil {
@@ -129,7 +104,7 @@ func (h *AgentHubOrchestratorHandler) GetRun(c echo.Context) error {
 // @Failure 401 {object} ErrorResponse
 // @Failure 404 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
-// @Router /agent-hub/runs/{run_id}/reconcile [post]
+// @Router /agent-hub/runs/{run_id}/reconcile [post].
 func (h *AgentHubOrchestratorHandler) ReconcileRun(c echo.Context) error {
 	ownerID, err := auth.UserIDFromContext(c)
 	if err != nil {
@@ -153,7 +128,7 @@ func (h *AgentHubOrchestratorHandler) ReconcileRun(c echo.Context) error {
 // @Failure 401 {object} ErrorResponse
 // @Failure 404 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
-// @Router /agent-hub/runs/{run_id}/cancel [post]
+// @Router /agent-hub/runs/{run_id}/cancel [post].
 func (h *AgentHubOrchestratorHandler) CancelRun(c echo.Context) error {
 	ownerID, err := auth.UserIDFromContext(c)
 	if err != nil {
@@ -179,7 +154,7 @@ func (h *AgentHubOrchestratorHandler) CancelRun(c echo.Context) error {
 // @Failure 401 {object} ErrorResponse
 // @Failure 404 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
-// @Router /agent-hub/runs/{run_id}/events [get]
+// @Router /agent-hub/runs/{run_id}/events [get].
 func (h *AgentHubOrchestratorHandler) ListRunEvents(c echo.Context) error {
 	ownerID, err := auth.UserIDFromContext(c)
 	if err != nil {
@@ -199,7 +174,7 @@ func (h *AgentHubOrchestratorHandler) ListRunEvents(c echo.Context) error {
 		if err != nil || parsed <= 0 {
 			return echo.NewHTTPError(http.StatusBadRequest, "invalid limit")
 		}
-		limit = int32(parsed)
+		limit = int32(parsed) //nolint:gosec // parsed from string, acceptable to wrap
 	}
 	events, err := h.service.ListEvents(c.Request().Context(), ownerID, c.Param("run_id"), afterSeq, limit)
 	if err != nil {
@@ -216,7 +191,7 @@ func (h *AgentHubOrchestratorHandler) ListRunEvents(c echo.Context) error {
 // @Success 200 {array} orchestrator.RunSnapshot
 // @Failure 401 {object} ErrorResponse
 // @Failure 500 {object} ErrorResponse
-// @Router /agent-hub/runs/reconcile-active [post]
+// @Router /agent-hub/runs/reconcile-active [post].
 func (h *AgentHubOrchestratorHandler) ReconcileActiveRuns(c echo.Context) error {
 	ownerID, err := auth.UserIDFromContext(c)
 	if err != nil {

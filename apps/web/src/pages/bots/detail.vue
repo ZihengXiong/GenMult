@@ -249,10 +249,14 @@ const tabList = computed(() => {
     { value: 'schedule', label: 'bots.tabs.schedule', component: BotSchedule, params: { 'bot-id': bot_id } },
     { value: 'skills', label: 'bots.tabs.skills', component: BotSkills, params: { 'bot-id': bot_id } },
   ]
-  if (isLocalWorkspace.value) {
-    return tabs.filter(tab => tab.value !== 'container' && tab.value !== 'network' && tab.value !== 'desktop')
-  }
-  return tabs
+	let resultTabs = tabs
+	if (isLocalWorkspace.value) {
+		resultTabs = resultTabs.filter(tab => tab.value !== 'container' && tab.value !== 'network' && tab.value !== 'desktop')
+	}
+	if (bot.value?.framework && bot.value.framework !== 'memoh') {
+		resultTabs = resultTabs.filter(tab => tab.value !== 'memory' && tab.value !== 'compaction' && tab.value !== 'skills')
+	}
+	return resultTabs
 })
 
 

@@ -453,6 +453,155 @@ definitions:
       total_text_bytes:
         type: integer
     type: object
+  agenthub.AddAgentRequest:
+    properties:
+      agent_id:
+        type: string
+    type: object
+  agenthub.CreateMessageRequest:
+    properties:
+      body:
+        type: string
+      kind:
+        type: string
+      metadata:
+        additionalProperties: {}
+        type: object
+      sender_id:
+        type: string
+      sender_name:
+        type: string
+      sender_type:
+        type: string
+      title:
+        type: string
+    type: object
+  agenthub.ListMessagesResponse:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/agenthub.Message'
+        type: array
+    type: object
+  agenthub.ListRoomsResponse:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/agenthub.Room'
+        type: array
+    type: object
+  agenthub.Message:
+    properties:
+      body:
+        type: string
+      created_at:
+        type: string
+      id:
+        type: string
+      kind:
+        type: string
+      metadata:
+        additionalProperties: {}
+        type: object
+      room_id:
+        type: string
+      sender_id:
+        type: string
+      sender_name:
+        type: string
+      sender_type:
+        type: string
+      title:
+        type: string
+    type: object
+  agenthub.Room:
+    properties:
+      accent:
+        type: string
+      agent_ids:
+        items:
+          type: string
+        type: array
+      attention:
+        type: integer
+      created_at:
+        type: string
+      id:
+        type: string
+      live:
+        type: string
+      members:
+        type: integer
+      metadata:
+        additionalProperties: {}
+        type: object
+      name:
+        type: string
+      orchestrator_agent_id:
+        type: string
+      privacy:
+        type: string
+      short_name:
+        type: string
+      status_class:
+        type: string
+      subtitle:
+        type: string
+      summary:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  agenthub.StartRunRequest:
+    properties:
+      agents:
+        items:
+          $ref: '#/definitions/orchestrator.AgentDescriptor'
+        type: array
+      auto_dispatch:
+        type: boolean
+      created_by:
+        type: string
+      metadata:
+        additionalProperties: {}
+        type: object
+      objective:
+        type: string
+      trigger_message_id:
+        type: string
+    type: object
+  agenthub.UpsertRoomRequest:
+    properties:
+      accent:
+        type: string
+      agent_ids:
+        items:
+          type: string
+        type: array
+      attention:
+        type: integer
+      live:
+        type: string
+      members:
+        type: integer
+      metadata:
+        additionalProperties: {}
+        type: object
+      name:
+        type: string
+      orchestrator_agent_id:
+        type: string
+      privacy:
+        type: string
+      short_name:
+        type: string
+      status_class:
+        type: string
+      subtitle:
+        type: string
+      summary:
+        type: string
+    type: object
   audio.ConfigSchema:
     properties:
       fields:
@@ -699,6 +848,8 @@ definitions:
         type: string
       display_name:
         type: string
+      framework:
+        type: string
       id:
         type: string
       is_active:
@@ -742,6 +893,8 @@ definitions:
       avatar_url:
         type: string
       display_name:
+        type: string
+      framework:
         type: string
       is_active:
         type: boolean
@@ -941,6 +1094,7 @@ definitions:
     - qq
     - wecom
     - weixin
+    - whatsapp
     - wechatoa
     - local
     - slack
@@ -954,6 +1108,7 @@ definitions:
     - ChannelTypeQQ
     - ChannelTypeWecom
     - ChannelTypeWeixin
+    - ChannelTypeWhatsApp
     - ChannelTypeWeChatOA
     - ChannelTypeLocal
     - ChannelTypeSlack
@@ -1377,7 +1532,7 @@ definitions:
       provider:
         type: string
     type: object
-  github_com_memohai_memoh_internal_mcp.Connection:
+  github_com_ZihengXiong_GenMult_internal_mcp.Connection:
     properties:
       auth_type:
         type: string
@@ -2378,7 +2533,7 @@ definitions:
     properties:
       items:
         items:
-          $ref: '#/definitions/github_com_memohai_memoh_internal_mcp.Connection'
+          $ref: '#/definitions/github_com_ZihengXiong_GenMult_internal_mcp.Connection'
         type: array
     type: object
   mcp.MCPServerEntry:
@@ -2631,6 +2786,241 @@ definitions:
       type:
         $ref: '#/definitions/models.ModelType'
     type: object
+  orchestrator.AgentDescriptor:
+    properties:
+      capabilities:
+        items:
+          type: string
+        type: array
+      id:
+        type: string
+      metadata:
+        additionalProperties: {}
+        type: object
+      name:
+        type: string
+      provider_name:
+        type: string
+    type: object
+  orchestrator.AttemptStatus:
+    enum:
+    - running
+    - succeeded
+    - failed
+    - timed_out
+    - cancelled
+    type: string
+    x-enum-varnames:
+    - AttemptStatusRunning
+    - AttemptStatusSucceeded
+    - AttemptStatusFailed
+    - AttemptStatusTimedOut
+    - AttemptStatusCancelled
+  orchestrator.EventType:
+    enum:
+    - run_created
+    - run_planned
+    - run_status_changed
+    - task_created
+    - task_ready
+    - task_dispatched
+    - task_succeeded
+    - task_failed
+    - task_blocked
+    - task_retried
+    - task_timed_out
+    - task_cancelled
+    - agent_tool_call
+    - agent_output
+    type: string
+    x-enum-varnames:
+    - EventRunCreated
+    - EventRunPlanned
+    - EventRunStatusChanged
+    - EventTaskCreated
+    - EventTaskReady
+    - EventTaskDispatched
+    - EventTaskSucceeded
+    - EventTaskFailed
+    - EventTaskBlocked
+    - EventTaskRetried
+    - EventTaskTimedOut
+    - EventTaskCancelled
+    - EventAgentToolCall
+    - EventAgentOutput
+  orchestrator.Run:
+    properties:
+      created_at:
+        type: string
+      created_by:
+        type: string
+      id:
+        type: string
+      metadata:
+        additionalProperties: {}
+        type: object
+      objective:
+        type: string
+      planner_version:
+        type: string
+      room_id:
+        type: string
+      status:
+        $ref: '#/definitions/orchestrator.RunStatus'
+      trigger_message_id:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  orchestrator.RunEvent:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: string
+      payload:
+        additionalProperties: {}
+        type: object
+      run_id:
+        type: string
+      seq:
+        type: integer
+      task_id:
+        type: string
+      type:
+        $ref: '#/definitions/orchestrator.EventType'
+    type: object
+  orchestrator.RunSnapshot:
+    properties:
+      attempts:
+        items:
+          $ref: '#/definitions/orchestrator.TaskAttempt'
+        type: array
+      dependencies:
+        items:
+          $ref: '#/definitions/orchestrator.TaskDependency'
+        type: array
+      run:
+        $ref: '#/definitions/orchestrator.Run'
+      tasks:
+        items:
+          $ref: '#/definitions/orchestrator.Task'
+        type: array
+    type: object
+  orchestrator.RunStatus:
+    enum:
+    - draft
+    - planning
+    - dispatching
+    - collecting
+    - completed
+    - failed
+    - cancelled
+    type: string
+    x-enum-varnames:
+    - RunStatusDraft
+    - RunStatusPlanning
+    - RunStatusDispatching
+    - RunStatusCollecting
+    - RunStatusCompleted
+    - RunStatusFailed
+    - RunStatusCancelled
+  orchestrator.Task:
+    properties:
+      assigned_agent_id:
+        type: string
+      attempt_count:
+        type: integer
+      created_at:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      idempotency_key:
+        type: string
+      max_retries:
+        type: integer
+      metadata:
+        additionalProperties: {}
+        type: object
+      parent_task_id:
+        type: string
+      priority:
+        type: integer
+      provider_name:
+        type: string
+      run_id:
+        type: string
+      status:
+        $ref: '#/definitions/orchestrator.TaskStatus'
+      timeout:
+        $ref: '#/definitions/time.Duration'
+      title:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  orchestrator.TaskAttempt:
+    properties:
+      agent_id:
+        type: string
+      attempt_no:
+        type: integer
+      error_message:
+        type: string
+      finished_at:
+        type: string
+      id:
+        type: string
+      idempotency_key:
+        type: string
+      input_payload:
+        additionalProperties: {}
+        type: object
+      output_payload:
+        additionalProperties: {}
+        type: object
+      provider_name:
+        type: string
+      retryable:
+        type: boolean
+      run_id:
+        type: string
+      started_at:
+        type: string
+      status:
+        $ref: '#/definitions/orchestrator.AttemptStatus'
+      task_id:
+        type: string
+    type: object
+  orchestrator.TaskDependency:
+    properties:
+      depends_on_task_id:
+        type: string
+      run_id:
+        type: string
+      task_id:
+        type: string
+    type: object
+  orchestrator.TaskStatus:
+    enum:
+    - pending
+    - ready
+    - running
+    - succeeded
+    - failed
+    - blocked
+    - cancelled
+    type: string
+    x-enum-varnames:
+    - TaskStatusPending
+    - TaskStatusReady
+    - TaskStatusRunning
+    - TaskStatusSucceeded
+    - TaskStatusFailed
+    - TaskStatusBlocked
+    - TaskStatusCancelled
   providers.CountResponse:
     properties:
       count:
@@ -3038,6 +3428,9 @@ definitions:
         type: string
       persist_full_tool_results:
         type: boolean
+      provider_ext:
+        additionalProperties: {}
+        type: object
       reasoning_effort:
         type: string
       reasoning_enabled:
@@ -3133,6 +3526,9 @@ definitions:
         type: string
       persist_full_tool_results:
         type: boolean
+      provider_ext:
+        additionalProperties: {}
+        type: object
       reasoning_effort:
         type: string
       reasoning_enabled:
@@ -3152,11 +3548,570 @@ definitions:
       tts_model_id:
         type: string
     type: object
+  time.Duration:
+    enum:
+    - -9223372036854775808
+    - 9223372036854775807
+    - 1
+    - 1000
+    - 1000000
+    - 1000000000
+    - 60000000000
+    - 3600000000000
+    format: int64
+    type: integer
+    x-enum-varnames:
+    - minDuration
+    - maxDuration
+    - Nanosecond
+    - Microsecond
+    - Millisecond
+    - Second
+    - Minute
+    - Hour
 info:
   contact: {}
   title: Memoh API
   version: 1.0.0
 paths:
+  /agent-hub/rooms:
+    get:
+      description: List AgentHub group rooms owned by the current user.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/agenthub.ListRoomsResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: List AgentHub rooms
+      tags:
+      - agent-hub
+    post:
+      consumes:
+      - application/json
+      description: Create an AgentHub group room and optional initial agent membership.
+      parameters:
+      - description: Room payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/agenthub.UpsertRoomRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/agenthub.Room'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Create AgentHub room
+      tags:
+      - agent-hub
+  /agent-hub/rooms/{room_id}:
+    delete:
+      description: Delete an AgentHub group room.
+      parameters:
+      - description: Room ID
+        in: path
+        name: room_id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Delete AgentHub room
+      tags:
+      - agent-hub
+    get:
+      description: Get an AgentHub group room by id.
+      parameters:
+      - description: Room ID
+        in: path
+        name: room_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/agenthub.Room'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Get AgentHub room
+      tags:
+      - agent-hub
+    put:
+      consumes:
+      - application/json
+      description: Update an AgentHub group room and its agent membership.
+      parameters:
+      - description: Room ID
+        in: path
+        name: room_id
+        required: true
+        type: string
+      - description: Room payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/agenthub.UpsertRoomRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/agenthub.Room'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Update AgentHub room
+      tags:
+      - agent-hub
+  /agent-hub/rooms/{room_id}/agents:
+    post:
+      consumes:
+      - application/json
+      description: Add an agent member to an AgentHub group room.
+      parameters:
+      - description: Room ID
+        in: path
+        name: room_id
+        required: true
+        type: string
+      - description: Agent payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/agenthub.AddAgentRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/agenthub.Room'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Add AgentHub room agent
+      tags:
+      - agent-hub
+  /agent-hub/rooms/{room_id}/agents/{agent_id}:
+    delete:
+      description: Remove an agent member from an AgentHub group room.
+      parameters:
+      - description: Room ID
+        in: path
+        name: room_id
+        required: true
+        type: string
+      - description: Agent ID
+        in: path
+        name: agent_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/agenthub.Room'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Remove AgentHub room agent
+      tags:
+      - agent-hub
+  /agent-hub/rooms/{room_id}/messages:
+    get:
+      description: List persisted timeline messages for an AgentHub group room.
+      parameters:
+      - description: Room ID
+        in: path
+        name: room_id
+        required: true
+        type: string
+      - description: Maximum messages
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/agenthub.ListMessagesResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: List AgentHub room messages
+      tags:
+      - agent-hub
+    post:
+      consumes:
+      - application/json
+      description: Append a message to an AgentHub group room timeline.
+      parameters:
+      - description: Room ID
+        in: path
+        name: room_id
+        required: true
+        type: string
+      - description: Message payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/agenthub.CreateMessageRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/agenthub.Message'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Create AgentHub room message
+      tags:
+      - agent-hub
+  /agent-hub/rooms/{room_id}/runs:
+    post:
+      consumes:
+      - application/json
+      description: Plan objective into tasks and optionally dispatch immediately.
+      parameters:
+      - description: Room ID
+        in: path
+        name: room_id
+        required: true
+        type: string
+      - description: Start run payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/agenthub.StartRunRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/orchestrator.RunSnapshot'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Start AgentHub orchestration run
+      tags:
+      - agent-hub
+  /agent-hub/runs/{run_id}:
+    get:
+      description: Return run state, tasks, dependencies and attempts.
+      parameters:
+      - description: Run ID
+        in: path
+        name: run_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/orchestrator.RunSnapshot'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Get AgentHub orchestration run snapshot
+      tags:
+      - agent-hub
+  /agent-hub/runs/{run_id}/cancel:
+    post:
+      description: Cancel a run and mark non-terminal tasks cancelled.
+      parameters:
+      - description: Run ID
+        in: path
+        name: run_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/orchestrator.RunSnapshot'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Cancel AgentHub run
+      tags:
+      - agent-hub
+  /agent-hub/runs/{run_id}/events:
+    get:
+      description: Return append-only orchestrator events for timeline projection.
+      parameters:
+      - description: Run ID
+        in: path
+        name: run_id
+        required: true
+        type: string
+      - description: Return events with seq > after_seq
+        in: query
+        name: after_seq
+        type: integer
+      - description: Maximum events
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/orchestrator.RunEvent'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: List AgentHub run events
+      tags:
+      - agent-hub
+  /agent-hub/runs/{run_id}/reconcile:
+    post:
+      description: Recompute task readiness, dispatch runnable tasks, and advance
+        run status.
+      parameters:
+      - description: Run ID
+        in: path
+        name: run_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/orchestrator.RunSnapshot'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Reconcile AgentHub run
+      tags:
+      - agent-hub
+  /agent-hub/runs/reconcile-active:
+    post:
+      description: Trigger reconciliation for planning/dispatching/collecting runs.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/orchestrator.RunSnapshot'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Reconcile all active AgentHub runs for current owner
+      tags:
+      - agent-hub
   /auth/login:
     post:
       description: Validate user credentials and issue a JWT
@@ -4946,7 +5901,7 @@ paths:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/github_com_memohai_memoh_internal_mcp.Connection'
+            $ref: '#/definitions/github_com_ZihengXiong_GenMult_internal_mcp.Connection'
         "400":
           description: Bad Request
           schema:
@@ -5113,7 +6068,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/github_com_memohai_memoh_internal_mcp.Connection'
+            $ref: '#/definitions/github_com_ZihengXiong_GenMult_internal_mcp.Connection'
         "400":
           description: Bad Request
           schema:
@@ -5151,7 +6106,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/github_com_memohai_memoh_internal_mcp.Connection'
+            $ref: '#/definitions/github_com_ZihengXiong_GenMult_internal_mcp.Connection'
         "400":
           description: Bad Request
           schema:
@@ -6440,7 +7395,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/github_com_memohai_memoh_internal_mcp.Connection'
+            $ref: '#/definitions/github_com_ZihengXiong_GenMult_internal_mcp.Connection'
         "400":
           description: Bad Request
           schema:

@@ -311,30 +311,6 @@ install_uv() {
   chmod +x "$OUTDIR/uv"
 }
 
-install_npm_package_bundle() {
-  bundle_dir="$1"
-  shift
-
-  node_dir="node-glibc"
-  if [ -x "$OUTDIR/node-musl/bin/node" ]; then
-    node_dir="node-musl"
-  fi
-  node_bin="$OUTDIR/$node_dir/bin/node"
-  npm_cli="$OUTDIR/$node_dir/lib/node_modules/npm/bin/npm-cli.js"
-  if [ ! -x "$node_bin" ] || [ ! -f "$npm_cli" ]; then
-    return
-  fi
-
-  mkdir -p "$OUTDIR/$bundle_dir"
-  echo "{}" > "$OUTDIR/$bundle_dir/package.json"
-  if ! PATH="$OUTDIR/$node_dir/bin:$PATH" HOME=/tmp npm_config_cache=/tmp/.npm \
-    "$node_bin" "$npm_cli" install \
-      --prefix "$OUTDIR/$bundle_dir" \
-      --no-save --force "$@"; then
-    echo "WARN: failed to install npm bundle into $OUTDIR/$bundle_dir" >&2
-  fi
-}
-
 write_display_wrappers() {
   mkdir -p "$DISPLAY_OUTDIR/bin"
 
@@ -478,13 +454,44 @@ install_uv
 
 # Claude Code CLI
 # --force: bypass platform checks when building on macOS for Linux containers.
-install_npm_package_bundle \
-  claude-cli \
-  @anthropic-ai/claude-code \
-  @anthropic-ai/claude-code-linux-arm64 \
-  @anthropic-ai/claude-code-linux-arm64-musl \
-  @anthropic-ai/claude-code-linux-x64 \
-  @anthropic-ai/claude-code-linux-x64-musl
+# The toolkit's node/npm are Linux binaries; fall back to system npm on macOS.
+if [ -f "$OUTDIR/node-glibc/bin/npm" ] || [ -f "$OUTDIR/node-musl/bin/npm" ]; then
+  NPMBIN="$OUTDIR/node-glibc/bin/npm"
+  [ -f "$OUTDIR/node-musl/bin/npm" ] && NPMBIN="$OUTDIR/node-musl/bin/npm"
+  if ! "$NPMBIN" --version >/dev/null 2>&1; then
+    NPMBIN="$(command -v npm 2>/dev/null || true)"
+  fi
+  if [ -n "$NPMBIN" ]; then
+    mkdir -p "$OUTDIR/claude-cli"
+    echo "{}" > "$OUTDIR/claude-cli/package.json"
+    HOME=/tmp "$NPMBIN" install \
+      --prefix "$OUTDIR/claude-cli" \
+      --no-save --force \
+      @anthropic-ai/claude-code \
+      @anthropic-ai/claude-code-linux-arm64 \
+      @anthropic-ai/claude-code-linux-arm64-musl \
+      @anthropic-ai/claude-code-linux-x64 \
+      @anthropic-ai/claude-code-linux-x64-musl 2>/dev/null || true
+  fi
+fi
+
+# Codex CLI
+if [ -f "$OUTDIR/node-glibc/bin/npm" ] || [ -f "$OUTDIR/node-musl/bin/npm" ]; then
+  NPMBIN="$OUTDIR/node-glibc/bin/npm"
+  [ -f "$OUTDIR/node-musl/bin/npm" ] && NPMBIN="$OUTDIR/node-musl/bin/npm"
+  if ! "$NPMBIN" --version >/dev/null 2>&1; then
+    NPMBIN="$(command -v npm 2>/dev/null || true)"
+  fi
+  if [ -n "$NPMBIN" ]; then
+    mkdir -p "$OUTDIR/codex-cli"
+    echo "{}" > "$OUTDIR/codex-cli/package.json"
+    HOME=/tmp "$NPMBIN" install \
+      --prefix "$OUTDIR/codex-cli" \
+      --no-save --force \
+      @openai/codex 2>/dev/null || true
+  fi
+fi
 
 echo "Toolkit installed to $OUTDIR"
 install_display_bundle
+

@@ -22,6 +22,7 @@ import (
 	"github.com/ZihengXiong/GenMult/internal/accounts"
 	agentpkg "github.com/ZihengXiong/GenMult/internal/agent"
 	"github.com/ZihengXiong/GenMult/internal/agent/background"
+	"github.com/ZihengXiong/GenMult/internal/bots"
 	"github.com/ZihengXiong/GenMult/internal/channel"
 	"github.com/ZihengXiong/GenMult/internal/compaction"
 	"github.com/ZihengXiong/GenMult/internal/conversation"
@@ -473,8 +474,10 @@ func (r *Resolver) Chat(ctx context.Context, req conversation.ChatRequest) (conv
 	go r.maybeGenerateSessionTitle(context.WithoutCancel(ctx), req, req.Query)
 
 	cfg := rc.runConfig
-	cfg = r.prepareRunConfig(ctx, cfg)
 	rt := r.runtimeForBot(ctx, cfg.Identity.BotID)
+	if rt.Name() == bots.FrameworkMemoh {
+		cfg = r.prepareRunConfig(ctx, cfg)
+	}
 
 	result, err := rt.Generate(ctx, botruntime.RunInput{Config: cfg})
 	if err != nil {
@@ -533,6 +536,53 @@ func (r *Resolver) buildBaseRunConfig(ctx context.Context, p baseRunConfigParams
 		chatID = p.BotID
 	}
 
+	framework := r.loadBotFramework(ctx, p.BotID)
+	if framework != bots.FrameworkMemoh {
+		_, err := r.checkProviderAvailable(ctx, framework)
+		if err != nil {
+			r.logger.Error("Check provider available failed in buildBaseRunConfig",
+				slog.String("bot_id", p.BotID),
+				slog.String("framework", framework),
+				slog.Any("error", err),
+			)
+			return agentpkg.RunConfig{}, models.GetResponse{}, sqlc.Provider{}, err
+		}
+
+		chatModel := models.GetResponse{
+			ModelID: "placeholder",
+			Model: models.Model{
+				Type: models.ModelTypeChat,
+			},
+		}
+		provider := sqlc.Provider{
+			ClientType: string(models.ClientTypeOpenAICompletions),
+		}
+		sdkModel := models.NewSDKChatModel(models.SDKModelConfig{
+			ModelID:    chatModel.ModelID,
+			ClientType: provider.ClientType,
+		})
+
+		cfg := agentpkg.RunConfig{
+			Model: sdkModel,
+			Identity: agentpkg.SessionContext{
+				BotID:             p.BotID,
+				ChatID:            chatID,
+				SessionID:         p.SessionID,
+				ChannelIdentityID: strings.TrimSpace(p.ChannelIdentityID),
+				CurrentPlatform:   p.CurrentPlatform,
+				ReplyTarget:       strings.TrimSpace(p.ReplyTarget),
+				ConversationType:  strings.TrimSpace(p.ConversationType),
+				Timezone:          userTimezoneName,
+				TimezoneLocation:  userClockLocation,
+				SessionToken:      p.SessionToken,
+			},
+			Query:         "",
+			LoopDetection: agentpkg.LoopDetectionConfig{Enabled: loopDetectionEnabled},
+			ProviderExt:   botSettings.ProviderExt,
+		}
+		return cfg, chatModel, provider, nil
+	}
+
 	req := buildModelSelectionRequest(p, chatID)
 
 	chatModel, provider, err := r.selectChatModel(ctx, req, botSettings, conversation.Settings{})
@@ -583,8 +633,6 @@ func (r *Resolver) buildBaseRunConfig(ctx context.Context, p baseRunConfigParams
 		agentSkills = []agentpkg.SkillEntry{}
 	}
 
-	supportsToolCall := supportsToolCallFallback(chatModel, provider)
-
 	cfg := agentpkg.RunConfig{
 		Model:              sdkModel,
 		ModelID:            chatModel.ModelID,
@@ -594,7 +642,7 @@ func (r *Resolver) buildBaseRunConfig(ctx context.Context, p baseRunConfigParams
 		PromptCacheTTL:     providers.ProviderConfigString(provider, "prompt_cache_ttl"),
 		SessionType:        p.SessionType,
 		SupportsImageInput: chatModel.HasCompatibility(models.CompatVision),
-		SupportsToolCall:   supportsToolCall,
+		SupportsToolCall:   supportsToolCallFallback(chatModel, provider),
 		Identity: agentpkg.SessionContext{
 			BotID:             p.BotID,
 			ChatID:            chatID,
@@ -610,6 +658,7 @@ func (r *Resolver) buildBaseRunConfig(ctx context.Context, p baseRunConfigParams
 		Skills:            agentSkills,
 		LoopDetection:     agentpkg.LoopDetectionConfig{Enabled: loopDetectionEnabled},
 		BackgroundManager: r.bgManager,
+		ProviderExt:       botSettings.ProviderExt,
 	}
 	if r.toolApproval != nil {
 		cfg.ToolApprovalHandler = r.buildToolApprovalHandler(p)

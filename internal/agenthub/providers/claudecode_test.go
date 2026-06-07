@@ -17,7 +17,7 @@ type mockWorkspaceResolver struct {
 	Err     error
 }
 
-func (m *mockWorkspaceResolver) ResolveWorkDir(ctx context.Context, req orchestrator.ExecuteTaskRequest) (string, error) {
+func (m *mockWorkspaceResolver) ResolveWorkDir(_ context.Context, _ orchestrator.ExecuteTaskRequest) (string, error) {
 	return m.WorkDir, m.Err
 }
 
@@ -26,50 +26,63 @@ type mockStore struct {
 	Err    error
 }
 
-func (m *mockStore) CreateRun(ctx context.Context, run orchestrator.Run) (orchestrator.Run, error) {
+func (*mockStore) CreateRun(_ context.Context, run orchestrator.Run) (orchestrator.Run, error) {
 	return run, nil
 }
-func (m *mockStore) GetRun(ctx context.Context, runID string) (orchestrator.Run, error) {
+
+func (*mockStore) GetRun(_ context.Context, _ string) (orchestrator.Run, error) {
 	return orchestrator.Run{}, nil
 }
-func (m *mockStore) UpdateRunStatus(ctx context.Context, runID string, status orchestrator.RunStatus) (orchestrator.Run, error) {
+
+func (*mockStore) UpdateRunStatus(_ context.Context, _ string, _ orchestrator.RunStatus) (orchestrator.Run, error) {
 	return orchestrator.Run{}, nil
 }
-func (m *mockStore) ListRunsByStatus(ctx context.Context, statuses ...orchestrator.RunStatus) ([]orchestrator.Run, error) {
+
+func (*mockStore) ListRunsByStatus(_ context.Context, _ ...orchestrator.RunStatus) ([]orchestrator.Run, error) {
 	return nil, nil
 }
-func (m *mockStore) CreateTasks(ctx context.Context, runID string, drafts []orchestrator.TaskDraft) ([]orchestrator.Task, []orchestrator.TaskDependency, error) {
+
+func (*mockStore) CreateTasks(_ context.Context, _ string, _ []orchestrator.TaskDraft) ([]orchestrator.Task, []orchestrator.TaskDependency, error) {
 	return nil, nil, nil
 }
-func (m *mockStore) ListTasks(ctx context.Context, runID string) ([]orchestrator.Task, error) {
+
+func (*mockStore) ListTasks(_ context.Context, _ string) ([]orchestrator.Task, error) {
 	return nil, nil
 }
-func (m *mockStore) UpdateTaskStatus(ctx context.Context, taskID string, status orchestrator.TaskStatus) (orchestrator.Task, error) {
+
+func (*mockStore) UpdateTaskStatus(_ context.Context, _ string, _ orchestrator.TaskStatus) (orchestrator.Task, error) {
 	return orchestrator.Task{}, nil
 }
-func (m *mockStore) IncrementTaskAttempt(ctx context.Context, taskID string) (orchestrator.Task, error) {
+
+func (*mockStore) IncrementTaskAttempt(_ context.Context, _ string) (orchestrator.Task, error) {
 	return orchestrator.Task{}, nil
 }
-func (m *mockStore) ListDependencies(ctx context.Context, runID string) ([]orchestrator.TaskDependency, error) {
+
+func (*mockStore) ListDependencies(_ context.Context, _ string) ([]orchestrator.TaskDependency, error) {
 	return nil, nil
 }
-func (m *mockStore) CreateAttempt(ctx context.Context, attempt orchestrator.TaskAttempt) (orchestrator.TaskAttempt, error) {
+
+func (*mockStore) CreateAttempt(_ context.Context, attempt orchestrator.TaskAttempt) (orchestrator.TaskAttempt, error) {
 	return attempt, nil
 }
-func (m *mockStore) CompleteAttempt(ctx context.Context, attemptID string, status orchestrator.AttemptStatus, output map[string]any, errorMessage string, retryable bool) (orchestrator.TaskAttempt, error) {
+
+func (*mockStore) CompleteAttempt(_ context.Context, _ string, _ orchestrator.AttemptStatus, _ map[string]any, _ string, _ bool) (orchestrator.TaskAttempt, error) {
 	return orchestrator.TaskAttempt{}, nil
 }
-func (m *mockStore) ListAttempts(ctx context.Context, runID string) ([]orchestrator.TaskAttempt, error) {
+
+func (*mockStore) ListAttempts(_ context.Context, _ string) ([]orchestrator.TaskAttempt, error) {
 	return nil, nil
 }
-func (m *mockStore) AppendEvent(ctx context.Context, event orchestrator.RunEvent) (orchestrator.RunEvent, error) {
+
+func (m *mockStore) AppendEvent(_ context.Context, event orchestrator.RunEvent) (orchestrator.RunEvent, error) {
 	if m.Err != nil {
 		return orchestrator.RunEvent{}, m.Err
 	}
 	m.Events = append(m.Events, event)
 	return event, nil
 }
-func (m *mockStore) ListEvents(ctx context.Context, runID string, afterSeq int64, limit int32) ([]orchestrator.RunEvent, error) {
+
+func (*mockStore) ListEvents(_ context.Context, _ string, _ int64, _ int32) ([]orchestrator.RunEvent, error) {
 	return nil, nil
 }
 
@@ -84,7 +97,7 @@ func TestClaudeCodeProvider_Execute_Success(t *testing.T) {
 	// Create mock 'claude' binary in a temp directory.
 	tmpDir, err := os.MkdirTemp("", "mock-claude")
 	require.NoError(t, err)
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	mockBinPath := filepath.Join(tmpDir, "claude")
 	mockScript := `#!/bin/bash
@@ -93,13 +106,13 @@ echo '{"type":"assistant","message":{"content":[{"type":"text","text":"Claude co
 echo '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"WriteFile"}]}}'
 echo '{"type":"result"}'
 `
-	err = os.WriteFile(mockBinPath, []byte(mockScript), 0755)
+	err = os.WriteFile(mockBinPath, []byte(mockScript), 0o755) //nolint:gosec // intentional test executable
 	require.NoError(t, err)
 
 	// Prepend tmpDir to PATH.
 	oldPath := os.Getenv("PATH")
-	os.Setenv("PATH", tmpDir+string(os.PathListSeparator)+oldPath)
-	defer os.Setenv("PATH", oldPath)
+	_ = os.Setenv("PATH", tmpDir+string(os.PathListSeparator)+oldPath)
+	defer func() { _ = os.Setenv("PATH", oldPath) }()
 
 	store := &mockStore{}
 	resolver := &mockWorkspaceResolver{WorkDir: tmpDir}
@@ -140,20 +153,20 @@ func TestClaudeCodeProvider_Execute_ErrorHandling(t *testing.T) {
 	// Create mock 'claude' binary that exits with status 1 and prints an auth error.
 	tmpDir, err := os.MkdirTemp("", "mock-claude-err")
 	require.NoError(t, err)
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	mockBinPath := filepath.Join(tmpDir, "claude")
 	mockScript := `#!/bin/bash
 echo "Unauthorized authentication signature mismatch" >&2
 exit 1
 `
-	err = os.WriteFile(mockBinPath, []byte(mockScript), 0755)
+	err = os.WriteFile(mockBinPath, []byte(mockScript), 0o755) //nolint:gosec // intentional test executable
 	require.NoError(t, err)
 
 	// Prepend tmpDir to PATH.
 	oldPath := os.Getenv("PATH")
-	os.Setenv("PATH", tmpDir+string(os.PathListSeparator)+oldPath)
-	defer os.Setenv("PATH", oldPath)
+	_ = os.Setenv("PATH", tmpDir+string(os.PathListSeparator)+oldPath)
+	defer func() { _ = os.Setenv("PATH", oldPath) }()
 
 	store := &mockStore{}
 	resolver := &mockWorkspaceResolver{WorkDir: tmpDir}
@@ -167,7 +180,7 @@ exit 1
 	}
 
 	res, err := p.Execute(context.Background(), req)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.False(t, res.Retryable)
 	assert.ErrorIs(t, err, ErrAuthFailure)
 }

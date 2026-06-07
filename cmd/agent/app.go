@@ -243,6 +243,9 @@ func provideBridgeProvider(manage *workspace.Manager) bridge.Provider {
 	return manage
 }
 
+// provideToolApprovalService wires the tool-approval service with a host-access
+// resolver so granting a tool approval can auto-approve the bot's allowed host
+// paths (see workspace.NewBotHostAccessResolver).
 func provideToolApprovalService(log *slog.Logger, queries dbstore.Queries, settingsService *settings.Service) *toolapproval.Service {
 	return toolapproval.NewService(log, queries, settingsService, workspace.NewBotHostAccessResolver(queries))
 }
@@ -377,7 +380,7 @@ func injectToolProviders(a *agentpkg.Agent, msgService *message.DBService, provi
 
 func provideChatResolver(log *slog.Logger, a *agentpkg.Agent, modelsService *models.Service, queries dbstore.Queries, chatService *conversation.Service, msgService *message.DBService, settingsService *settings.Service, accountService *accounts.Service, mediaService *media.Service, containerdHandler *handlers.ContainerdHandler, memoryRegistry *memprovider.Registry, channelStore *channel.Store, routeService *route.DBService, sessionService *sessionpkg.Service, eventHub *event.Hub, compactionService *compaction.Service, pipeline *pipelinepkg.Pipeline, rc *boot.RuntimeConfig, bgManager *background.Manager, toolApproval *toolapproval.Service, wsManager *workspace.Manager) *flow.Resolver {
 	resolver := flow.NewResolver(log, modelsService, queries, chatService, msgService, settingsService, accountService, a, rc.TimezoneLocation, 120*time.Second)
-	resolver.SetBotRuntimes(buildCLIBotRuntimes(log, wsManager)...)
+	resolver.SetBotRuntimes(buildCLIBotRuntimes(log, queries, wsManager)...)
 	resolver.SetMemoryRegistry(memoryRegistry)
 	resolver.SetSkillLoader(&skillLoaderAdapter{handler: containerdHandler})
 	resolver.SetGatewayAssetLoader(&gatewayAssetLoaderAdapter{media: mediaService})
@@ -417,22 +420,31 @@ func provideChatResolver(log *slog.Logger, a *agentpkg.Agent, modelsService *mod
 // buildCLIBotRuntimes constructs the CLI-backed bot runtimes (claudecode,
 // codex). Provider config is sourced from environment defaults; the work dir is
 // resolved per-bot from the workspace manager.
-func buildCLIBotRuntimes(log *slog.Logger, wsManager *workspace.Manager) []botruntime.BotRuntime {
+func buildCLIBotRuntimes(log *slog.Logger, queries dbstore.Queries, _ *workspace.Manager) []botruntime.BotRuntime {
 	var cfgs agenthubproviders.ProviderConfigs
 	cfgs.FromEnvWithDefaults()
 
-	resolveWorkDir := botruntime.WorkDirResolverFunc(func(ctx context.Context, botID string) (string, error) {
-		if wsManager != nil && botID != "" {
-			if info, err := wsManager.WorkspaceInfo(ctx, botID); err == nil && info.DefaultWorkDir != "" {
-				return info.DefaultWorkDir, nil
-			}
+	resolveWorkDir := botruntime.WorkDirResolverFunc(func(_ context.Context, botID string) (string, error) {
+		dir := filepath.Join(os.TempDir(), "memoh_cli_bots", botID)
+		if err := os.MkdirAll(dir, 0o755); err != nil { //nolint:gosec // intentional: bot workspace dir needs exec for shell cmds
+			return "", err
 		}
-		return os.Getwd()
+		return dir, nil
+	})
+
+	resolveCreds := func(framework string) func(ctx context.Context) (providers.ModelCredentials, error) {
+		return func(ctx context.Context) (providers.ModelCredentials, error) {
+			return providers.ResolveCredentialsForFramework(ctx, queries, framework)
+		}
+	}
+
+	execFac := botruntime.ExecutorFactory(func(_ context.Context, _ string) (agenthubproviders.CommandExecutor, error) {
+		return agenthubproviders.NewHostExecutor(), nil
 	})
 
 	return []botruntime.BotRuntime{
-		botruntime.NewClaudeCodeRuntime(cfgs.ClaudeCode, resolveWorkDir, log),
-		botruntime.NewCodexRuntime(cfgs.Codex, resolveWorkDir, log),
+		botruntime.NewClaudeCodeRuntime(cfgs.ClaudeCode, resolveCreds(bots.FrameworkClaudeCode), resolveWorkDir, execFac, log),
+		botruntime.NewCodexRuntime(cfgs.Codex, resolveCreds(bots.FrameworkCodex), resolveWorkDir, execFac, log),
 	}
 }
 

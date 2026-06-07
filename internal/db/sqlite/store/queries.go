@@ -120,7 +120,7 @@ func (q *Queries) GetAgentHubRoom(ctx context.Context, arg pgsqlc.GetAgentHubRoo
 	return result, nil
 }
 
-func (q *Queries) ListAgentHubRoomAgentsByOwner(ctx context.Context, ownerUserID pgtype.UUID) ([]pgsqlc.ListAgentHubRoomAgentsByOwnerRow, error) {
+func (q *Queries) ListAgentHubRoomAgentsByOwner(ctx context.Context, ownerUserID pgtype.UUID) ([]pgsqlc.AgentHubRoomAgent, error) {
 	if q == nil || q.store == nil || q.store.queries == nil {
 		return nil, errSQLiteQueriesNotConfigured
 	}
@@ -132,7 +132,7 @@ func (q *Queries) ListAgentHubRoomAgentsByOwner(ctx context.Context, ownerUserID
 	if err != nil {
 		return nil, mapQueryErr(err)
 	}
-	var result []pgsqlc.ListAgentHubRoomAgentsByOwnerRow
+	var result []pgsqlc.AgentHubRoomAgent
 	if err := convertValue(out, &result); err != nil {
 		return nil, err
 	}

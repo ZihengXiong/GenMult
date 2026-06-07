@@ -21,6 +21,7 @@ type messageWithUsage struct {
 	ExternalMessageID string
 	Platform          string
 	SenderChannelID   string
+	SenderDisplayName string
 	CompactID         string
 }
 
@@ -49,6 +50,21 @@ func (r *Resolver) loadMessages(ctx context.Context, chatID string, sessionID st
 		} else {
 			mm.Role = m.Role
 		}
+		// Multi-agent rooms: messages from other agents/users all arrive as the
+		// "user" role. Prefix the sender's display name so the model can tell
+		// who said what. Applied only to plain-text user content (keeps image /
+		// multi-part messages intact) and only to this in-memory LLM context —
+		// the persisted row and the chat UI are unaffected.
+		if strings.EqualFold(strings.TrimSpace(m.Role), "user") {
+			if name := strings.TrimSpace(m.SenderDisplayName); name != "" {
+				var s string
+				if json.Unmarshal(mm.Content, &s) == nil && strings.TrimSpace(s) != "" {
+					if !strings.HasPrefix(s, "["+name+"]") {
+						mm.Content = conversation.NewTextContent("[" + name + "] " + s)
+					}
+				}
+			}
+		}
 		var inputTokens *int
 		var outputTokens *int
 		if len(m.Usage) > 0 {
@@ -66,6 +82,7 @@ func (r *Resolver) loadMessages(ctx context.Context, chatID string, sessionID st
 			ExternalMessageID: strings.TrimSpace(m.ExternalMessageID),
 			Platform:          strings.TrimSpace(m.Platform),
 			SenderChannelID:   strings.TrimSpace(m.SenderChannelIdentityID),
+			SenderDisplayName: strings.TrimSpace(m.SenderDisplayName),
 			CompactID:         strings.TrimSpace(m.CompactID),
 		})
 	}

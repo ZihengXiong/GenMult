@@ -58,11 +58,11 @@ description = "Generate icon Vue components from SVG sources"
 run = "pnpm --filter @memohai/icon generate"
 
 [tasks.dev]
-description = "Start development environment"
+description = "Start development environment (Defaulting to SQLite temporarily)"
 run = """
 #!/bin/bash
 set -e
-docker compose -f devenv/docker-compose.yml up --build
+docker compose -f devenv/docker-compose.sqlite.yml up --build
 """
 
 [tasks."dev:minify"]
@@ -73,12 +73,12 @@ set -e
 docker compose -f devenv/docker-compose.minify.yml up --build
 """
 
-[tasks."dev:sqlite"]
-description = "Start SQLite development environment"
+[tasks."dev:postgres"]
+description = "Start Postgres development environment (Original dev)"
 run = """
 #!/bin/bash
 set -e
-docker compose -f devenv/docker-compose.sqlite.yml up --build
+docker compose -f devenv/docker-compose.yml up --build
 """
 
 [tasks."dev:sqlite:minify"]

@@ -26,7 +26,8 @@ SELECT
   bots.display_enabled,
   bots.overlay_provider,
   bots.overlay_enabled,
-  bots.overlay_config
+  bots.overlay_config,
+  bots.provider_ext
 FROM bots
 LEFT JOIN models AS chat_models ON chat_models.id = bots.chat_model_id
 LEFT JOIN models AS heartbeat_models ON heartbeat_models.id = bots.heartbeat_model_id
@@ -67,6 +68,7 @@ SET language = sqlc.arg(language),
     overlay_provider = sqlc.arg(overlay_provider),
     overlay_enabled = sqlc.arg(overlay_enabled),
     overlay_config = sqlc.arg(overlay_config),
+    provider_ext = sqlc.arg(provider_ext),
     updated_at = CURRENT_TIMESTAMP
 WHERE id = sqlc.arg(id)
 RETURNING
@@ -96,7 +98,8 @@ RETURNING
   display_enabled,
   overlay_provider,
   overlay_enabled,
-  overlay_config;
+  overlay_config,
+  provider_ext;
 
 -- name: DeleteSettingsByBotID :exec
 UPDATE bots
@@ -125,5 +128,6 @@ SET language = 'auto',
     overlay_provider = '',
     overlay_enabled = false,
     overlay_config = '{}',
+    provider_ext = '{}',
     updated_at = CURRENT_TIMESTAMP
 WHERE id = sqlc.arg(id);

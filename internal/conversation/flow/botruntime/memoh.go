@@ -19,7 +19,7 @@ func NewMemohRuntime(agent *agentpkg.Agent) BotRuntime {
 	return memohRuntime{agent: agent}
 }
 
-func (m memohRuntime) Name() string { return bots.FrameworkMemoh }
+func (memohRuntime) Name() string { return bots.FrameworkMemoh }
 
 func (m memohRuntime) Stream(ctx context.Context, in RunInput) <-chan agentpkg.StreamEvent {
 	return m.agent.Stream(ctx, in.Config)
@@ -29,4 +29,4 @@ func (m memohRuntime) Generate(ctx context.Context, in RunInput) (*agentpkg.Gene
 	return m.agent.Generate(ctx, in.Config)
 }
 
-func (m memohRuntime) IdleTimeout() time.Duration { return 0 }
+func (memohRuntime) IdleTimeout() time.Duration { return 0 }

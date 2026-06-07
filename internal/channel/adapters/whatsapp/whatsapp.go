@@ -20,7 +20,7 @@ import (
 	"go.mau.fi/whatsmeow/types"
 	"go.mau.fi/whatsmeow/types/events"
 	"google.golang.org/protobuf/proto"
-	_ "modernc.org/sqlite"
+	_ "modernc.org/sqlite" // revive:disable-line:blank-imports required by sqlc tests and driver registration
 
 	"github.com/ZihengXiong/GenMult/internal/channel"
 	"github.com/ZihengXiong/GenMult/internal/config"
@@ -464,7 +464,7 @@ func messageContextInfo(msg *waE2E.Message) *waE2E.ContextInfo {
 	return nil
 }
 
-func (a *WhatsAppAdapter) openClient(ctx context.Context, cfg Config) (*sqlstore.Container, *whatsmeow.Client, error) {
+func (*WhatsAppAdapter) openClient(ctx context.Context, cfg Config) (*sqlstore.Container, *whatsmeow.Client, error) {
 	if err := os.MkdirAll(filepath.Dir(cfg.StorePath), 0o700); err != nil {
 		return nil, nil, err
 	}
@@ -550,7 +550,7 @@ func (a *WhatsAppAdapter) extractInboundAttachments(ctx context.Context, client 
 	case msg.GetImageMessage() != nil:
 		im := msg.GetImageMessage()
 		att := a.downloadAttachment(ctx, client, msg, channel.AttachmentImage,
-			im.GetMimetype(), "", im.GetCaption(), int64(im.GetFileLength()))
+			im.GetMimetype(), "", im.GetCaption(), int64(im.GetFileLength())) //nolint:gosec // file length fits safely in int64
 		att.Width = int(im.GetWidth())
 		att.Height = int(im.GetHeight())
 		return []channel.Attachment{channel.NormalizeInboundChannelAttachment(att)}
@@ -558,7 +558,7 @@ func (a *WhatsAppAdapter) extractInboundAttachments(ctx context.Context, client 
 	case msg.GetVideoMessage() != nil:
 		vm := msg.GetVideoMessage()
 		att := a.downloadAttachment(ctx, client, msg, channel.AttachmentVideo,
-			vm.GetMimetype(), "", vm.GetCaption(), int64(vm.GetFileLength()))
+			vm.GetMimetype(), "", vm.GetCaption(), int64(vm.GetFileLength())) //nolint:gosec // file length fits safely in int64
 		att.Width = int(vm.GetWidth())
 		att.Height = int(vm.GetHeight())
 		att.DurationMs = int64(vm.GetSeconds()) * 1000
@@ -571,20 +571,20 @@ func (a *WhatsAppAdapter) extractInboundAttachments(ctx context.Context, client 
 			attType = channel.AttachmentVoice
 		}
 		att := a.downloadAttachment(ctx, client, msg, attType,
-			am.GetMimetype(), "", "", int64(am.GetFileLength()))
+			am.GetMimetype(), "", "", int64(am.GetFileLength())) //nolint:gosec // file length fits safely in int64
 		att.DurationMs = int64(am.GetSeconds()) * 1000
 		return []channel.Attachment{channel.NormalizeInboundChannelAttachment(att)}
 
 	case msg.GetDocumentMessage() != nil:
 		dm := msg.GetDocumentMessage()
 		att := a.downloadAttachment(ctx, client, msg, channel.AttachmentFile,
-			dm.GetMimetype(), dm.GetFileName(), dm.GetCaption(), int64(dm.GetFileLength()))
+			dm.GetMimetype(), dm.GetFileName(), dm.GetCaption(), int64(dm.GetFileLength())) //nolint:gosec // file length fits safely in int64
 		return []channel.Attachment{channel.NormalizeInboundChannelAttachment(att)}
 
 	case msg.GetStickerMessage() != nil:
 		sm := msg.GetStickerMessage()
 		att := a.downloadAttachment(ctx, client, msg, channel.AttachmentImage,
-			sm.GetMimetype(), "", "", int64(sm.GetFileLength()))
+			sm.GetMimetype(), "", "", int64(sm.GetFileLength())) //nolint:gosec // file length fits safely in int64
 		return []channel.Attachment{channel.NormalizeInboundChannelAttachment(att)}
 	}
 
@@ -616,6 +616,7 @@ func (a *WhatsAppAdapter) downloadAttachment(
 		}
 		return att
 	}
+	//nolint:staticcheck // ignore SA1019: client.DownloadAny is deprecated
 	data, err := client.DownloadAny(ctx, msg)
 	if err != nil {
 		if a.logger != nil {
@@ -648,7 +649,7 @@ func encodeDataURL(mime string, data []byte) string {
 // Outbound media
 // ---------------------------------------------------------------------------
 
-func (a *WhatsAppAdapter) sendAttachment(
+func (*WhatsAppAdapter) sendAttachment(
 	ctx context.Context,
 	client *whatsmeow.Client,
 	jid types.JID,
@@ -762,7 +763,7 @@ func readPreparedAttachment(ctx context.Context, att channel.PreparedAttachment)
 	if err != nil {
 		return nil, err
 	}
-	defer rc.Close()
+	defer func() { _ = rc.Close() }()
 	var buf bytes.Buffer
 	if _, err := io.Copy(&buf, io.LimitReader(rc, maxInboundMediaSize+1)); err != nil {
 		return nil, err
@@ -804,7 +805,7 @@ func buildOutboundContextInfo(reply *channel.ReplyRef, chat types.JID) *waE2E.Co
 // ResolveAttachment satisfies channel.AttachmentResolver, returning an inline
 // reader for the (already-decrypted) inbound media that we cached on the
 // attachment as a data URL during ingestion.
-func (a *WhatsAppAdapter) ResolveAttachment(_ context.Context, _ channel.ChannelConfig, attachment channel.Attachment) (channel.AttachmentPayload, error) {
+func (*WhatsAppAdapter) ResolveAttachment(_ context.Context, _ channel.ChannelConfig, attachment channel.Attachment) (channel.AttachmentPayload, error) {
 	if strings.TrimSpace(attachment.Base64) == "" {
 		return channel.AttachmentPayload{}, errors.New("whatsapp attachment payload not available; download was skipped or failed")
 	}

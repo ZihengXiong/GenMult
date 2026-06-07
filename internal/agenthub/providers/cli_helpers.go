@@ -17,26 +17,51 @@ import (
 // process environment with the configured API key and optional base URL
 // set (replacing any existing values).
 func ClaudeEnv(cfg ClaudeCodeConfig) []string {
-	overrides := map[string]string{
-		"ANTHROPIC_API_KEY": cfg.APIKey,
+	var env []string
+	// Third-party Anthropic-compatible APIs (e.g. DeepSeek) use Bearer auth
+	// (ANTHROPIC_AUTH_TOKEN) rather than the Anthropic-specific x-api-key header
+	// (ANTHROPIC_API_KEY). Check both the explicit config and the environment
+	// variable, since the base URL may be injected via ANTHROPIC_BASE_URL without
+	// being set in the bot's claudecode config.
+	effectiveBaseURL := cfg.BaseURL
+	if effectiveBaseURL == "" {
+		effectiveBaseURL = os.Getenv("ANTHROPIC_BASE_URL")
 	}
-	if val := os.Getenv("ANTHROPIC_BASE_URL"); val != "" {
-		overrides["ANTHROPIC_BASE_URL"] = val
+	thirdParty := effectiveBaseURL != "" && !strings.Contains(effectiveBaseURL, "api.anthropic.com")
+	if cfg.AuthToken != "" {
+		env = append(env, "ANTHROPIC_AUTH_TOKEN="+cfg.AuthToken)
+		if thirdParty {
+			env = append(env, "ANTHROPIC_API_KEY=") // suppress x-api-key for third-party endpoints
+		}
+	} else if cfg.APIKey != "" {
+		if thirdParty {
+			env = append(env, "ANTHROPIC_AUTH_TOKEN="+cfg.APIKey)
+			env = append(env, "ANTHROPIC_API_KEY=") // suppress x-api-key for third-party endpoints
+		} else {
+			env = append(env, "ANTHROPIC_API_KEY="+cfg.APIKey)
+		}
 	}
-	return buildEnv(overrides)
+	if cfg.BaseURL != "" {
+		env = append(env, "ANTHROPIC_BASE_URL="+cfg.BaseURL)
+	} else if val := os.Getenv("ANTHROPIC_BASE_URL"); val != "" {
+		env = append(env, "ANTHROPIC_BASE_URL="+val)
+	}
+	for k, v := range cfg.CustomEnv {
+		if k != "" && v != "" {
+			env = append(env, k+"="+v)
+		}
+	}
+	return env
 }
 
-// ClaudeBuildArgs builds the Claude Code CLI arguments for a prompt.
-func ClaudeBuildArgs(cfg ClaudeCodeConfig, prompt string) []string {
-	args := []string{
-		"-p", prompt,
-		"--output-format", "stream-json",
-		"--verbose",
-	}
+// claudeCommonFlags builds the permission/turns/tools/model flags shared by the
+// text-prompt and stream-json invocations.
+func claudeCommonFlags(cfg ClaudeCodeConfig) []string {
+	var args []string
 	if cfg.PermissionMode != "" {
 		args = append(args, "--permission-mode", cfg.PermissionMode)
 	} else {
-		args = append(args, "--permission-mode", "auto-edit")
+		args = append(args, "--permission-mode", "auto")
 	}
 	if cfg.MaxTurns > 0 {
 		args = append(args, "--max-turns", strconv.Itoa(cfg.MaxTurns))
@@ -52,6 +77,37 @@ func ClaudeBuildArgs(cfg ClaudeCodeConfig, prompt string) []string {
 	return args
 }
 
+// ClaudeBuildArgs builds the Claude Code CLI arguments for a single text prompt
+// (used by the orchestrator task path).
+func ClaudeBuildArgs(cfg ClaudeCodeConfig, prompt string) []string {
+	args := []string{
+		"-p", prompt,
+		"--output-format", "stream-json",
+		"--verbose",
+	}
+	return append(args, claudeCommonFlags(cfg)...)
+}
+
+// ClaudeBuildArgsStreamJSON builds the arguments for the multi-turn chat path:
+// the current user turn is fed via stdin as a stream-json message, while prior
+// conversation history (and the bot system preamble) ride in appendSystem via
+// --append-system-prompt. This keeps exactly one user turn per invocation (the
+// CLI answers each stdin user message, so history must NOT be sent as user
+// turns) while still giving the model full context.
+func ClaudeBuildArgsStreamJSON(cfg ClaudeCodeConfig, appendSystem string) []string {
+	args := []string{
+		"-p",
+		"--input-format", "stream-json",
+		"--output-format", "stream-json",
+		"--verbose",
+	}
+	args = append(args, claudeCommonFlags(cfg)...)
+	if strings.TrimSpace(appendSystem) != "" {
+		args = append(args, "--append-system-prompt", appendSystem)
+	}
+	return args
+}
+
 // ClaudeParseEvent parses one NDJSON line emitted by the Claude Code CLI into a
 // provider-agnostic CLIEvent.
 func ClaudeParseEvent(line []byte) (CLIEvent, error) {
@@ -61,23 +117,76 @@ func ClaudeParseEvent(line []byte) (CLIEvent, error) {
 	}
 	switch ce.Type {
 	case "system":
-		return CLIEvent{Type: "init", Content: "initialized", Raw: line}, nil
-	case "assistant":
+		// Only emit init for the "init" subtype; skip noisy subtypes like
+		// "thinking_tokens" which are just token counters.
+		if ce.Subtype == "init" {
+			return CLIEvent{Type: "init", Content: "initialized", SessionID: ce.SessionID, Raw: line}, nil
+		}
+		// Silently skip other system subtypes (thinking_tokens, etc.)
+		return CLIEvent{Type: "system", Raw: line}, nil
+	case "user":
 		if ce.Message != nil {
-			var texts []string
-			var tools []string
+			var results []string
 			for _, block := range ce.Message.Content {
-				if block.Type == "text" {
-					texts = append(texts, block.Text)
-				} else if block.Type == "tool_use" {
-					tools = append(tools, block.Name)
+				if block.Type == "tool_result" {
+					var resultTxt string
+					if len(block.Content) > 0 {
+						if err := json.Unmarshal(block.Content, &resultTxt); err != nil {
+							resultTxt = string(block.Content)
+						}
+					}
+					results = append(results, resultTxt)
 				}
 			}
-			if len(tools) > 0 {
-				return CLIEvent{Type: "tool_use", Content: strings.Join(tools, ", "), Raw: line}, nil
+			if len(results) > 0 {
+				return CLIEvent{Type: "tool_result", Content: strings.Join(results, "\n\n"), Raw: line}, nil
 			}
-			if len(texts) > 0 {
-				return CLIEvent{Type: "text", Content: strings.Join(texts, ""), Raw: line}, nil
+		}
+	case "assistant":
+		if ce.Message != nil {
+			var thinkings []string
+			var texts []string
+			var tools []string
+			var firstInput any
+			for _, block := range ce.Message.Content {
+				switch block.Type {
+				case "thinking":
+					if block.Thinking != "" {
+						thinkings = append(thinkings, block.Thinking)
+					}
+				case "text":
+					texts = append(texts, block.Text)
+				case "tool_use":
+					tools = append(tools, block.Name)
+					if firstInput == nil {
+						firstInput = block.Input
+					}
+				}
+			}
+			// Prefer thinking content if present (Claude's internal reasoning).
+			// Fall back to text content (Claude's visible reply).
+			if len(thinkings) > 0 || len(texts) > 0 || len(tools) > 0 {
+				ev := CLIEvent{Raw: line}
+				switch {
+				case len(thinkings) > 0:
+					ev.Type = "thinking"
+					ev.Content = strings.Join(thinkings, "")
+					// Preserve visible text alongside thinking so the caller can emit both.
+					if len(texts) > 0 {
+						ev.TextContent = strings.Join(texts, "")
+					}
+				case len(texts) > 0:
+					ev.Type = "text"
+					ev.Content = strings.Join(texts, "")
+				default:
+					ev.Type = "tool_use"
+					ev.Content = strings.Join(tools, ", ")
+				}
+				if len(tools) > 0 {
+					ev.ToolName = strings.Join(tools, ", ")
+					ev.Payload = firstInput
+				}
+				return ev, nil
 			}
 		}
 		if ce.Content != nil {
@@ -92,7 +201,15 @@ func ClaudeParseEvent(line []byte) (CLIEvent, error) {
 		return CLIEvent{Type: "tool_result", Content: resultTxt, Raw: line}, nil
 	case "result":
 		var resultTxt string
-		_ = json.Unmarshal(ce.Content, &resultTxt)
+		if len(ce.Content) > 0 {
+			_ = json.Unmarshal(ce.Content, &resultTxt)
+		}
+		if resultTxt == "" && ce.Result != "" {
+			resultTxt = ce.Result
+		}
+		if ce.IsError {
+			return CLIEvent{Type: "error", Content: resultTxt, Raw: line}, nil
+		}
 		return CLIEvent{Type: "result", Content: resultTxt, Raw: line}, nil
 	}
 	return CLIEvent{Type: ce.Type, Raw: line}, nil
@@ -102,35 +219,16 @@ func ClaudeParseEvent(line []byte) (CLIEvent, error) {
 // environment with the configured API key and optional base URL
 // set (replacing any existing values).
 func CodexEnv(cfg CodexConfig) []string {
-	overrides := map[string]string{
-		"OPENAI_API_KEY": cfg.APIKey,
+	var env []string
+	if cfg.APIKey != "" {
+		env = append(env, "OPENAI_API_KEY="+cfg.APIKey)
 	}
-	if val := os.Getenv("OPENAI_BASE_URL"); val != "" {
-		overrides["OPENAI_BASE_URL"] = val
+	if cfg.BaseURL != "" {
+		env = append(env, "OPENAI_BASE_URL="+cfg.BaseURL)
+	} else if val := os.Getenv("OPENAI_BASE_URL"); val != "" {
+		env = append(env, "OPENAI_BASE_URL="+val)
 	}
-	return buildEnv(overrides)
-}
-
-// buildEnv returns os.Environ() with the given keys replaced (or appended).
-func buildEnv(overrides map[string]string) []string {
-	base := os.Environ()
-	out := make([]string, 0, len(base)+len(overrides))
-	seen := make(map[string]bool, len(overrides))
-	for _, entry := range base {
-		key, _, _ := strings.Cut(entry, "=")
-		if _, ok := overrides[key]; ok {
-			out = append(out, key+"="+overrides[key])
-			seen[key] = true
-		} else {
-			out = append(out, entry)
-		}
-	}
-	for key, val := range overrides {
-		if !seen[key] {
-			out = append(out, key+"="+val)
-		}
-	}
-	return out
+	return env
 }
 
 // CodexBuildArgs builds the Codex CLI arguments for a prompt.
@@ -138,6 +236,7 @@ func CodexBuildArgs(cfg CodexConfig, prompt string) []string {
 	args := []string{
 		"exec",
 		"--json",
+		"--skip-git-repo-check",
 	}
 	if cfg.Sandbox != "" {
 		args = append(args, "--sandbox", cfg.Sandbox)

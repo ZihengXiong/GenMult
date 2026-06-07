@@ -667,7 +667,7 @@ func (p *ContainerProvider) execExecWithFlip(
 	// Use a fully independent context (not derived from the agent request ctx)
 	// so the gRPC stream is never cancelled when the foreground session ends.
 	streamCtx, streamCancel := context.WithTimeout(context.WithoutCancel(ctx), time.Duration(background.BackgroundExecTimeout)*time.Second)
-	stream, err := client.ExecStream(streamCtx, command, workDir, background.BackgroundExecTimeout)
+	stream, err := client.ExecStream(streamCtx, command, workDir, background.BackgroundExecTimeout, nil)
 	if err != nil {
 		streamCancel()
 		return nil, err
@@ -761,7 +761,7 @@ func (p *ContainerProvider) execExecBackground(
 	command, workDir, description string,
 ) (any, error) {
 	streamCtx, streamCancel := context.WithTimeout(context.WithoutCancel(ctx), time.Duration(background.BackgroundExecTimeout)*time.Second)
-	stream, err := client.ExecStream(streamCtx, command, workDir, background.BackgroundExecTimeout)
+	stream, err := client.ExecStream(streamCtx, command, workDir, background.BackgroundExecTimeout, nil)
 	if err != nil {
 		streamCancel()
 		return nil, err
