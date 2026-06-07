@@ -76,6 +76,43 @@ func TestNormalizeProviderConfig(t *testing.T) {
 			t.Fatalf("expected api_key to remain untouched, got %#v", cfg["api_key"])
 		}
 	})
+
+	t.Run("openai codex keeps api key and account id", func(t *testing.T) {
+		t.Parallel()
+
+		cfg := normalizeProviderConfig("openai-codex", map[string]any{
+			"api_key":          "codex-key",
+			"codex_account_id": "acct_123",
+		})
+
+		if got, ok := cfg["api_key"].(string); !ok || got != "codex-key" {
+			t.Fatalf("expected api_key to remain untouched, got %#v", cfg["api_key"])
+		}
+		if got, ok := cfg["codex_account_id"].(string); !ok || got != "acct_123" {
+			t.Fatalf("expected codex_account_id to remain untouched, got %#v", cfg["codex_account_id"])
+		}
+	})
+}
+
+func TestResolveModelCredentialsOpenAICodexUsesConfigAPIKeyFallback(t *testing.T) {
+	t.Parallel()
+
+	service := &Service{}
+	provider := sqlc.Provider{
+		ClientType: string(models.ClientTypeOpenAICodex),
+		Config:     []byte(`{"api_key":"codex-config-key","codex_account_id":"acct_config"}`),
+	}
+
+	creds, err := service.ResolveModelCredentials(context.Background(), provider)
+	if err != nil {
+		t.Fatalf("expected config fallback to succeed, got %v", err)
+	}
+	if creds.APIKey != "codex-config-key" {
+		t.Fatalf("expected api key from config, got %q", creds.APIKey)
+	}
+	if creds.CodexAccountID != "acct_config" {
+		t.Fatalf("expected account id from config, got %q", creds.CodexAccountID)
+	}
 }
 
 func TestMaskConfigSecrets(t *testing.T) {
@@ -255,4 +292,51 @@ func TestFetchRemoteModelsFromAnthropicUsesAnthropicHeaders(t *testing.T) {
 	if remoteModels[0].Type != string(models.ModelTypeChat) {
 		t.Fatalf("expected Anthropic model type to import as chat, got %q", remoteModels[0].Type)
 	}
+}
+
+func TestNormalizeProviderProbeMessage(t *testing.T) {
+	t.Parallel()
+
+	t.Run("third party anthropic 404 is rewritten", func(t *testing.T) {
+		t.Parallel()
+
+		got := normalizeProviderProbeMessage(
+			models.ClientTypeAnthropicMessages,
+			"https://api.deepseek.com/anthropic",
+			"service error (404): ",
+			true,
+		)
+		want := "provider reachable; upstream Anthropic-compatible probe endpoint returned 404, but chat requests may still work"
+		if got != want {
+			t.Fatalf("normalizeProviderProbeMessage() = %q, want %q", got, want)
+		}
+	})
+
+	t.Run("official anthropic 404 is preserved", func(t *testing.T) {
+		t.Parallel()
+
+		got := normalizeProviderProbeMessage(
+			models.ClientTypeAnthropicMessages,
+			"https://api.anthropic.com",
+			"service error (404): ",
+			true,
+		)
+		if got != "service error (404):" {
+			t.Fatalf("expected official anthropic message to be preserved, got %q", got)
+		}
+	})
+
+	t.Run("unreachable result is preserved", func(t *testing.T) {
+		t.Parallel()
+
+		got := normalizeProviderProbeMessage(
+			models.ClientTypeAnthropicMessages,
+			"https://api.deepseek.com/anthropic",
+			"connection refused",
+			false,
+		)
+		if got != "connection refused" {
+			t.Fatalf("expected unreachable message to be preserved, got %q", got)
+		}
+	})
 }

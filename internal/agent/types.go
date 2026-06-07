@@ -63,7 +63,10 @@ type InjectMessage struct {
 // RunConfig holds everything needed for a single agent invocation.
 type RunConfig struct {
 	Model              *sdk.Model
+	ModelID            string
 	ReasoningEffort    string
+	ProviderAPIKey     string //nolint:gosec // resolved runtime credential material for framework-backed runtimes
+	ProviderBaseURL    string
 	Messages           []sdk.Message
 	Query              string
 	System             string

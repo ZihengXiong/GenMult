@@ -69,3 +69,39 @@ func TestGenerateSystemPromptClarifiesSpeakerOwnedAccounts(t *testing.T) {
 		}
 	}
 }
+
+func TestGenerateSystemPromptHidesToolListWhenToolCallsDisabled(t *testing.T) {
+	t.Parallel()
+
+	prompt := GenerateSystemPrompt(SystemPromptParams{
+		SessionType: "chat",
+		Now:         time.Unix(1, 0).UTC(),
+		Timezone:    "UTC",
+	})
+
+	if !strings.Contains(prompt, "No direct tools are available in this session.") {
+		t.Fatalf("expected disabled-tool guidance in prompt")
+	}
+	if strings.Contains(prompt, "- `exec`: execute command") {
+		t.Fatalf("did not expect exec tool listing when tool calls are disabled")
+	}
+}
+
+func TestGenerateSystemPromptIncludesToolListWhenToolCallsEnabled(t *testing.T) {
+	t.Parallel()
+
+	prompt := GenerateSystemPrompt(SystemPromptParams{
+		SessionType:        "chat",
+		Now:                time.Unix(1, 0).UTC(),
+		Timezone:           "UTC",
+		SupportsToolCall:   true,
+		SupportsImageInput: true,
+	})
+
+	if !strings.Contains(prompt, "- `exec`: execute command") {
+		t.Fatalf("expected exec tool listing when tool calls are enabled")
+	}
+	if !strings.Contains(prompt, "also supports images") {
+		t.Fatalf("expected read tool image hint when image input is enabled")
+	}
+}

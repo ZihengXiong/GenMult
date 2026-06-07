@@ -635,11 +635,14 @@ func (r *Resolver) buildBaseRunConfig(ctx context.Context, p baseRunConfigParams
 
 	cfg := agentpkg.RunConfig{
 		Model:              sdkModel,
+		ModelID:            chatModel.ModelID,
 		ReasoningEffort:    reasoningEffort,
+		ProviderAPIKey:     creds.APIKey,
+		ProviderBaseURL:    providers.ProviderConfigString(provider, "base_url"),
 		PromptCacheTTL:     providers.ProviderConfigString(provider, "prompt_cache_ttl"),
 		SessionType:        p.SessionType,
 		SupportsImageInput: chatModel.HasCompatibility(models.CompatVision),
-		SupportsToolCall:   chatModel.HasCompatibility(models.CompatToolCall),
+		SupportsToolCall:   supportsToolCallFallback(chatModel, provider),
 		Identity: agentpkg.SessionContext{
 			BotID:             p.BotID,
 			ChatID:            chatID,
@@ -662,6 +665,26 @@ func (r *Resolver) buildBaseRunConfig(ctx context.Context, p baseRunConfigParams
 	}
 
 	return cfg, chatModel, provider, nil
+}
+
+func supportsToolCallFallback(chatModel models.GetResponse, provider sqlc.Provider) bool {
+	if chatModel.HasCompatibility(models.CompatToolCall) {
+		return true
+	}
+	if len(chatModel.Config.Compatibilities) > 0 {
+		return false
+	}
+	switch models.ClientType(provider.ClientType) {
+	case models.ClientTypeOpenAICompletions,
+		models.ClientTypeOpenAIResponses,
+		models.ClientTypeAnthropicMessages,
+		models.ClientTypeGoogleGenerativeAI,
+		models.ClientTypeOpenAICodex,
+		models.ClientTypeGitHubCopilot:
+		return true
+	default:
+		return false
+	}
 }
 
 func (r *Resolver) buildToolApprovalHandler(p baseRunConfigParams) func(context.Context, sdk.ToolCall) (sdk.ToolApprovalResult, error) {
@@ -810,6 +833,7 @@ func (r *Resolver) prepareRunConfig(ctx context.Context, cfg agentpkg.RunConfig)
 		Now:                       now,
 		Timezone:                  cfg.Identity.Timezone,
 		SupportsImageInput:        supportsImageInput,
+		SupportsToolCall:          cfg.SupportsToolCall,
 		PlatformIdentitiesSection: platformIdentitiesSection,
 	})
 

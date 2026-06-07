@@ -40,6 +40,13 @@ func (s *Service) ResolveModelCredentials(ctx context.Context, provider sqlc.Pro
 		return ModelCredentials{APIKey: copilotToken}, nil
 
 	case models.ClientTypeOpenAICodex:
+		if apiKey := strings.TrimSpace(ProviderConfigString(provider, "api_key")); apiKey != "" {
+			return ModelCredentials{
+				APIKey:         apiKey,
+				CodexAccountID: strings.TrimSpace(ProviderConfigString(provider, "codex_account_id")),
+			}, nil
+		}
+
 		token, err := s.GetValidAccessToken(ctx, provider.ID.String())
 		if err != nil {
 			return ModelCredentials{}, err
