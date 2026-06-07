@@ -1383,7 +1383,7 @@ const claudeBridgeBot = computed(() =>
 )
 
 const memohAgents = computed<AgentItem[]>(() =>
-  rawMemohAgents.value.filter((agent) => agent.framework !== 'codex' && agent.framework !== 'claudecode'),
+  rawMemohAgents.value,
 )
 
 const agents = computed(() => {

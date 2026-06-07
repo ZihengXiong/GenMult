@@ -254,7 +254,7 @@
 
           <!-- Text block -->
           <div
-            v-else-if="item.block.type === 'text' && item.block.content"
+            v-else-if="item.block.type === 'text' && (item.block.content || isAssistantBlockStreaming(item.index))"
             class="prose prose-sm dark:prose-invert max-w-none *:first:mt-0"
           >
             <MarkdownRender
@@ -300,7 +300,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, toRef, useTemplateRef, watch } from 'vue'
+import { computed, useTemplateRef, watch } from 'vue'
 import { CircleAlert } from 'lucide-vue-next'
 import { formatRelativeTime, formatDateTime } from '@/utils/date-time'
 import { Avatar, AvatarImage, AvatarFallback } from '@memohai/ui'
@@ -352,11 +352,10 @@ const isVisible = useElementVisibility(messageEl, {
   threshold: 0.1
 })
 
-watch([isVisible, toRef(props, 'isScrolling')], () => { 
+watch([isVisible, () => props.isScrolling], () => { 
   emit('active', isVisible.value, { id: props.message.id, top: ((messageEl.value?.getBoundingClientRect().top ?? 0) - 48) })
 }, {
-  immediate: true,
-  deep:true
+  immediate: true
 })
 
 const isSelf = computed(() =>
