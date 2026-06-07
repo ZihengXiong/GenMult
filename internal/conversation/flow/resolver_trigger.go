@@ -361,13 +361,6 @@ func (r *Resolver) deliverBackgroundNotifications(ctx context.Context, botID, se
 						}
 					}
 				}
-
-				for _, uiMessage := range conversation.ConvertRawModelMessagesToUIAssistantMessages(event.Messages) {
-					r.publishBackgroundAgentStream(botID, sessionID, map[string]any{
-						"type": "message",
-						"data": uiMessage,
-					})
-				}
 			}
 			r.publishBackgroundAgentStream(botID, sessionID, map[string]any{"type": "end"})
 			continue
