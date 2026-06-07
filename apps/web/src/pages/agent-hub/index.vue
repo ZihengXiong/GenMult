@@ -395,6 +395,41 @@
                   {{ event.body }}
                 </p>
 
+                <!-- thinking: stored in metadata.thinking, not in body/history context -->
+                <details
+                  v-if="event.thinking"
+                  class="mt-2"
+                >
+                  <summary class="cursor-pointer select-none text-xs text-muted-foreground hover:text-foreground">
+                    查看思考过程
+                  </summary>
+                  <p class="mt-1 whitespace-pre-wrap text-xs leading-5 text-muted-foreground/70">
+                    {{ event.thinking }}
+                  </p>
+                </details>
+
+                <!-- tools: stored in metadata.tools, not in body/history context -->
+                <details
+                  v-if="event.tools?.length"
+                  class="mt-2"
+                >
+                  <summary class="cursor-pointer select-none text-xs text-muted-foreground hover:text-foreground">
+                    工具调用 ({{ event.tools.length }})
+                  </summary>
+                  <div class="mt-1 space-y-1">
+                    <details
+                      v-for="(tool, i) in event.tools"
+                      :key="i"
+                      class="rounded border border-border bg-muted/30 px-2 py-1"
+                    >
+                      <summary class="cursor-pointer select-none text-xs font-mono text-muted-foreground hover:text-foreground">
+                        {{ tool.name }}
+                      </summary>
+                      <pre class="mt-1 overflow-x-auto whitespace-pre-wrap text-[11px] leading-4 text-muted-foreground/70">Input: {{ JSON.stringify(tool.input, null, 2) }}{{ tool.output !== undefined ? `\nOutput: ${JSON.stringify(tool.output, null, 2)}` : '' }}</pre>
+                    </details>
+                  </div>
+                </details>
+
                 <div
                   v-if="event.actions?.length"
                   class="mt-3 flex flex-wrap gap-2"
@@ -690,7 +725,7 @@ import { getBotsQuery } from '@memohai/sdk/colada'
 import type { BotsBot } from '@memohai/sdk'
 import { client } from '@memohai/sdk/client'
 import { Button, Spinner } from '@memohai/ui'
-import { connectWebSocket, createSession, type UIMessage, type UIStreamEvent } from '@/composables/api/useChat'
+import { connectWebSocket, createSession, type UIMessage, type UIStreamEvent, type UIToolMessage } from '@/composables/api/useChat'
 import { visibleBots } from '@/utils/bots'
 import {
   AlertCircle,
@@ -740,6 +775,7 @@ interface RoomItem {
   statusClass: string
   agentIds: string[]
   orchestratorAgentId?: string
+  metadata?: Record<string, unknown>
 }
 
 interface AgentHubRoom {
@@ -756,6 +792,7 @@ interface AgentHubRoom {
   status_class: string
   agent_ids: string[]
   orchestrator_agent_id?: string
+  metadata?: Record<string, unknown>
 }
 
 interface AgentHubRoomList {
@@ -771,6 +808,7 @@ interface AgentHubMessage {
   kind: string
   title: string
   body: string
+  metadata?: Record<string, unknown>
   created_at: string
 }
 
@@ -799,12 +837,20 @@ interface AgentItem {
   botId?: string
 }
 
+interface StoredTool {
+  name: string
+  input: unknown
+  output?: unknown
+}
+
 interface TimelineEvent {
   id: string
   time: string
   kind: string
   title: string
   body: string
+  thinking?: string
+  tools?: StoredTool[]
   icon: Component
   tone: string
   actions?: string[]
@@ -1359,6 +1405,7 @@ function agentHubRoomToItem(room: AgentHubRoom): RoomItem {
     statusClass: room.status_class,
     agentIds: [...new Set(room.agent_ids)],
     orchestratorAgentId: room.orchestrator_agent_id || '',
+    metadata: room.metadata ?? {},
   }
 }
 
@@ -1376,6 +1423,7 @@ function roomItemToPayload(room: RoomItem) {
     status_class: room.statusClass,
     agent_ids: room.agentIds,
     orchestrator_agent_id: room.orchestratorAgentId || '',
+    metadata: room.metadata ?? {},
   }
 }
 
@@ -1401,12 +1449,21 @@ function isPersistedRoomId(value?: string) {
 
 function messageToTimelineEvent(message: AgentHubMessage): TimelineEvent {
   const icon = messageIcon(message)
+  const thinking = typeof message.metadata?.thinking === 'string' && message.metadata.thinking.trim()
+    ? message.metadata.thinking
+    : undefined
+  const rawTools = message.metadata?.tools
+  const tools = Array.isArray(rawTools) && rawTools.length > 0
+    ? (rawTools as StoredTool[])
+    : undefined
   return {
     id: message.id,
     time: formatMessageTime(message.created_at),
     kind: messageKindLabel(message.kind),
     title: message.title || message.sender_name || 'AgentHub',
     body: message.body,
+    thinking,
+    tools,
     icon,
     tone: messageTone(message),
   }
@@ -1657,14 +1714,47 @@ async function sendRoomMessage() {
     })
     composerText.value = ''
     await ensureMainAgentInSelectedRoom()
-    void requestMainAgentReply(room.id, room.name, body)
+    void requestMainAgentReply(room, body)
   }
   catch (error) {
     console.error('Failed to create AgentHub room message:', error)
   }
 }
 
-async function requestMainAgentReply(roomId: string, roomName: string, prompt: string) {
+// AgentHub rooms reuse one bot session per (room, agent) so the conversation
+// accumulates history across turns. The session id lives in the room's
+// metadata (persisted backend-side via UpsertRoom), keyed by agent id.
+function roomAgentSessions(room: RoomItem | undefined): Record<string, unknown> {
+  const map = room?.metadata?.agent_sessions
+  return map && typeof map === 'object' ? map as Record<string, unknown> : {}
+}
+
+function getAgentSessionId(room: RoomItem | undefined, agentId: string): string {
+  const value = roomAgentSessions(room)[agentId]
+  return typeof value === 'string' && value.trim() ? value.trim() : ''
+}
+
+async function persistAgentSessionId(room: RoomItem, agentId: string, sessionId: string) {
+  const nextMetadata: Record<string, unknown> = {
+    ...(room.metadata ?? {}),
+    agent_sessions: { ...roomAgentSessions(room), [agentId]: sessionId },
+  }
+  const nextRoom: RoomItem = { ...room, metadata: nextMetadata }
+  rooms.value = rooms.value.map((r) => r.id === room.id ? nextRoom : r)
+  if (isPersistedRoomId(room.id)) {
+    try {
+      await updateAgentHubRoom(nextRoom)
+    }
+    catch (error) {
+      // Non-fatal: the in-memory room still carries the session for this page
+      // session, so the current conversation stays multi-turn either way.
+      console.error('Failed to persist AgentHub agent session id:', error)
+    }
+  }
+}
+
+async function requestMainAgentReply(room: RoomItem, prompt: string) {
+  const roomId = room.id
   const agent = mainAgent.value
   if (!agent?.botId) {
     await createMessageMutation({
@@ -1682,7 +1772,7 @@ async function requestMainAgentReply(roomId: string, roomName: string, prompt: s
 
   isAgentReplying.value = true
   try {
-    const reply = await collectMainAgentReply(agent, roomName, prompt)
+    const { reply, thinking, tools } = await collectMainAgentReply(agent, room, prompt)
     await createMessageMutation({
       roomId,
       payload: {
@@ -1692,6 +1782,10 @@ async function requestMainAgentReply(roomId: string, roomName: string, prompt: s
         kind: 'reply',
         title: agent.name,
         body: reply || '我收到了，但这次没有生成可展示文本。',
+        metadata: {
+          ...(thinking ? { thinking } : {}),
+          ...(tools.length > 0 ? { tools } : {}),
+        } || undefined,
       },
     })
     queryCache.invalidateQueries({ key: ['agent-hub', 'messages', roomId] })
@@ -1715,19 +1809,29 @@ async function requestMainAgentReply(roomId: string, roomName: string, prompt: s
   }
 }
 
-async function collectMainAgentReply(agent: AgentItem, roomName: string, prompt: string) {
+async function collectMainAgentReply(agent: AgentItem, room: RoomItem, prompt: string): Promise<{ reply: string; thinking: string; tools: StoredTool[] }> {
   if (!agent.botId) throw new Error('主 Agent 没有关联的 bot')
 
-  const session = await createSession(agent.botId, `AgentHub · ${roomName}`)
+  // Reuse this room+agent's existing session so the bot keeps multi-turn
+  // memory; only mint (and persist) a new one the first time.
+  const existingSessionId = getAgentSessionId(room, agent.id)
+  let sessionId = existingSessionId
+  if (!sessionId) {
+    const session = await createSession(agent.botId, `AgentHub · ${room.name}`)
+    sessionId = session.id
+    await persistAgentSessionId(room, agent.id, sessionId)
+  }
   const textById = new Map<number, string>()
-  const requestText = [
-    `你是 AgentHub 房间「${roomName}」的主 Agent。`,
-    '请直接回复用户消息，语气保持自然，不要解释内部调度流程。',
-    '',
-    prompt,
-  ].join('\n')
+  const reasoningById = new Map<number, string>()
+  const toolsById = new Map<number, UIToolMessage>()
+  // On the first turn (new session), include the room preamble so the agent
+  // knows its role. On subsequent turns, send only the user's actual message
+  // so history stays clean and the model can recognize prior conversation.
+  const requestText = existingSessionId
+    ? prompt
+    : [`你是 AgentHub 房间「${room.name}」的主 Agent。`, '请直接回复用户消息，语气保持自然，不要解释内部调度流程。', '', prompt].join('\n')
 
-  return await new Promise<string>((resolve, reject) => {
+  return await new Promise<{ reply: string; thinking: string; tools: StoredTool[] }>((resolve, reject) => {
     let settled = false
     let ws: ReturnType<typeof connectWebSocket> | null = null
 
@@ -1744,12 +1848,16 @@ async function collectMainAgentReply(agent: AgentItem, roomName: string, prompt:
         reject(error)
         return
       }
-      resolve(renderCollectedReply(textById))
+      resolve({
+        reply: renderCollectedReply(textById),
+        thinking: renderCollectedReply(reasoningById),
+        tools: [...toolsById.values()].map(t => ({ name: t.name, input: t.input, output: t.output })),
+      })
     }
 
     ws = connectWebSocket(agent.botId!, (event: UIStreamEvent) => {
       if (event.type === 'message') {
-        collectUIMessageText(textById, event.data)
+        collectUIMessageBlocks(textById, reasoningById, toolsById, event.data)
         return
       }
       if (event.type === 'error') {
@@ -1760,13 +1868,22 @@ async function collectMainAgentReply(agent: AgentItem, roomName: string, prompt:
         finish()
       }
     })
-    ws.send({ type: 'message', text: requestText, session_id: session.id })
+    ws.send({ type: 'message', text: requestText, session_id: sessionId })
   })
 }
 
-function collectUIMessageText(textById: Map<number, string>, message: UIMessage) {
+function collectUIMessageBlocks(
+  textById: Map<number, string>,
+  reasoningById: Map<number, string>,
+  toolsById: Map<number, UIToolMessage>,
+  message: UIMessage,
+) {
   if (message.type === 'text' || message.type === 'error') {
     textById.set(message.id, message.content)
+  } else if (message.type === 'reasoning') {
+    reasoningById.set(message.id, message.content)
+  } else if (message.type === 'tool') {
+    toolsById.set(message.id, message)
   }
 }
 

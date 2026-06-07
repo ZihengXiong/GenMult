@@ -128,7 +128,20 @@
         placeholder="15"
       />
       <p class="text-xs text-muted-foreground">
-        Maximum number of conversation turns allowed per run.
+        Maximum number of agent iteration turns allowed per run (CLI --max-turns).
+      </p>
+    </div>
+
+    <div class="space-y-2">
+      <Label>Max Context Messages</Label>
+      <Input
+        v-model.number="config.max_context_messages"
+        type="number"
+        placeholder="15"
+      />
+      <p class="text-xs text-muted-foreground">
+        How many recent conversation messages (user/assistant) to replay as
+        context for multi-turn memory. Defaults to 15.
       </p>
     </div>
 

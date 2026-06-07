@@ -48,6 +48,11 @@ func (e *BridgeExecutor) Start(ctx context.Context, req ExecRequest) (ExecHandle
 
 	if req.Stdin != "" {
 		_ = stream.SendStdin([]byte(req.Stdin))
+		// Half-close the send direction so the remote process sees stdin EOF.
+		// Required by the stream-json input path (claude --input-format
+		// stream-json) which blocks until stdin closes. Recv() still works after
+		// CloseSend, so output streaming is unaffected.
+		_ = stream.Close()
 	}
 
 	chunksChan := make(chan ExecChunk, 100)

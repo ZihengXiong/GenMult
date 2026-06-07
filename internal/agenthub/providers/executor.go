@@ -3,6 +3,7 @@ package providers
 import (
 	"context"
 	"errors"
+	"io"
 	"os"
 	"os/exec"
 	"strings"
@@ -104,10 +105,21 @@ func (*HostExecutor) Start(ctx context.Context, req ExecRequest) (ExecHandle, er
 	}
 
 	if err := cmd.Start(); err != nil {
+		_ = stdinPipe.Close()
 		_ = stdout.Close()
 		_ = stderr.Close()
 		return nil, err
 	}
+
+	// Feed stdin (if any) and always close it so the child sees EOF. The
+	// stream-json input path (claude --input-format stream-json) blocks until
+	// stdin is closed; leaving the pipe open would hang the process.
+	go func() {
+		if req.Stdin != "" {
+			_, _ = io.WriteString(stdinPipe, req.Stdin)
+		}
+		_ = stdinPipe.Close()
+	}()
 
 	chunksChan := make(chan ExecChunk, 100)
 	handle := &hostExecHandle{

@@ -54,13 +54,10 @@ func ClaudeEnv(cfg ClaudeCodeConfig) []string {
 	return env
 }
 
-// ClaudeBuildArgs builds the Claude Code CLI arguments for a prompt.
-func ClaudeBuildArgs(cfg ClaudeCodeConfig, prompt string) []string {
-	args := []string{
-		"-p", prompt,
-		"--output-format", "stream-json",
-		"--verbose",
-	}
+// claudeCommonFlags builds the permission/turns/tools/model flags shared by the
+// text-prompt and stream-json invocations.
+func claudeCommonFlags(cfg ClaudeCodeConfig) []string {
+	var args []string
 	if cfg.PermissionMode != "" {
 		args = append(args, "--permission-mode", cfg.PermissionMode)
 	} else {
@@ -76,6 +73,37 @@ func ClaudeBuildArgs(cfg ClaudeCodeConfig, prompt string) []string {
 	}
 	if cfg.Model != "" {
 		args = append(args, "--model", cfg.Model)
+	}
+	return args
+}
+
+// ClaudeBuildArgs builds the Claude Code CLI arguments for a single text prompt
+// (used by the orchestrator task path).
+func ClaudeBuildArgs(cfg ClaudeCodeConfig, prompt string) []string {
+	args := []string{
+		"-p", prompt,
+		"--output-format", "stream-json",
+		"--verbose",
+	}
+	return append(args, claudeCommonFlags(cfg)...)
+}
+
+// ClaudeBuildArgsStreamJSON builds the arguments for the multi-turn chat path:
+// the current user turn is fed via stdin as a stream-json message, while prior
+// conversation history (and the bot system preamble) ride in appendSystem via
+// --append-system-prompt. This keeps exactly one user turn per invocation (the
+// CLI answers each stdin user message, so history must NOT be sent as user
+// turns) while still giving the model full context.
+func ClaudeBuildArgsStreamJSON(cfg ClaudeCodeConfig, appendSystem string) []string {
+	args := []string{
+		"-p",
+		"--input-format", "stream-json",
+		"--output-format", "stream-json",
+		"--verbose",
+	}
+	args = append(args, claudeCommonFlags(cfg)...)
+	if strings.TrimSpace(appendSystem) != "" {
+		args = append(args, "--append-system-prompt", appendSystem)
 	}
 	return args
 }

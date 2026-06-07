@@ -37,9 +37,13 @@ func (f WorkDirResolverFunc) ResolveWorkDir(ctx context.Context, botID string) (
 // arg/parse/env helpers, and emits agent.StreamEvent so the resolver's existing
 // persistence path works unchanged.
 type cliRuntime struct {
-	name         string
-	binaryName   string
-	buildArgs    func(in RunInput, prompt string) []string
+	name       string
+	binaryName string
+	buildArgs  func(in RunInput, prompt string) []string
+	// buildStdin, when set, supplies the subprocess stdin (the stream-json
+	// current-user message for claudecode). When nil, the turn is driven by a
+	// text prompt via promptFor (codex).
+	buildStdin   func(in RunInput) string
 	parseEvent   func(line []byte) (providers.CLIEvent, error)
 	buildEnv     func(in RunInput, creds globalproviders.ModelCredentials) []string
 	resolveCreds func(ctx context.Context) (globalproviders.ModelCredentials, error)
@@ -56,10 +60,11 @@ func NewClaudeCodeRuntime(cfg providers.ClaudeCodeConfig, resolveCreds func(ctx 
 	return &cliRuntime{
 		name:       bots.FrameworkClaudeCode,
 		binaryName: "claude",
-		buildArgs: func(in RunInput, prompt string) []string {
+		buildArgs: func(in RunInput, _ string) []string {
 			localCfg := mergeClaudeCodeConfig(cfg, in.Config.ProviderExt["claudecode"])
-			return providers.ClaudeBuildArgs(localCfg, prompt)
+			return providers.ClaudeBuildArgsStreamJSON(localCfg, claudeAppendSystem(in, localCfg))
 		},
+		buildStdin: claudeCurrentUserNDJSON,
 		parseEvent: providers.ClaudeParseEvent,
 		buildEnv: func(in RunInput, creds globalproviders.ModelCredentials) []string {
 			localCfg := mergeClaudeCodeConfig(cfg, in.Config.ProviderExt["claudecode"])
@@ -175,6 +180,109 @@ func extractMsgText(msg sdk.Message) string {
 	return strings.TrimSpace(sb.String())
 }
 
+// claudeCurrentTurn returns the current user turn text and the prior history for
+// the claudecode stream-json path. Non-pipeline turns carry the current message
+// in Config.Query (already headerified with the sender name) and Config.Messages
+// is pure history. Pipeline turns leave Query empty and the current message is
+// the last user entry in Config.Messages, which is then excluded from history.
+func claudeCurrentTurn(in RunInput) (current string, history []sdk.Message) {
+	msgs := in.Config.Messages
+	if q := strings.TrimSpace(in.Config.Query); q != "" {
+		return q, msgs
+	}
+	for i := len(msgs) - 1; i >= 0; i-- {
+		if msgs[i].Role == sdk.MessageRoleUser {
+			rest := make([]sdk.Message, 0, len(msgs)-1)
+			rest = append(rest, msgs[:i]...)
+			rest = append(rest, msgs[i+1:]...)
+			return extractMsgText(msgs[i]), rest
+		}
+	}
+	return "", msgs
+}
+
+// claudeAppendSystem builds the --append-system-prompt value: the bot system
+// preamble plus a transcript of recent conversation history (bounded by
+// MaxContextMessages). History rides here, not as stream-json user turns,
+// because the CLI answers every user message it reads from stdin.
+func claudeAppendSystem(in RunInput, cfg providers.ClaudeCodeConfig) string {
+	system := strings.TrimSpace(in.Config.System)
+	_, history := claudeCurrentTurn(in)
+	transcript := formatHistoryTranscript(history, cfg.MaxContextMessages)
+
+	var parts []string
+	if system != "" {
+		parts = append(parts, system)
+	}
+	if transcript != "" {
+		parts = append(parts, transcript)
+	}
+	return strings.Join(parts, "\n\n")
+}
+
+// formatHistoryTranscript renders the last maxMessages history turns as a plain
+// text transcript. User turns are written verbatim: the resolver has already
+// prefixed them with the sender's "[name] " (see loadMessages) so multiple
+// agents in a room stay distinguishable. Assistant turns are labeled
+// "Assistant". maxMessages <= 0 means no limit.
+func formatHistoryTranscript(msgs []sdk.Message, maxMessages int) string {
+	if len(msgs) == 0 {
+		return ""
+	}
+	if maxMessages > 0 && len(msgs) > maxMessages {
+		msgs = msgs[len(msgs)-maxMessages:]
+	}
+	var sb strings.Builder
+	sb.WriteString("--- Conversation History ---\n")
+	wrote := false
+	for _, msg := range msgs {
+		text := extractMsgText(msg)
+		if text == "" {
+			continue
+		}
+		switch msg.Role {
+		case sdk.MessageRoleUser:
+			// Text already carries the "[name] " sender prefix from loadMessages.
+			sb.WriteString(text)
+			sb.WriteByte('\n')
+		case sdk.MessageRoleAssistant:
+			sb.WriteString("Assistant: ")
+			sb.WriteString(text)
+			sb.WriteByte('\n')
+		default:
+			continue
+		}
+		wrote = true
+	}
+	if !wrote {
+		return ""
+	}
+	sb.WriteString("--- End of History ---")
+	return sb.String()
+}
+
+// claudeCurrentUserNDJSON builds the single stream-json user message (one line)
+// for the current turn, fed to the CLI via stdin.
+func claudeCurrentUserNDJSON(in RunInput) string {
+	current, _ := claudeCurrentTurn(in)
+	if strings.TrimSpace(current) == "" {
+		return ""
+	}
+	line, err := json.Marshal(map[string]any{
+		"type": "user",
+		"message": map[string]any{
+			"role": "user",
+			"content": []map[string]any{
+				{"type": "text", "text": current},
+			},
+		},
+	})
+	if err != nil {
+		return ""
+	}
+	return string(line) + "\n"
+}
+
 func (c *cliRuntime) Stream(ctx context.Context, in RunInput) <-chan agentpkg.StreamEvent {
 	out := make(chan agentpkg.StreamEvent)
 	go func() {
@@ -236,7 +344,10 @@ func (c *cliRuntime) Stream(ctx context.Context, in RunInput) <-chan agentpkg.St
 					})
 				}
 			case "result":
-				if ev.Content != "" {
+				// Codex: result carries the turn summary — send it.
+				// Claudecode stream-json: text was already fully delivered via
+				// snapshot "text" events above; sending result again duplicates.
+				if ev.Content != "" && c.buildStdin == nil {
 					send(agentpkg.StreamEvent{Type: agentpkg.EventTextDelta, Delta: ev.Content})
 				}
 			case "tool_use":
@@ -293,11 +404,29 @@ func (c *cliRuntime) run(ctx context.Context, in RunInput, onEvent func(provider
 		return "", err
 	}
 
+	// Stream-json path (claudecode): the current turn rides on stdin and the
+	// CLI prompt arg is empty. Text path (codex): the turn rides in promptFor.
+	prompt := ""
+	stdin := ""
+	if c.buildStdin != nil {
+		stdin = c.buildStdin(in)
+	} else {
+		prompt = promptFor(in)
+	}
+
+	if c.buildStdin != nil {
+		c.logger.Debug("claudecode stream-json turn",
+			slog.Int("history_messages", len(in.Config.Messages)),
+			slog.Int("stdin_bytes", len(stdin)),
+		)
+	}
+
 	runner := providers.NewCLIRunner(providers.CLIRunnerConfig{
 		BinaryName: c.binaryName,
-		BuildArgs:  func(prompt string) []string { return c.buildArgs(in, prompt) },
+		BuildArgs:  func(p string) []string { return c.buildArgs(in, p) },
 		ParseEvent: c.parseEvent,
 		OnEvent:    onEvent,
+		Stdin:      stdin,
 	}, c.logger)
 	var executor providers.CommandExecutor
 	if c.executor != nil {
@@ -306,7 +435,7 @@ func (c *cliRuntime) run(ctx context.Context, in RunInput, onEvent func(provider
 			return "", err
 		}
 	}
-	return runner.Run(ctx, promptFor(in), workDir, executor, c.buildEnv(in, creds))
+	return runner.Run(ctx, prompt, workDir, executor, c.buildEnv(in, creds))
 }
 
 func mergeClaudeCodeConfig(base providers.ClaudeCodeConfig, ext any) providers.ClaudeCodeConfig {
@@ -338,6 +467,9 @@ func mergeClaudeCodeConfig(base providers.ClaudeCodeConfig, ext any) providers.C
 	}
 	if overlay.MaxTurns > 0 {
 		base.MaxTurns = overlay.MaxTurns
+	}
+	if overlay.MaxContextMessages > 0 {
+		base.MaxContextMessages = overlay.MaxContextMessages
 	}
 	if len(overlay.AllowedTools) > 0 {
 		base.AllowedTools = overlay.AllowedTools

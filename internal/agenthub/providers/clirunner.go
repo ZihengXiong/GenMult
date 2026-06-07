@@ -17,6 +17,10 @@ type CLIRunnerConfig struct {
 	BuildArgs  func(prompt string) []string        // Provider-specific argument construction.
 	ParseEvent func(line []byte) (CLIEvent, error) // Provider-specific NDJSON parsing.
 	OnEvent    func(event CLIEvent)                // Optional: intermediate event callback.
+	// Stdin, when non-empty, is written to the subprocess's standard input.
+	// Used by the stream-json input path (claudecode multi-turn) to pass the
+	// current user turn as an NDJSON message. Empty for the text-prompt path.
+	Stdin string
 }
 
 // CLIEvent is a provider-agnostic intermediate event.
@@ -68,6 +72,7 @@ func (r *CLIRunner) Run(ctx context.Context, prompt string, workDir string, exec
 		Bin:     r.config.BinaryName,
 		Args:    args,
 		WorkDir: workDir,
+		Stdin:   r.config.Stdin,
 		Env:     env,
 		Timeout: 2 * time.Hour,
 	}
@@ -136,11 +141,12 @@ func (r *CLIRunner) Run(ctx context.Context, prompt string, workDir string, exec
 		slog.Any("args", args),
 		slog.Any("env", safeEnv),
 		slog.String("prompt", prompt),
+		slog.String("stdin", r.config.Stdin),
 	)
 
 	// 4. Stream processing loop with cross-chunk buffering.
 	for chunk := range handle.Chunks() {
-		r.logger.Debug("received chunk", slog.String("stream", chunk.Stream), slog.String("data", string(chunk.Data)))
+		// r.logger.Debug("received chunk", slog.String("stream", chunk.Stream), slog.String("data", string(chunk.Data)))
 		if chunk.Stream == "stderr" {
 			r.logger.Warn("subprocess stderr", slog.String("data", string(chunk.Data)))
 			stderrBuilder.Write(chunk.Data)
@@ -177,8 +183,11 @@ func (r *CLIRunner) Run(ctx context.Context, prompt string, workDir string, exec
 				r.config.OnEvent(event)
 			}
 
-			// Accumulate text or final result.
-			if event.Type == "text" || event.Type == "result" {
+			// Accumulate text for storage. For stream-json (claudecode, Stdin set),
+			// text events are snapshots that already carry the full content —
+			// skipping "result" avoids doubling the response in bot_history_messages.
+			// For codex, "result" carries the turn summary and must be kept.
+			if event.Type == "text" || (event.Type == "result" && r.config.Stdin == "") {
 				outputBuilder.WriteString(event.Content)
 			}
 		}

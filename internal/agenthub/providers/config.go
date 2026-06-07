@@ -15,6 +15,12 @@ type ClaudeCodeConfig struct {
 	Model          string            `toml:"model"`
 	CustomEnv      map[string]string `toml:"custom_env"`
 	AllowedTools   []string          `toml:"allowed_tools"`
+	// MaxContextMessages caps how many recent history messages (user/assistant
+	// mixed) are replayed into the prompt for multi-turn context. Distinct from
+	// MaxTurns (the CLI --max-turns agent-iteration cap). Defaults to 15.
+	// The json tag is required: per-bot overrides arrive as snake_case JSON via
+	// provider_ext.claudecode and are merged with encoding/json.
+	MaxContextMessages int `toml:"max_context_messages" json:"max_context_messages"`
 }
 
 type CodexConfig struct {
@@ -50,6 +56,9 @@ func (c *ProviderConfigs) FromEnvWithDefaults() {
 		if c.ClaudeCode.MaxTurns <= 0 {
 			c.ClaudeCode.MaxTurns = 15
 		}
+	}
+	if c.ClaudeCode.MaxContextMessages <= 0 {
+		c.ClaudeCode.MaxContextMessages = 15
 	}
 
 	if c.Codex.APIKey == "" {
