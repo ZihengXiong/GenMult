@@ -672,17 +672,26 @@ func normalizeOptionalTimezone(raw string) (pgtype.Text, error) {
 // model whose provider type matches the framework.
 //
 // NOTE(merge): this comes from main's "codex as a model backend" design and is
-// currently in tension with this branch's decoupled framework design, where
-// non-memoh bots do NOT select a provider/model — buildBaseRunConfig takes a
-// placeholder path and resolves credentials by framework via
-// ResolveCredentialsForFramework, ignoring any selected model. Under the
-// decoupled UI this validation can reject saves (no model selected) and has no
-// runtime effect. Kept as-is for the merge; revisit to either drop it or make
-// the runtime consume the selected model.
+// in tension with this branch's decoupled framework design, where non-memoh
+// bots do NOT select a provider/model — buildBaseRunConfig takes a placeholder
+// path and resolves credentials by framework via ResolveCredentialsForFramework,
+// ignoring any selected model. To let all three frameworks run under the
+// decoupled UI, we relaxed "must select a model" to "validate only if a model is
+// selected" (see the early `return nil` below). If a future change re-couples
+// frameworks to a selected model, revisit this and the placeholder path in
+// buildBaseRunConfig together.
+//
+// FIXME(merge): the one-line relaxation below is the likely culprit if model
+// validation ever misbehaves — start debugging here.
 func (s *Service) validateChatModelSelection(ctx context.Context, framework string, requested, existing pgtype.UUID) error {
 	selected := requested
 	if !selected.Valid {
 		selected = existing
+	}
+	// Decoupled frameworks (claudecode/codex) don't require a selected model;
+	// only validate provider-type match when a model was actually chosen.
+	if !selected.Valid {
+		return nil
 	}
 	switch strings.TrimSpace(framework) {
 	case bots.FrameworkClaudeCode:
