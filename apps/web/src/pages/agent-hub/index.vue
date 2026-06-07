@@ -229,62 +229,82 @@
 
         <template v-else-if="activeActivity === 'tasks'">
           <div class="space-y-2">
-            <article
-              v-for="task in tasks"
-              :key="task.id"
-              class="rounded-md border border-border bg-background p-2.5"
-            >
-              <div class="flex items-start justify-between gap-2">
-                <div class="min-w-0">
-                  <p class="truncate text-xs font-semibold">
-                    {{ task.title }}
-                  </p>
-                  <p class="mt-1 truncate text-[11px] text-muted-foreground">
-                    {{ task.owner }} · {{ task.agent }}
-                  </p>
+            <template v-if="tasks.length">
+              <article
+                v-for="task in tasks"
+                :key="task.id"
+                class="rounded-md border border-border bg-background p-2.5"
+              >
+                <div class="flex items-start justify-between gap-2">
+                  <div class="min-w-0">
+                    <p class="truncate text-xs font-semibold">
+                      {{ task.title }}
+                    </p>
+                    <p class="mt-1 truncate text-[11px] text-muted-foreground">
+                      {{ task.owner }} · {{ task.agent }}
+                    </p>
+                  </div>
+                  <span
+                    class="shrink-0 rounded-sm px-1.5 py-0.5 text-[10px] font-medium"
+                    :class="taskBadgeClass(task.status)"
+                  >
+                    {{ task.status }}
+                  </span>
                 </div>
-                <span
-                  class="shrink-0 rounded-sm px-1.5 py-0.5 text-[10px] font-medium"
-                  :class="taskBadgeClass(task.status)"
-                >
-                  {{ task.status }}
-                </span>
-              </div>
-              <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
-                <div
-                  class="h-full rounded-full"
-                  :class="task.progressClass"
-                  :style="{ width: `${task.progress}%` }"
-                />
-              </div>
+                <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
+                  <div
+                    class="h-full rounded-full"
+                    :class="task.progressClass"
+                    :style="{ width: `${task.progress}%` }"
+                  />
+                </div>
+              </article>
+            </template>
+
+            <article
+              v-else
+              class="rounded-md border border-dashed border-border bg-background/70 p-3"
+            >
+              <p class="text-xs font-semibold">
+                暂无编排任务
+              </p>
+              <p class="mt-1 text-[11px] leading-5 text-muted-foreground">
+                {{ selectedRoomRun?.run.objective
+                  ? `最近一次运行「${selectedRoomRun.run.objective}」没有可展示任务。`
+                  : '当前房间还没有 orchestrator run，任务面板会在接入真实编排后展示。' }}
+              </p>
             </article>
           </div>
         </template>
 
         <template v-else>
           <div class="space-y-2">
-            <RouterLink
-              v-for="entry in libraryCards"
-              :key="entry.title"
-              :to="entry.to"
-              class="block rounded-md border border-border bg-background p-3 transition-colors hover:bg-accent"
+            <button
+              type="button"
+              class="flex w-full items-center gap-2 rounded-md border border-border bg-background p-3 text-left transition-colors hover:bg-accent"
+              @click="selectSpecialTab('skills')"
             >
-              <div class="flex items-center gap-2">
-                <span
-                  class="flex size-8 items-center justify-center rounded-md border"
-                  :class="entry.tone"
-                >
-                  <component
-                    :is="entry.icon"
-                    class="size-4"
-                  />
-                </span>
-                <span class="min-w-0">
-                  <span class="block truncate text-xs font-semibold">{{ entry.title }}</span>
-                  <span class="block truncate text-[11px] text-muted-foreground">{{ entry.caption }}</span>
-                </span>
-              </div>
-            </RouterLink>
+              <span class="flex size-8 items-center justify-center rounded-md border border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300">
+                <Zap class="size-4" />
+              </span>
+              <span class="min-w-0">
+                <span class="block truncate text-xs font-semibold">Skills 库</span>
+                <span class="block truncate text-[11px] text-muted-foreground">会议纪要、制表、审查、发布检查</span>
+              </span>
+            </button>
+            <button
+              type="button"
+              class="flex w-full items-center gap-2 rounded-md border border-border bg-background p-3 text-left transition-colors hover:bg-accent"
+              @click="selectSpecialTab('mcp')"
+            >
+              <span class="flex size-8 items-center justify-center rounded-md border border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-300">
+                <Plug class="size-4" />
+              </span>
+              <span class="min-w-0">
+                <span class="block truncate text-xs font-semibold">MCP 库</span>
+                <span class="block truncate text-[11px] text-muted-foreground">GitHub、文档、搜索和内部系统</span>
+              </span>
+            </button>
           </div>
         </template>
       </div>
@@ -298,10 +318,10 @@
             :key="room.id"
             type="button"
             class="flex h-8 max-w-[190px] shrink-0 items-center gap-2 rounded-md border px-2.5 text-xs transition-colors"
-            :class="selectedRoomId === room.id
+            :class="activeMainPanel === 'room' && selectedRoomId === room.id
               ? 'border-border bg-background text-foreground shadow-sm'
               : 'border-transparent text-muted-foreground hover:bg-background hover:text-foreground'"
-            @click="selectedRoomId = room.id"
+            @click="selectRoomTab(room.id)"
           >
             <span
               class="size-1.5 rounded-full"
@@ -309,8 +329,44 @@
             />
             <span class="truncate">{{ room.name }}</span>
             <X
-              v-if="selectedRoomId === room.id"
+              v-if="activeMainPanel === 'room' && selectedRoomId === room.id"
               class="size-3 text-muted-foreground"
+            />
+          </button>
+
+          <button
+            v-if="openSpecialTabs.has('skills')"
+            type="button"
+            class="flex h-8 max-w-[190px] shrink-0 items-center gap-2 rounded-md border px-2.5 text-xs transition-colors"
+            :class="activeMainPanel === 'skills'
+              ? 'border-border bg-background text-foreground shadow-sm'
+              : 'border-transparent text-muted-foreground hover:bg-background hover:text-foreground'"
+            @click="selectSpecialTab('skills')"
+          >
+            <Zap class="size-3 text-amber-500" />
+            <span class="truncate">Skills 库</span>
+            <X
+              v-if="activeMainPanel === 'skills'"
+              class="size-3 text-muted-foreground"
+              @click.stop="closeSpecialTab('skills')"
+            />
+          </button>
+
+          <button
+            v-if="openSpecialTabs.has('mcp')"
+            type="button"
+            class="flex h-8 max-w-[190px] shrink-0 items-center gap-2 rounded-md border px-2.5 text-xs transition-colors"
+            :class="activeMainPanel === 'mcp'
+              ? 'border-border bg-background text-foreground shadow-sm'
+              : 'border-transparent text-muted-foreground hover:bg-background hover:text-foreground'"
+            @click="selectSpecialTab('mcp')"
+          >
+            <Plug class="size-3 text-blue-500" />
+            <span class="truncate">MCP 库</span>
+            <X
+              v-if="activeMainPanel === 'mcp'"
+              class="size-3 text-muted-foreground"
+              @click.stop="closeSpecialTab('mcp')"
             />
           </button>
         </div>
@@ -336,7 +392,11 @@
       </header>
 
       <div class="min-h-0 flex-1 overflow-y-auto">
-        <div class="mx-auto flex min-h-full w-full max-w-4xl flex-col px-6 py-5">
+        <!-- Room content -->
+        <div
+          v-if="activeMainPanel === 'room'"
+          class="mx-auto flex min-h-full w-full max-w-4xl flex-col px-6 py-5"
+        >
           <section class="mb-5 rounded-md border border-border bg-card p-4 shadow-sm">
             <div class="flex items-start justify-between gap-4">
               <div class="min-w-0">
@@ -358,10 +418,11 @@
               <Button
                 size="sm"
                 class="h-8 shrink-0 gap-1.5 text-xs"
-                :disabled="selectedRoomAgents.length === 0"
+                :disabled="selectedRoomAgents.length === 0 || isStartingRun"
+                @click="startSelectedRoomRun"
               >
                 <MessageSquarePlus class="size-3.5" />
-                发起任务
+                {{ isStartingRun ? '发起中...' : '发起任务' }}
               </Button>
             </div>
           </section>
@@ -469,6 +530,7 @@
                   :key="chip"
                   type="button"
                   class="rounded-sm border border-border bg-background px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                  @click="insertChip(chip)"
                 >
                   {{ chip }}
                 </button>
@@ -496,6 +558,108 @@
               </div>
             </div>
           </section>
+        </div>
+
+        <!-- Skills panel -->
+        <div
+          v-else-if="activeMainPanel === 'skills'"
+          class="mx-auto w-full max-w-5xl px-6 py-5"
+        >
+          <div class="mb-5 flex items-center justify-between">
+            <div>
+              <h2 class="text-base font-semibold">
+                Skills 库
+              </h2>
+              <p class="mt-1 text-sm text-muted-foreground">
+                浏览和安装可用的 Skills
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              class="gap-1.5"
+              @click="loadSupermarketSkills"
+            >
+              <RefreshCw class="size-3.5" />
+              刷新
+            </Button>
+          </div>
+
+          <div
+            v-if="skillsLoading"
+            class="flex items-center justify-center py-16 text-sm text-muted-foreground"
+          >
+            <Spinner class="mr-2" />
+            加载中…
+          </div>
+          <div
+            v-else-if="!supermarketSkills.length"
+            class="py-16 text-center text-sm text-muted-foreground"
+          >
+            暂无 Skills
+          </div>
+          <div
+            v-else
+            class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3"
+          >
+            <SkillCard
+              v-for="skill in supermarketSkills"
+              :key="skill.id"
+              :skill="skill"
+              @install="openSkillInstall"
+            />
+          </div>
+        </div>
+
+        <!-- MCP panel -->
+        <div
+          v-else-if="activeMainPanel === 'mcp'"
+          class="mx-auto w-full max-w-5xl px-6 py-5"
+        >
+          <div class="mb-5 flex items-center justify-between">
+            <div>
+              <h2 class="text-base font-semibold">
+                MCP 库
+              </h2>
+              <p class="mt-1 text-sm text-muted-foreground">
+                浏览和安装可用的 MCP 服务
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              class="gap-1.5"
+              @click="loadSupermarketMcps"
+            >
+              <RefreshCw class="size-3.5" />
+              刷新
+            </Button>
+          </div>
+
+          <div
+            v-if="mcpLoading"
+            class="flex items-center justify-center py-16 text-sm text-muted-foreground"
+          >
+            <Spinner class="mr-2" />
+            加载中…
+          </div>
+          <div
+            v-else-if="!supermarketMcps.length"
+            class="py-16 text-center text-sm text-muted-foreground"
+          >
+            暂无 MCP
+          </div>
+          <div
+            v-else
+            class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3"
+          >
+            <McpCard
+              v-for="mcp in supermarketMcps"
+              :key="mcp.id"
+              :mcp="mcp"
+              @install="openMcpInstall"
+            />
+          </div>
         </div>
       </div>
     </section>
@@ -560,7 +724,35 @@
             {{ isSelectedAgentInRoom ? '移出群' : '加入群' }}
           </Button>
         </div>
+
+        <Button
+          v-if="selectedAgent?.botId"
+          variant="outline"
+          size="sm"
+          class="mt-2 h-8 w-full justify-start gap-1.5 text-xs"
+          @click="hostAccessDialogOpen = true"
+        >
+          <FolderOpen class="size-3.5" />
+          挂载与本地访问
+        </Button>
       </section>
+
+      <Dialog v-model:open="hostAccessDialogOpen">
+        <DialogContent class="sm:max-w-4xl max-h-[calc(100dvh-2rem)] overflow-hidden p-0">
+          <DialogHeader class="border-b border-border px-6 py-4">
+            <DialogTitle>挂载与本地访问</DialogTitle>
+            <DialogDescription>
+              为 {{ selectedAgent?.name || '当前 Agent' }} 配置可信根目录和额外白名单路径。
+            </DialogDescription>
+          </DialogHeader>
+          <div class="max-h-[calc(100dvh-9rem)] overflow-y-auto px-6 py-4">
+            <BotHostAccess
+              v-if="selectedAgent?.botId"
+              :bot-id="selectedAgent.botId"
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <section class="min-h-0 flex-1 overflow-y-auto p-4">
         <div class="mb-5 rounded-md border border-border bg-card p-3">
@@ -695,25 +887,43 @@
             <p class="text-xs font-semibold">
               当前队列
             </p>
-            <span class="text-[11px] text-muted-foreground">并行 2 / 排队 1</span>
+            <span class="text-[11px] text-muted-foreground">执行 {{ runningTaskCount }} / 排队 {{ queuedTaskCount }}</span>
           </div>
           <div class="space-y-2">
-            <div
-              v-for="task in tasks.slice(0, 3)"
-              :key="`side-${task.id}`"
-              class="flex items-center gap-2"
+            <template v-if="tasks.length">
+              <div
+                v-for="task in tasks.slice(0, 3)"
+                :key="`side-${task.id}`"
+                class="flex items-center gap-2"
+              >
+                <span
+                  class="size-1.5 rounded-full"
+                  :class="task.progressClass"
+                />
+                <span class="min-w-0 flex-1 truncate text-xs">{{ task.title }}</span>
+                <span class="text-[11px] text-muted-foreground">{{ task.progress }}%</span>
+              </div>
+            </template>
+            <p
+              v-else
+              class="text-[11px] leading-5 text-muted-foreground"
             >
-              <span
-                class="size-1.5 rounded-full"
-                :class="task.progressClass"
-              />
-              <span class="min-w-0 flex-1 truncate text-xs">{{ task.title }}</span>
-              <span class="text-[11px] text-muted-foreground">{{ task.progress }}%</span>
-            </div>
+              该房间暂无执行队列。
+            </p>
           </div>
         </div>
       </section>
     </aside>
+
+    <InstallSkillDialog
+      v-model:open="skillDialogOpen"
+      :skill="selectedSkill"
+      @installed="loadSupermarketSkills"
+    />
+    <InstallMcpDialog
+      v-model:open="mcpDialogOpen"
+      :mcp="selectedMcp"
+    />
   </main>
 </template>
 
@@ -723,10 +933,33 @@ import { RouterLink, useRouter } from 'vue-router'
 import { useMutation, useQuery, useQueryCache } from '@pinia/colada'
 import { getBotsQuery } from '@memohai/sdk/colada'
 import type { BotsBot } from '@memohai/sdk'
+import {
+  getSupermarketSkills,
+  getSupermarketMcps,
+  type HandlersSupermarketMcpEntry,
+  type HandlersSupermarketSkillEntry,
+} from '@memohai/sdk'
 import { client } from '@memohai/sdk/client'
-import { Button, Spinner } from '@memohai/ui'
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  Spinner,
+} from '@memohai/ui'
+import { toast } from 'vue-sonner'
+import { resolveApiErrorMessage } from '@/utils/api-error'
+import SkillCard from '@/pages/supermarket/components/skill-card.vue'
+import McpCard from '@/pages/supermarket/components/mcp-card.vue'
+import InstallSkillDialog from '@/pages/supermarket/components/install-skill-dialog.vue'
+import InstallMcpDialog from '@/pages/supermarket/components/install-mcp-dialog.vue'
 import { connectWebSocket, createSession, type UIMessage, type UIStreamEvent, type UIToolMessage } from '@/composables/api/useChat'
+import { useChatSelectionStore } from '@/store/chat-selection'
+import { useWorkspaceTabsStore } from '@/store/workspace-tabs'
 import { visibleBots } from '@/utils/bots'
+import BotHostAccess from '@/pages/bots/components/bot-host-access.vue'
 import {
   AlertCircle,
   AtSign,
@@ -747,7 +980,6 @@ import {
   SendHorizontal,
   Settings,
   ShieldCheck,
-  Sparkles,
   SquarePen,
   TerminalSquare,
   UserPlus,
@@ -757,6 +989,7 @@ import {
   Wrench,
   X,
   Crown,
+  Zap,
 } from 'lucide-vue-next'
 
 type ActivityId = 'rooms' | 'agents' | 'tasks' | 'skills' | 'mcp'
@@ -816,6 +1049,37 @@ interface AgentHubMessageList {
   items: AgentHubMessage[]
 }
 
+interface AgentHubRun {
+  id: string
+  room_id: string
+  objective: string
+  status: string
+  created_at: string
+  updated_at: string
+}
+
+interface AgentHubRunTask {
+  id: string
+  title: string
+  description: string
+  assigned_agent_id: string
+  provider_name: string
+  status: string
+  attempt_count: number
+}
+
+interface AgentHubRunSnapshot {
+  run: AgentHubRun
+  tasks: AgentHubRunTask[]
+}
+
+interface CreateAgentHubRunPayload {
+  objective: string
+  trigger_message_id?: string
+  created_by?: string
+  auto_dispatch?: boolean
+}
+
 interface CreateAgentHubMessagePayload {
   sender_id?: string
   sender_type?: string
@@ -835,6 +1099,7 @@ interface AgentItem {
   tone: string
   capabilities: string[]
   botId?: string
+  framework?: string
 }
 
 interface StoredTool {
@@ -865,10 +1130,25 @@ interface ConnectorItem {
   tone: string
 }
 
+interface TaskPanelItem {
+  id: string
+  title: string
+  owner: string
+  agent: string
+  status: string
+  progress: number
+  progressClass: string
+}
+
 const router = useRouter()
+const chatSelectionStore = useChatSelectionStore()
+const workspaceTabsStore = useWorkspaceTabsStore()
 const activeActivity = ref<ActivityId>('rooms')
+const activeMainPanel = ref<'room' | 'skills' | 'mcp'>('room')
+const openSpecialTabs = ref(new Set<'skills' | 'mcp'>())
 const selectedRoomId = ref('payment')
 const selectedAgentId = ref('orchestrator')
+const hostAccessDialogOpen = ref(false)
 const searchQuery = ref('')
 const isCreatingRoom = ref(false)
 const newRoomName = ref('')
@@ -1014,6 +1294,7 @@ const hasMigratedRooms = ref(
 )
 const isMigratingRooms = ref(false)
 const isAgentReplying = ref(false)
+const isStartingRun = ref(false)
 const joiningMainAgentKey = ref('')
 const queryCache = useQueryCache()
 
@@ -1069,7 +1350,7 @@ watch(
   { immediate: true },
 )
 
-const memohAgents = computed<AgentItem[]>(() =>
+const rawMemohAgents = computed<AgentItem[]>(() =>
   visibleBots(botData.value?.items ?? [])
     .map((bot: BotsBot) => {
       const name = bot.display_name || 'Memoh Bot'
@@ -1088,11 +1369,52 @@ const memohAgents = computed<AgentItem[]>(() =>
           : 'border-slate-500/30 bg-slate-500/10 text-slate-700 dark:text-slate-300',
         capabilities: ['本地聊天', '容器工具', '长期记忆'],
         botId: bot.id,
+        framework: bot.framework,
       }
     }),
 )
 
-const agents = computed(() => [...baseAgents, ...memohAgents.value])
+const codexBridgeBot = computed(() =>
+  rawMemohAgents.value.find((agent) => agent.framework === 'codex') ?? null,
+)
+
+const claudeBridgeBot = computed(() =>
+  rawMemohAgents.value.find((agent) => agent.framework === 'claudecode') ?? null,
+)
+
+const memohAgents = computed<AgentItem[]>(() =>
+  rawMemohAgents.value.filter((agent) => agent.framework !== 'codex' && agent.framework !== 'claudecode'),
+)
+
+const agents = computed(() => {
+  const codexBot = codexBridgeBot.value
+  const claudeBot = claudeBridgeBot.value
+  const bridgedBaseAgents = baseAgents.map((agent) => {
+    if (agent.id === 'codex' && codexBot) {
+      return {
+        ...agent,
+        status: codexBot.status,
+        kind: 'CLI Agent · Memoh Bridge',
+        botId: codexBot.botId,
+        capabilities: [...agent.capabilities, '单聊复用'],
+      }
+    }
+    if (agent.id === 'claude-code' && claudeBot) {
+      return {
+        ...agent,
+        status: claudeBot.status,
+        kind: 'CLI Agent · Memoh Bridge',
+        botId: claudeBot.botId,
+        capabilities: [...agent.capabilities, '单聊复用'],
+      }
+    }
+    return agent
+  })
+  return [...bridgedBaseAgents, ...memohAgents.value]
+})
+
+// Orchestrator selection (ours) layered onto the bridge agents (theirs): prefer
+// the room's chosen orchestrator agent, then the peppa/main agent, then first.
 const mainAgent = computed(() => {
   const room = selectedRoom.value
   if (room && room.orchestratorAgentId) {
@@ -1114,6 +1436,12 @@ const canSendRoomMessage = computed(() =>
 const { data: messageData } = useQuery({
   key: () => ['agent-hub', 'messages', selectedRoom.value?.id ?? 'none'],
   query: () => listAgentHubRoomMessages(selectedRoom.value?.id ?? ''),
+  enabled: () => isPersistedRoomId(selectedRoom.value?.id),
+})
+
+const { data: runData } = useQuery({
+  key: () => ['agent-hub', 'runs', 'latest', selectedRoom.value?.id ?? 'none'],
+  query: () => getLatestAgentHubRoomRun(selectedRoom.value?.id ?? ''),
   enabled: () => isPersistedRoomId(selectedRoom.value?.id),
 })
 
@@ -1162,6 +1490,14 @@ watch(
   },
 )
 
+watch(
+  selectedAgent,
+  (agent) => {
+    if (agent?.botId) return
+    hostAccessDialogOpen.value = false
+  },
+)
+
 const activeActivityLabel = computed(() =>
   activityItems.find((item) => item.id === activeActivity.value)?.label ?? 'AgentHub',
 )
@@ -1203,37 +1539,34 @@ const timeline = computed<TimelineEvent[]>(() => {
   ]
 })
 
-const tasks = [
-  {
-    id: 'payment-api',
-    title: '微信支付 API 对接',
-    owner: '李四',
-    agent: 'Codex',
-    status: '执行中',
-    progress: 80,
-    progressClass: 'bg-emerald-500',
-  },
-  {
-    id: 'payment-page',
-    title: '支付页与状态回显',
-    owner: '张三',
-    agent: 'Claude Code',
-    status: '排队',
-    progress: 35,
-    progressClass: 'bg-blue-500',
-  },
-  {
-    id: 'regression',
-    title: '回归测试矩阵',
-    owner: '王五',
-    agent: '测试 Agent',
-    status: '待审查',
-    progress: 58,
-    progressClass: 'bg-amber-500',
-  },
-]
+const selectedRoomRun = computed(() => runData.value ?? null)
 
-const connectors: ConnectorItem[] = [
+const tasks = computed<TaskPanelItem[]>(() => {
+  const snapshot = selectedRoomRun.value
+  if (!snapshot) return []
+
+  return [...snapshot.tasks]
+    .sort((left, right) => taskSortWeight(left.status) - taskSortWeight(right.status))
+    .map((task) => ({
+      id: task.id,
+      title: task.title,
+      owner: snapshot.run.objective || '最近一次运行',
+      agent: resolveTaskAgentName(task.assigned_agent_id, task.provider_name),
+      status: taskStatusLabel(task.status),
+      progress: taskStatusProgress(task.status),
+      progressClass: taskStatusProgressClass(task.status),
+    }))
+})
+
+const runningTaskCount = computed(() =>
+  selectedRoomRun.value?.tasks.filter((task) => task.status === 'running').length ?? 0,
+)
+
+const queuedTaskCount = computed(() =>
+  selectedRoomRun.value?.tasks.filter((task) => task.status === 'pending' || task.status === 'ready').length ?? 0,
+)
+
+const connectors = computed<ConnectorItem[]>(() => [
   {
     id: 'memoh-bot',
     name: 'Memoh Client Bot',
@@ -1245,16 +1578,20 @@ const connectors: ConnectorItem[] = [
   {
     id: 'codex-bridge',
     name: 'Codex Agent Bridge',
-    description: 'CLI/SDK 接入，保留工具追踪、流式输出和会话恢复。',
-    enabled: false,
+    description: codexBridgeBot.value
+      ? `直接绑定 ${codexBridgeBot.value.name}，保留工具追踪、流式输出和会话恢复。`
+      : 'CLI/SDK 接入，保留工具追踪、流式输出和会话恢复。',
+    enabled: Boolean(codexBridgeBot.value?.botId),
     icon: TerminalSquare,
     tone: 'border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-300',
   },
   {
     id: 'claude-bridge',
     name: 'Claude Code Bridge',
-    description: '以可 @ 的 Agent 接入，不走单纯模型配置。',
-    enabled: false,
+    description: claudeBridgeBot.value
+      ? `直接绑定 ${claudeBridgeBot.value.name}，保留工具追踪、流式输出和会话恢复。`
+      : '以可 @ 的 Agent 接入，不走单纯模型配置。',
+    enabled: Boolean(claudeBridgeBot.value?.botId),
     icon: Code2,
     tone: 'border-violet-500/30 bg-violet-500/10 text-violet-700 dark:text-violet-300',
   },
@@ -1266,29 +1603,119 @@ const connectors: ConnectorItem[] = [
     icon: Wrench,
     tone: 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300',
   },
-]
+])
 
-const libraryCards = [
-  {
-    title: 'Skills 库',
-    caption: '会议纪要、制表、审查、发布检查',
-    to: '/settings/supermarket',
-    icon: Sparkles,
-    tone: 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300',
-  },
-  {
-    title: 'MCP 库',
-    caption: 'GitHub、文档、搜索和内部系统',
-    to: '/settings/supermarket',
-    icon: Plug,
-    tone: 'border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-300',
-  },
-]
 
 const composerChips = computed(() => [
   ...selectedRoomAgents.value.map((agent) => `@${agent.name}`),
   '@@all(config)',
 ])
+
+function insertChip(chip: string) {
+  const current = composerText.value
+  const needsSpace = current.length > 0 && !current.endsWith(' ')
+  composerText.value = current + (needsSpace ? ' ' : '') + chip + ' '
+}
+
+const supermarketSkills = ref<HandlersSupermarketSkillEntry[]>([])
+const supermarketMcps = ref<HandlersSupermarketMcpEntry[]>([])
+const skillsLoading = ref(false)
+const mcpLoading = ref(false)
+const skillDialogOpen = ref(false)
+const mcpDialogOpen = ref(false)
+const selectedSkill = ref<HandlersSupermarketSkillEntry | null>(null)
+const selectedMcp = ref<HandlersSupermarketMcpEntry | null>(null)
+
+async function loadSupermarketSkills() {
+  skillsLoading.value = true
+  try {
+    const { data } = await getSupermarketSkills({
+      query: {
+        q: normalizedSearch.value || undefined,
+        limit: 50,
+      },
+      throwOnError: true,
+    })
+    supermarketSkills.value = data.data ?? []
+  } catch (error) {
+    toast.error(resolveApiErrorMessage(error, '加载 Skills 失败'))
+  } finally {
+    skillsLoading.value = false
+  }
+}
+
+async function loadSupermarketMcps() {
+  mcpLoading.value = true
+  try {
+    const { data } = await getSupermarketMcps({
+      query: {
+        q: normalizedSearch.value || undefined,
+        limit: 50,
+      },
+      throwOnError: true,
+    })
+    supermarketMcps.value = data.data ?? []
+  } catch (error) {
+    toast.error(resolveApiErrorMessage(error, '加载 MCP 失败'))
+  } finally {
+    mcpLoading.value = false
+  }
+}
+
+function selectRoomTab(roomId: string) {
+  selectedRoomId.value = roomId
+  activeMainPanel.value = 'room'
+}
+
+function selectSpecialTab(tab: 'skills' | 'mcp') {
+  activeMainPanel.value = tab
+  activeActivity.value = tab
+  if (tab === 'skills' && !supermarketSkills.value.length && !skillsLoading.value) {
+    loadSupermarketSkills()
+  }
+  if (tab === 'mcp' && !supermarketMcps.value.length && !mcpLoading.value) {
+    loadSupermarketMcps()
+  }
+}
+
+function closeSpecialTab(tab: 'skills' | 'mcp') {
+  openSpecialTabs.value.delete(tab)
+  if (activeMainPanel.value === tab) {
+    activeMainPanel.value = 'room'
+  }
+}
+
+function openSkillInstall(skill: HandlersSupermarketSkillEntry) {
+  selectedSkill.value = skill
+  skillDialogOpen.value = true
+}
+
+function openMcpInstall(mcp: HandlersSupermarketMcpEntry) {
+  selectedMcp.value = mcp
+  mcpDialogOpen.value = true
+}
+
+watch(activeActivity, (activity) => {
+  if (activity === 'skills') {
+    openSpecialTabs.value.add('skills')
+    activeMainPanel.value = 'skills'
+    if (!supermarketSkills.value.length && !skillsLoading.value) {
+      loadSupermarketSkills()
+    }
+  }
+  if (activity === 'mcp') {
+    openSpecialTabs.value.add('mcp')
+    activeMainPanel.value = 'mcp'
+    if (!supermarketMcps.value.length && !mcpLoading.value) {
+      loadSupermarketMcps()
+    }
+  }
+})
+
+watch(normalizedSearch, () => {
+  if (activeActivity.value === 'skills') loadSupermarketSkills()
+  if (activeActivity.value === 'mcp') loadSupermarketMcps()
+})
 
 async function listAgentHubRooms(): Promise<AgentHubRoomList> {
   const { data } = await client.request<{ 200: AgentHubRoomList }, unknown, true>({
@@ -1306,6 +1733,34 @@ async function listAgentHubRoomMessages(roomId: string): Promise<AgentHubMessage
     url: '/agent-hub/rooms/{room_id}/messages',
     path: { room_id: roomId },
     query: { limit: 200 },
+    throwOnError: true,
+  })
+  return data
+}
+
+async function getLatestAgentHubRoomRun(roomId: string): Promise<AgentHubRunSnapshot | null> {
+  if (!isPersistedRoomId(roomId)) return null
+  const result = await client.request<{ 200: AgentHubRunSnapshot }, unknown, false>({
+    method: 'GET',
+    url: '/agent-hub/rooms/{room_id}/runs/latest',
+    path: { room_id: roomId },
+  })
+  if (result.error !== undefined) {
+    if (result.response.status === 404) {
+      return null
+    }
+    throw result.error
+  }
+  return result.data
+}
+
+async function createAgentHubRoomRun(roomId: string, payload: CreateAgentHubRunPayload): Promise<AgentHubRunSnapshot> {
+  const { data } = await client.request<{ 201: AgentHubRunSnapshot }, unknown, true>({
+    method: 'POST',
+    url: '/agent-hub/rooms/{room_id}/runs',
+    path: { room_id: roomId },
+    body: payload,
+    headers: { 'Content-Type': 'application/json' },
     throwOnError: true,
   })
   return data
@@ -1550,11 +2005,113 @@ function taskBadgeClass(status: string) {
       return 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
     case '排队':
       return 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
-    case '待审查':
+    case '阻塞':
       return 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+    case '已完成':
+      return 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+    case '失败':
+      return 'bg-red-500/10 text-red-600 dark:text-red-400'
+    case '已取消':
+      return 'bg-muted text-muted-foreground'
     default:
       return 'bg-muted text-muted-foreground'
   }
+}
+
+function taskStatusLabel(status: string) {
+  switch (status) {
+    case 'running':
+      return '执行中'
+    case 'ready':
+    case 'pending':
+      return '排队'
+    case 'succeeded':
+      return '已完成'
+    case 'failed':
+      return '失败'
+    case 'blocked':
+      return '阻塞'
+    case 'cancelled':
+      return '已取消'
+    default:
+      return '未知'
+  }
+}
+
+function taskStatusProgress(status: string) {
+  switch (status) {
+    case 'running':
+      return 72
+    case 'ready':
+      return 35
+    case 'pending':
+      return 20
+    case 'succeeded':
+      return 100
+    case 'failed':
+      return 100
+    case 'blocked':
+      return 48
+    case 'cancelled':
+      return 100
+    default:
+      return 0
+  }
+}
+
+function taskStatusProgressClass(status: string) {
+  switch (status) {
+    case 'running':
+      return 'bg-emerald-500'
+    case 'ready':
+    case 'pending':
+      return 'bg-blue-500'
+    case 'succeeded':
+      return 'bg-emerald-500'
+    case 'failed':
+      return 'bg-red-500'
+    case 'blocked':
+      return 'bg-amber-500'
+    case 'cancelled':
+      return 'bg-slate-400'
+    default:
+      return 'bg-muted-foreground'
+  }
+}
+
+function taskSortWeight(status: string) {
+  switch (status) {
+    case 'running':
+      return 0
+    case 'ready':
+      return 1
+    case 'pending':
+      return 2
+    case 'blocked':
+      return 3
+    case 'failed':
+      return 4
+    case 'succeeded':
+      return 5
+    case 'cancelled':
+      return 6
+    default:
+      return 7
+  }
+}
+
+function resolveTaskAgentName(agentId?: string, providerName?: string) {
+  const normalizedAgentID = agentId?.trim()
+  if (normalizedAgentID) {
+    const agent = agents.value.find((item) => item.id === normalizedAgentID)
+    if (agent) return agent.name
+    return normalizedAgentID
+  }
+  const normalizedProvider = providerName?.trim()
+  if (normalizedProvider) {
+    return normalizedProvider
+  }
+  return '待分派'
 }
 
 function roomAgentCount(room: RoomItem) {
@@ -1568,7 +2125,7 @@ function roomShortName(name: string) {
 }
 
 function isPeppaAgentName(name: string) {
-  return /佩奇|peppa/i.test(name.trim())
+  return /佩奇|peppa|peiqi/i.test(name.trim())
 }
 
 function startCreateRoom() {
@@ -1693,6 +2250,44 @@ async function removeAgentFromSelectedRoom(agentId: string) {
   }
   catch (error) {
     console.error('Failed to remove AgentHub room agent:', error)
+  }
+}
+
+async function startSelectedRoomRun() {
+  const room = selectedRoom.value
+  if (!room || !isPersistedRoomId(room.id) || isStartingRun.value || selectedRoomAgents.value.length === 0) return
+
+  const suggestedObjective = composerText.value.trim()
+    || selectedRoomRun.value?.run.objective
+    || room.summary
+    || ''
+  const objective = window.prompt('输入本次协作任务目标', suggestedObjective)?.trim()
+  if (!objective) return
+
+  isStartingRun.value = true
+  try {
+    await createAgentHubRoomRun(room.id, {
+      objective,
+      auto_dispatch: true,
+    })
+    activeActivity.value = 'tasks'
+    queryCache.invalidateQueries({ key: ['agent-hub', 'runs', 'latest', room.id] })
+    await createMessageMutation({
+      roomId: room.id,
+      payload: {
+        sender_type: 'system',
+        sender_name: 'AgentHub',
+        kind: 'task',
+        title: '已发起协作任务',
+        body: objective,
+      },
+    })
+  }
+  catch (error) {
+    console.error('Failed to create AgentHub room run:', error)
+  }
+  finally {
+    isStartingRun.value = false
   }
 }
 
@@ -1902,6 +2497,16 @@ function handleConnectorClick(connector: ConnectorItem) {
   if (connector.id === 'memoh-bot') {
     selectedAgentId.value = mainAgent.value.id
     void addAgentToSelectedRoom()
+    return
+  }
+  if (connector.id === 'codex-bridge') {
+    selectedAgentId.value = 'codex'
+    void addAgentToSelectedRoom()
+    return
+  }
+  if (connector.id === 'claude-bridge') {
+    selectedAgentId.value = 'claude-code'
+    void addAgentToSelectedRoom()
   }
 }
 
@@ -1916,10 +2521,13 @@ function toggleSelectedAgentInRoom() {
 }
 
 function openSelectedBot() {
-  if (!selectedAgent.value?.botId) return
+  const botId = selectedAgent.value?.botId?.trim()
+  if (!botId) return
+  workspaceTabsStore.resetBot(botId)
+  chatSelectionStore.setSession(null)
   void router.push({
     name: 'chat',
-    params: { botId: selectedAgent.value.botId },
+    params: { botId },
   })
 }
 </script>

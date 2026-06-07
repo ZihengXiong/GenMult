@@ -46,7 +46,7 @@
     <div class="flex flex-col flex-1 min-w-0">
       <div class="flex items-center">
         <span class="truncate text-xs font-medium text-foreground leading-[18px] flex-1">
-          {{ session.title || t('chat.untitledSession') }}
+          {{ sessionTitle }}
         </span>
 
         <span
@@ -85,10 +85,22 @@
         </DropdownMenu>
       </div>
       <div
-        v-if="subLabel"
-        class="text-[11px] font-medium text-muted-foreground truncate leading-[16.5px]"
+        v-if="agentLabel || subLabel"
+        class="mt-0.5 flex min-w-0 items-center gap-1.5"
       >
-        {{ subLabel }}
+        <span
+          v-if="agentLabel"
+          class="shrink-0 rounded-sm border px-1.5 py-0.5 text-[10px] font-medium"
+          :class="agentLabelClass"
+        >
+          {{ agentLabel }}
+        </span>
+        <span
+          v-if="subLabel"
+          class="truncate text-[11px] font-medium text-muted-foreground leading-[16.5px]"
+        >
+          {{ subLabel }}
+        </span>
       </div>
     </div>
   </div>
@@ -99,6 +111,7 @@ import { computed, ref, type Component } from 'vue'
 import { HeartPulse, Clock, GitBranch, MessageSquare, MoreHorizontal, Trash2 } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import type { SessionSummary } from '@/composables/api/useChat'
+import { useChatStore } from '@/store/chat-list'
 import {
   Avatar,
   AvatarImage,
@@ -121,6 +134,7 @@ defineEmits<{
 }>()
 
 const { t } = useI18n()
+const chatStore = useChatStore()
 
 const menuOpen = ref(false)
 
@@ -178,6 +192,19 @@ const displayLabel = computed(() => {
 
 const avatarFallback = computed(() => {
   return displayLabel.value ? displayLabel.value.charAt(0).toUpperCase() : '?'
+})
+
+const sessionTitle = computed(() => chatStore.resolveSessionTitle(props.session))
+const agentLabel = computed(() => chatStore.resolveSessionAgentLabel(props.session))
+const agentLabelClass = computed(() => {
+  const normalized = agentLabel.value.trim().toLowerCase()
+  if (normalized === 'codex') {
+    return 'border-blue-500/20 bg-blue-500/10 text-blue-700 dark:text-blue-300'
+  }
+  if (normalized === 'peiqi' || normalized === '佩奇') {
+    return 'border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+  }
+  return 'border-border bg-background text-muted-foreground'
 })
 
 const subLabel = computed(() => {

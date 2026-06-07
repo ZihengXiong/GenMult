@@ -7,7 +7,7 @@
         <KeepAlive>
           <component
             :is="currentChat?.component"
-            v-if="activeTab.type==='chat'"
+            v-if="activeTab.type==='chat' || activeTab.type==='draft'"
             :key="`chat-pane:${currentBotId}:${currentChat?.id}`"
             :tab-id="currentChat?.id"
             :active="activeTab.id === currentChat?.id"
@@ -94,6 +94,7 @@ const chatTabs = computed<ChatTab[]>(() =>
 function TypeTab<T extends (TerminalTab | DisplayTab | ChatTab | FileTab)[]>(tabComp: ComputedRef<T>) {
   const componentMap = {
     chat: ChatPane,
+    draft: ChatPane,
     file: FilePane,
     terminal: TerminalPane,
     display:DisplayPane

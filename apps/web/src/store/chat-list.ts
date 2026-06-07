@@ -3,11 +3,13 @@ import { computed, reactive, ref, watch } from 'vue'
 import { useRetryingStream } from '@/composables/useRetryingStream'
 import { useUserStore } from '@/store/user'
 import { useChatSelectionStore } from '@/store/chat-selection'
+import { resolveBotLabel } from '@/utils/bot-label'
 import { shouldRefreshFromMessageCreated, upsertById } from './chat-list.utils'
 import {
   createSession,
   deleteSession as requestDeleteSession,
   fetchSessions,
+  updateSessionTitle,
   type Bot,
   type SessionSummary,
   type MessageStreamEvent,
@@ -179,6 +181,8 @@ export const useChatStore = defineStore('chat', () => {
   let activeWs: ChatWebSocket | null = null
   let refreshTimer: ReturnType<typeof setTimeout> | null = null
   let refreshPromise: { key: string; promise: Promise<void> } | null = null
+  let initializePromise: Promise<void> | null = null
+  const titleUpdateInFlight = new Set<string>()
   let suppressNextStartPlaceholder = false
   const pendingBackgroundEvents = new Map<string, BackgroundTask[]>()
   const latestBackgroundTasks = new Map<string, BackgroundTask>()
@@ -193,13 +197,139 @@ export const useChatStore = defineStore('chat', () => {
     sessions.value.find((s) => s.id === sessionId.value) ?? null,
   )
 
+  function sessionUpdatedAtValue(session: SessionSummary): number {
+    const raw = (session.updated_at ?? session.created_at ?? '').trim()
+    if (!raw) return 0
+    const ts = Date.parse(raw)
+    return Number.isNaN(ts) ? 0 : ts
+  }
+
+  function isAgentHubSession(session: SessionSummary): boolean {
+    return (session.title ?? '').trim().startsWith('AgentHub ·')
+  }
+
+  function isDirectChatSession(session: SessionSummary): boolean {
+    const type = (session.type ?? 'chat').trim().toLowerCase()
+    return type === 'chat' && !isAgentHubSession(session)
+  }
+
+  function isPreferredDirectChatSession(session: SessionSummary): boolean {
+    const channelType = (session.channel_type ?? '').trim().toLowerCase()
+    return channelType === '' || channelType === 'web'
+  }
+
+  function buildSessionTitleKey(botId: string, sid: string): string {
+    return `${botId.trim()}:${sid.trim()}`
+  }
+
+  function deriveSessionTitleFromMessages(items: ChatMessage[]): string {
+    const firstUserText = items.find((item): item is ChatUserTurn =>
+      item.role === 'user' && Boolean(item.text.trim()),
+    )?.text ?? ''
+    const normalized = firstUserText
+      .split('\n')
+      .map(line => line.trim())
+      .find(Boolean)
+      ?.replace(/\s+/g, ' ')
+      ?? ''
+    if (!normalized) return ''
+    return normalized.length > 24 ? `${normalized.slice(0, 24).trim()}...` : normalized
+  }
+
+  function deriveSessionTitleFromCache(session?: SessionSummary | null): string {
+    const bid = (session?.bot_id ?? currentBotId.value ?? '').trim()
+    const sid = (session?.id ?? '').trim()
+    if (!bid || !sid) return ''
+
+    if ((currentBotId.value ?? '').trim() === bid && (sessionId.value ?? '').trim() === sid) {
+      return deriveSessionTitleFromMessages(messages)
+    }
+
+    const cached = sessionMessageStates.get(sessionMessageKey(bid, sid))
+    return cached ? deriveSessionTitleFromMessages(cached.items) : ''
+  }
+
+  function isTitleEquivalentToAgent(session: SessionSummary | null | undefined, title: string): boolean {
+    const normalized = title.trim().toLowerCase()
+    if (!normalized) return false
+    const targetBotId = (session?.bot_id ?? currentBotId.value ?? '').trim()
+    const bot = bots.value.find(item => (item.id ?? '').trim() === targetBotId)
+    const rawDisplayName = (bot?.display_name ?? '').trim().toLowerCase()
+    const agentLabel = resolveSessionAgentLabel(session).trim().toLowerCase()
+    return normalized === rawDisplayName || normalized === agentLabel
+  }
+
+  function resolveSessionTitle(session?: SessionSummary | null): string {
+    const explicit = (session?.title ?? '').trim()
+    if (explicit && !isTitleEquivalentToAgent(session, explicit)) return explicit
+    const cached = deriveSessionTitleFromCache(session)
+    if (cached) return cached
+    return 'Untitled Session'
+  }
+
+  function resolveSessionAgentLabel(session?: SessionSummary | null): string {
+    const targetBotId = (session?.bot_id ?? currentBotId.value ?? '').trim()
+    if (!targetBotId) return ''
+    const bot = bots.value.find(item => (item.id ?? '').trim() === targetBotId)
+    return resolveBotLabel(bot ?? { id: targetBotId, display_name: '' })
+  }
+
+  async function ensureSessionTitle(targetBotId: string, targetSessionId: string, items: ChatMessage[]) {
+    const bid = targetBotId.trim()
+    const sid = targetSessionId.trim()
+    if (!bid || !sid || !items.length) return
+
+    const session = sessions.value.find((entry) => entry.id === sid)
+    if (!session || !isDirectChatSession(session)) return
+
+    const explicitTitle = (session.title ?? '').trim()
+    if (explicitTitle && !isTitleEquivalentToAgent(session, explicitTitle)) return
+
+    const title = deriveSessionTitleFromMessages(items)
+    if (!title) return
+
+    const key = buildSessionTitleKey(bid, sid)
+    if (titleUpdateInFlight.has(key)) return
+
+    titleUpdateInFlight.add(key)
+    try {
+      const updated = await updateSessionTitle(bid, sid, title)
+      const target = sessions.value.find((entry) => entry.id === sid)
+      if (target) {
+        target.title = updated.title
+        target.updated_at = updated.updated_at
+      }
+    } catch (error) {
+      console.error('Failed to update session title:', error)
+    } finally {
+      titleUpdateInFlight.delete(key)
+    }
+  }
+
+  function listVisibleSessions(filterType = 'chat'): SessionSummary[] {
+    let list = [...sessions.value]
+    if (filterType === 'chat') {
+      list = list.filter(isDirectChatSession)
+      if (!list.length) return []
+      const preferred = list.filter(isPreferredDirectChatSession)
+      const pool = preferred.length ? preferred : list
+      return [...pool].sort((left, right) => sessionUpdatedAtValue(right) - sessionUpdatedAtValue(left))
+    }
+    return list.filter(session => session.type === filterType)
+  }
+
+  function getPreferredSession(): SessionSummary | null {
+    const directSessions = listVisibleSessions('chat')
+    return directSessions[0] ?? null
+  }
+
   const activeChatReadOnly = computed(() => {
     const session = activeSession.value
     if (!session) return false
     const type = session.type ?? 'chat'
     if (type === 'heartbeat' || type === 'schedule' || type === 'subagent') return true
     const ct = (session.channel_type ?? '').trim().toLowerCase()
-    if (ct && ct !== 'local') return true
+    if (ct && ct !== 'local' && ct !== 'web') return true
     return false
   })
 
@@ -839,6 +969,7 @@ export const useChatStore = defineStore('chat', () => {
       } else {
         cacheFetchedMessages(bid, sid, normalized, moreOlder)
       }
+      void ensureSessionTitle(bid, sid, normalized)
       touchSession(sid)
       const streamStillActive = streamingSessionId.value === sid && pendingAssistantStream && !pendingAssistantStream.done
       if (!streamStillActive && pendingAssistantStream) {
@@ -1044,9 +1175,16 @@ export const useChatStore = defineStore('chat', () => {
 
   async function loadMessages(botId: string, sid: string) {
     const turns = await fetchMessagesUI(botId, sid, { limit: PAGE_SIZE })
-    replaceMessages(turns)
-    hasMoreOlder.value = turns.length > 0
-    cacheCurrentMessages()
+    const normalized = normalizeTurns(turns, sid)
+    const moreOlder = normalized.length > 0
+    if (currentBotId.value === botId && sessionId.value === sid) {
+      setMessages(normalized)
+      hasMoreOlder.value = moreOlder
+      cacheCurrentMessages()
+    } else {
+      cacheFetchedMessages(botId, sid, normalized, moreOlder)
+    }
+    void ensureSessionTitle(botId, sid, normalized)
   }
 
   async function loadOlderMessages(): Promise<number> {
@@ -1171,35 +1309,44 @@ export const useChatStore = defineStore('chat', () => {
   }
 
   async function initialize() {
-    if (initializing.value) return
-    initializing.value = true
-    loadingChats.value = true
-    stopMessageEvents()
-    stopWebSocket()
-    try {
-      const bid = await ensureBot()
-      if (!bid) {
+    if (initializePromise) {
+      await initializePromise
+      return
+    }
+
+    initializePromise = (async () => {
+      initializing.value = true
+      loadingChats.value = true
+      stopMessageEvents()
+      stopWebSocket()
+      try {
+        const bid = await ensureBot()
+        if (!bid) {
+          messageEventsSince = ''
+          sessions.value = []
+          sessionId.value = null
+          replaceMessages([])
+          hasMoreOlder.value = false
+          return
+        }
+
+        const visible = await fetchSessions(bid)
+        sessions.value = visible
         messageEventsSince = ''
-        sessions.value = []
         sessionId.value = null
         replaceMessages([])
         hasMoreOlder.value = false
-        return
+
+        startWebSocket(bid)
+        startMessageEvents(bid)
+      } finally {
+        loadingChats.value = false
+        initializing.value = false
+        initializePromise = null
       }
+    })()
 
-      const visible = await fetchSessions(bid)
-      sessions.value = visible
-      messageEventsSince = ''
-      sessionId.value = null
-      replaceMessages([])
-      hasMoreOlder.value = false
-
-      startWebSocket(bid)
-      startMessageEvents(bid)
-    } finally {
-      loadingChats.value = false
-      initializing.value = false
-    }
+    await initializePromise
   }
 
   async function selectBot(targetBotId: string) {
@@ -1228,11 +1375,11 @@ export const useChatStore = defineStore('chat', () => {
 
   async function createNewSession() {
     cacheCurrentMessages()
-    const bid = await ensureBot()
-    if (!bid) return
     sessionId.value = null
     replaceMessages([])
     hasMoreOlder.value = false
+    const bid = currentBotId.value ?? await ensureBot()
+    if (!bid) return
   }
 
   async function removeSession(targetSessionId: string) {
@@ -1286,9 +1433,6 @@ export const useChatStore = defineStore('chat', () => {
 
       const ws = ensureWebSocket(bid)
       if (ws) {
-        if (!ws.connected) {
-          throw new StreamFailureError('WebSocket is not connected', 'startup')
-        }
         const completion = createCompletionForAssistantTurn(assistantTurn)
         abortFn = () => {
           const abortError = new Error('aborted')
@@ -1308,7 +1452,7 @@ export const useChatStore = defineStore('chat', () => {
         await refreshCurrentSession(bid, sid)
       } else {
         void createCompletionForAssistantTurn(assistantTurn).catch(() => {})
-        await sendLocalChannelMessage(bid, trimmed, attachments, { modelId, reasoningEffort })
+        await sendLocalChannelMessage(bid, trimmed, attachments, { modelId, reasoningEffort, sessionId: sid })
         await refreshCurrentSession(bid, sid)
       }
 
@@ -1432,6 +1576,10 @@ export const useChatStore = defineStore('chat', () => {
     bots,
     activeSession,
     activeChatReadOnly,
+    resolveSessionTitle,
+    resolveSessionAgentLabel,
+    listVisibleSessions,
+    getPreferredSession,
     loading,
     loadingChats,
     loadingOlder,
