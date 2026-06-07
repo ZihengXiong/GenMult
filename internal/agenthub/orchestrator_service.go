@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"strconv"
 	"strings"
+	"sync"
 
 	orch "github.com/ZihengXiong/GenMult/internal/agenthub/orchestrator"
 	"github.com/ZihengXiong/GenMult/internal/agenthub/providers"
@@ -20,6 +21,12 @@ type OrchestratorService struct {
 	rooms *Service
 	orch  *orch.Service
 	log   *slog.Logger
+
+	// projSeq tracks the last orchestrator event seq projected to each room as a
+	// chat message, so projectRun can incrementally and idempotently surface new
+	// run events. In-memory only (M1); a restart may re-project a run's events.
+	projMu  sync.Mutex
+	projSeq map[string]int64
 }
 
 type StartRunRequest struct {
@@ -82,7 +89,12 @@ func NewOrchestratorService(
 		MaxParallelPerAgent: 1,
 		DispatchAsync:       false,
 	})
-	return &OrchestratorService{rooms: roomService, orch: orchestrator, log: log.With(slog.String("service", "agenthub_orchestrator"))}, nil
+	return &OrchestratorService{
+		rooms:   roomService,
+		orch:    orchestrator,
+		log:     log.With(slog.String("service", "agenthub_orchestrator")),
+		projSeq: make(map[string]int64),
+	}, nil
 }
 
 func (s *OrchestratorService) StartRun(ctx context.Context, ownerUserID, roomID string, req StartRunRequest) (orch.RunSnapshot, error) {
@@ -106,7 +118,7 @@ func (s *OrchestratorService) StartRun(ctx context.Context, ownerUserID, roomID 
 	if req.AutoDispatch != nil {
 		autoDispatch = *req.AutoDispatch
 	}
-	return s.orch.StartRun(ctx, orch.StartRunInput{
+	snapshot, err := s.orch.StartRun(ctx, orch.StartRunInput{
 		RoomID:           roomID,
 		TriggerMessageID: strings.TrimSpace(req.TriggerMessageID),
 		Objective:        objective,
@@ -115,6 +127,11 @@ func (s *OrchestratorService) StartRun(ctx context.Context, ownerUserID, roomID 
 		Metadata:         req.Metadata,
 		AutoDispatch:     autoDispatch,
 	})
+	if err != nil {
+		return snapshot, err
+	}
+	s.projectRun(ctx, ownerUserID, snapshot)
+	return snapshot, nil
 }
 
 func (s *OrchestratorService) GetSnapshot(ctx context.Context, ownerUserID, runID string) (orch.RunSnapshot, error) {
@@ -133,7 +150,12 @@ func (s *OrchestratorService) ReconcileRun(ctx context.Context, ownerUserID, run
 	if err != nil {
 		return orch.RunSnapshot{}, err
 	}
-	return s.orch.ReconcileRun(ctx, snapshot.Run.ID)
+	reconciled, err := s.orch.ReconcileRun(ctx, snapshot.Run.ID)
+	if err != nil {
+		return reconciled, err
+	}
+	s.projectRun(ctx, ownerUserID, reconciled)
+	return reconciled, nil
 }
 
 func (s *OrchestratorService) CancelRun(ctx context.Context, ownerUserID, runID string) (orch.RunSnapshot, error) {
@@ -174,6 +196,7 @@ func (s *OrchestratorService) ReconcileActiveRuns(ctx context.Context, ownerUser
 		if err != nil {
 			return out, err
 		}
+		s.projectRun(ctx, ownerUserID, snapshot)
 		out = append(out, snapshot)
 	}
 	return out, nil
@@ -189,16 +212,7 @@ func agentsFromRoom(room Room) []orch.AgentDescriptor {
 		if id == "" {
 			continue
 		}
-		provider := "noop"
-		name := id
-		lc := strings.ToLower(id)
-		if strings.Contains(lc, "claude") {
-			provider = "claudecode"
-			name = "Claude Code"
-		} else if strings.Contains(lc, "codex") {
-			provider = "codex"
-			name = "Codex"
-		}
+		provider, name := friendlyAgentName(id)
 		out = append(out, orch.AgentDescriptor{
 			ID:           id,
 			ProviderName: provider,
