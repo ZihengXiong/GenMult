@@ -30,7 +30,6 @@ import (
 	"github.com/ZihengXiong/GenMult/internal/schedule"
 	"github.com/ZihengXiong/GenMult/internal/searchproviders"
 	"github.com/ZihengXiong/GenMult/internal/settings"
-	"github.com/ZihengXiong/GenMult/internal/toolapproval"
 )
 
 func runServe() {
@@ -65,7 +64,7 @@ func options() fx.Option {
 			accounts.NewService,
 			acl.NewService,
 			settings.NewService,
-			toolapproval.NewService,
+			provideToolApprovalService,
 			provideProvidersService,
 			searchproviders.NewService,
 			policy.NewService,

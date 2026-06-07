@@ -314,6 +314,13 @@ func (m *Manager) buildWorkspaceContainerSpec(ctx context.Context, botID string,
 			Options:     []string{"rbind", "rw"},
 		},
 	}
+	if resolver := NewBotHostAccessResolver(m.queries); resolver != nil {
+		hostAccess, err := resolver(ctx, botID)
+		if err != nil {
+			return ctr.ContainerSpec{}, err
+		}
+		mounts = append(mounts, hostAccess.ContainerMounts()...)
+	}
 	tzMounts, tzEnv := ctr.TimezoneSpec()
 	mounts = append(mounts, tzMounts...)
 
