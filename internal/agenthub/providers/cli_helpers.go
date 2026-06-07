@@ -124,6 +124,24 @@ func ClaudeParseEvent(line []byte) (CLIEvent, error) {
 		}
 		// Silently skip other system subtypes (thinking_tokens, etc.)
 		return CLIEvent{Type: "system", Raw: line}, nil
+	case "user":
+		if ce.Message != nil {
+			var results []string
+			for _, block := range ce.Message.Content {
+				if block.Type == "tool_result" {
+					var resultTxt string
+					if len(block.Content) > 0 {
+						if err := json.Unmarshal(block.Content, &resultTxt); err != nil {
+							resultTxt = string(block.Content)
+						}
+					}
+					results = append(results, resultTxt)
+				}
+			}
+			if len(results) > 0 {
+				return CLIEvent{Type: "tool_result", Content: strings.Join(results, "\n\n"), Raw: line}, nil
+			}
+		}
 	case "assistant":
 		if ce.Message != nil {
 			var thinkings []string

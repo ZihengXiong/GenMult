@@ -35,12 +35,14 @@ type ClaudeMessage struct {
 
 // ContentBlock represents a single content piece in a Claude message.
 type ContentBlock struct {
-	Type     string `json:"type"`
-	Text     string `json:"text,omitempty"`
-	Thinking string `json:"thinking,omitempty"`
-	Name     string `json:"name,omitempty"`
-	ID       string `json:"id,omitempty"`
-	Input    any    `json:"input,omitempty"`
+	Type      string          `json:"type"`
+	Text      string          `json:"text,omitempty"`
+	Thinking  string          `json:"thinking,omitempty"`
+	Name      string          `json:"name,omitempty"`
+	ID        string          `json:"id,omitempty"`
+	Input     any             `json:"input,omitempty"`
+	Content   json.RawMessage `json:"content,omitempty"`
+	ToolUseID string          `json:"tool_use_id,omitempty"`
 }
 
 // ClaudeCodeProvider implements orchestrator.AgentProvider using Claude Code CLI.
