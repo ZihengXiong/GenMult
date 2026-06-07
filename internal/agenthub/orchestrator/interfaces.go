@@ -29,6 +29,9 @@ type Store interface {
 	GetRun(ctx context.Context, runID string) (Run, error)
 	UpdateRunStatus(ctx context.Context, runID string, status RunStatus) (Run, error)
 	ListRunsByStatus(ctx context.Context, statuses ...RunStatus) ([]Run, error)
+	// GetLatestRunByRoom returns the most recently updated run for a room, or
+	// ErrNotFound if the room has no runs yet.
+	GetLatestRunByRoom(ctx context.Context, roomID string) (Run, error)
 
 	CreateTasks(ctx context.Context, runID string, drafts []TaskDraft) ([]Task, []TaskDependency, error)
 	ListTasks(ctx context.Context, runID string) ([]Task, error)

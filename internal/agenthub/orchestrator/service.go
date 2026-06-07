@@ -140,6 +140,16 @@ func (s *Service) GetSnapshot(ctx context.Context, runID string) (RunSnapshot, e
 	return RunSnapshot{Run: run, Tasks: tasks, Dependencies: deps, Attempts: attempts}, nil
 }
 
+// LatestSnapshotByRoom returns a full snapshot of the room's most recent run,
+// or ErrNotFound if the room has no runs yet.
+func (s *Service) LatestSnapshotByRoom(ctx context.Context, roomID string) (RunSnapshot, error) {
+	run, err := s.store.GetLatestRunByRoom(ctx, strings.TrimSpace(roomID))
+	if err != nil {
+		return RunSnapshot{}, err
+	}
+	return s.GetSnapshot(ctx, run.ID)
+}
+
 func (s *Service) ReconcileRun(ctx context.Context, runID string) (RunSnapshot, error) {
 	run, err := s.store.GetRun(ctx, strings.TrimSpace(runID))
 	if err != nil {

@@ -145,6 +145,15 @@ func (s *OrchestratorService) GetSnapshot(ctx context.Context, ownerUserID, runI
 	return snapshot, nil
 }
 
+// GetLatestRoomRun returns the most recent run snapshot for a room the caller
+// owns, or orch.ErrNotFound (→ 404) if the room has no runs yet.
+func (s *OrchestratorService) GetLatestRoomRun(ctx context.Context, ownerUserID, roomID string) (orch.RunSnapshot, error) {
+	if _, err := s.rooms.Get(ctx, ownerUserID, strings.TrimSpace(roomID)); err != nil {
+		return orch.RunSnapshot{}, err
+	}
+	return s.orch.LatestSnapshotByRoom(ctx, strings.TrimSpace(roomID))
+}
+
 func (s *OrchestratorService) ReconcileRun(ctx context.Context, ownerUserID, runID string) (orch.RunSnapshot, error) {
 	snapshot, err := s.GetSnapshot(ctx, ownerUserID, runID)
 	if err != nil {
