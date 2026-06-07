@@ -2,6 +2,7 @@ package agenthub
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"strconv"
 	"strings"
@@ -41,25 +42,12 @@ func (s *OrchestratorService) projectRun(ctx context.Context, ownerUserID string
 		return
 	}
 
-	taskByID := make(map[string]orch.Task, len(snap.Tasks))
-	for _, task := range snap.Tasks {
-		taskByID[task.ID] = task
-	}
-
-	maxSeq := after
-	for _, ev := range events {
-		if ev.Seq > maxSeq {
-			maxSeq = ev.Seq
-		}
-		req, ok := roomMessageForEvent(ev, snap.Run, taskByID)
-		if !ok {
-			continue
-		}
+	msgs, maxSeq := runEventsToMessages(events, snap.Run, snap.Tasks, after)
+	for i, req := range msgs {
 		if _, err := s.rooms.CreateMessage(ctx, ownerUserID, roomID, req); err != nil {
 			s.log.Error("project run: create room message failed",
 				slog.String("run_id", runID),
-				slog.Int64("seq", ev.Seq),
-				slog.String("event_type", string(ev.Type)),
+				slog.Int("message_index", i),
 				slog.Any("error", err),
 			)
 		}
@@ -70,6 +58,30 @@ func (s *OrchestratorService) projectRun(ctx context.Context, ownerUserID string
 		s.projSeq[runID] = maxSeq
 	}
 	s.projMu.Unlock()
+}
+
+// runEventsToMessages maps an ordered slice of orchestrator run events to the
+// room messages that should be posted, returning them in order along with the
+// highest event seq seen (for idempotent projection). It is pure (no IO) so it
+// can be tested against a real engine's event stream.
+func runEventsToMessages(events []orch.RunEvent, run orch.Run, tasks []orch.Task, after int64) ([]CreateMessageRequest, int64) {
+	taskByID := make(map[string]orch.Task, len(tasks))
+	for _, task := range tasks {
+		taskByID[task.ID] = task
+	}
+	out := make([]CreateMessageRequest, 0, len(events))
+	maxSeq := after
+	for _, ev := range events {
+		if ev.Seq > maxSeq {
+			maxSeq = ev.Seq
+		}
+		req, ok := roomMessageForEvent(ev, run, taskByID)
+		if !ok {
+			continue
+		}
+		out = append(out, req)
+	}
+	return out, maxSeq
 }
 
 // roomMessageForEvent maps a single orchestrator RunEvent to a room message.
@@ -172,8 +184,7 @@ func roomMessageForEvent(ev orch.RunEvent, run orch.Run, taskByID map[string]orc
 		}, true
 
 	case orch.EventRunStatusChanged:
-		to, _ := ev.Payload["to"].(string)
-		switch orch.RunStatus(to) {
+		switch orch.RunStatus(payloadString(ev.Payload, "to")) {
 		case orch.RunStatusCompleted:
 			return CreateMessageRequest{
 				SenderID:   "orchestrator",
@@ -218,6 +229,22 @@ func taskOutputBody(payload map[string]any) string {
 		return summary
 	}
 	return ""
+}
+
+// payloadString coerces an event payload value to a string, tolerating both the
+// typed values held by the in-memory store (e.g. orch.RunStatus) and the plain
+// strings produced after a JSON round-trip through the SQL store.
+func payloadString(payload map[string]any, key string) string {
+	switch v := payload[key].(type) {
+	case nil:
+		return ""
+	case string:
+		return v
+	case orch.RunStatus:
+		return string(v)
+	default:
+		return fmt.Sprintf("%v", v)
+	}
 }
 
 func intFromPayload(payload map[string]any, key string) int {

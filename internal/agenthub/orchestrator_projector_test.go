@@ -1,8 +1,10 @@
 package agenthub
 
 import (
+	"context"
 	"strings"
 	"testing"
+	"time"
 
 	orch "github.com/ZihengXiong/GenMult/internal/agenthub/orchestrator"
 )
@@ -115,4 +117,114 @@ func TestRoomMessageForEvent(t *testing.T) {
 			t.Error("expected task_created to be skipped")
 		}
 	})
+}
+
+// stubAgentProvider is a canned orchestrator.AgentProvider for spine tests: it
+// never touches a CLI/API and returns a fixed output per provider.
+type stubAgentProvider struct {
+	name string
+	raw  string
+}
+
+func (s stubAgentProvider) Name() string         { return s.name }
+func (stubAgentProvider) Capabilities() []string { return []string{"code", "review"} }
+func (s stubAgentProvider) Execute(_ context.Context, _ orch.ExecuteTaskRequest) (orch.ExecuteTaskResult, error) {
+	return orch.ExecuteTaskResult{Output: map[string]any{"raw_output": s.raw}, Summary: "done"}, nil
+}
+
+// twoAgentPlanner is a deterministic test planner that splits an objective into
+// one parallel task per provider, so the projection test does not depend on the
+// RulePlanner's keyword heuristics (which are covered in the orchestrator pkg).
+type twoAgentPlanner struct{}
+
+func (twoAgentPlanner) Plan(_ context.Context, _ orch.PlanInput) (orch.Plan, error) {
+	return orch.Plan{
+		PlannerVersion: "test/two-agent",
+		Tasks: []orch.TaskDraft{
+			{ClientKey: "backend", Title: "实现后端", Description: "实现后端接口", AssignedAgentID: "codex", ProviderName: "codex", Priority: 80, Timeout: time.Minute, MaxRetries: 1},
+			{ClientKey: "frontend", Title: "实现前端", Description: "实现前端页面", AssignedAgentID: "claude-code", ProviderName: "claudecode", Priority: 80, Timeout: time.Minute, MaxRetries: 1},
+		},
+	}, nil
+}
+
+// TestRunEventsToMessages_RealEngine drives a real orchestrator engine (memory
+// store + stub providers) through StartRun, then projects the real event stream
+// into room messages. This exercises the full M1.1 spine: plan -> dispatch ->
+// per-agent output -> completion, in order, with idempotent seq tracking.
+func TestRunEventsToMessages_RealEngine(t *testing.T) {
+	store := orch.NewMemoryStore()
+	registry := orch.NewProviderRegistry(
+		stubAgentProvider{name: "claudecode", raw: "Claude 的产出"},
+		stubAgentProvider{name: "codex", raw: "Codex 的产出"},
+		orch.NoopProvider{},
+	)
+	svc := orch.NewService(store, twoAgentPlanner{}, registry, nil, orch.Config{
+		MaxParallelPerRun:   3,
+		MaxParallelPerAgent: 1,
+		DefaultTaskTimeout:  time.Minute,
+		DispatchAsync:       false,
+	})
+
+	ctx := context.Background()
+	snap, err := svc.StartRun(ctx, orch.StartRunInput{
+		RoomID:    "room-1",
+		Objective: "用 Claude Code 和 Codex 实现并验证一个功能",
+		Agents: []orch.AgentDescriptor{
+			{ID: "claude-code", ProviderName: "claudecode", Name: "Claude Code", Capabilities: []string{"frontend", "code"}},
+			{ID: "codex", ProviderName: "codex", Name: "Codex", Capabilities: []string{"backend", "code"}},
+		},
+		AutoDispatch: true,
+	})
+	if err != nil {
+		t.Fatalf("StartRun: %v", err)
+	}
+	if snap.Run.Status != orch.RunStatusCompleted {
+		t.Fatalf("expected run completed, got %s", snap.Run.Status)
+	}
+
+	events, err := svc.ListEvents(ctx, snap.Run.ID, 0, 1000)
+	if err != nil {
+		t.Fatalf("ListEvents: %v", err)
+	}
+	msgs, maxSeq := runEventsToMessages(events, snap.Run, snap.Tasks, 0)
+	if len(msgs) == 0 {
+		t.Fatal("expected projected messages")
+	}
+	if maxSeq <= 0 {
+		t.Errorf("expected positive maxSeq, got %d", maxSeq)
+	}
+
+	if msgs[0].SenderType != "system" || !strings.Contains(msgs[0].Body, "子任务") {
+		t.Errorf("first message should be the plan summary, got %+v", msgs[0])
+	}
+	last := msgs[len(msgs)-1]
+	if last.SenderType != "system" || !strings.Contains(last.Body, "完成") {
+		t.Errorf("last message should be completion notice, got %+v", last)
+	}
+
+	var sawClaude, sawCodex bool
+	for _, m := range msgs {
+		if strings.TrimSpace(m.Body) == "" {
+			t.Errorf("empty message body: %+v", m)
+		}
+		if m.SenderName == "Claude Code" && strings.Contains(m.Body, "Claude 的产出") {
+			sawClaude = true
+		}
+		if m.SenderName == "Codex" && strings.Contains(m.Body, "Codex 的产出") {
+			sawCodex = true
+		}
+	}
+	if !sawClaude || !sawCodex {
+		t.Errorf("expected both agent outputs surfaced: claude=%v codex=%v", sawClaude, sawCodex)
+	}
+
+	// Idempotency: ListEvents after the projected high-water seq returns nothing,
+	// so a re-projection produces no duplicate messages.
+	newEvents, err := svc.ListEvents(ctx, snap.Run.ID, maxSeq, 1000)
+	if err != nil {
+		t.Fatalf("ListEvents(afterSeq): %v", err)
+	}
+	if len(newEvents) != 0 {
+		t.Errorf("expected no events after maxSeq=%d, got %d", maxSeq, len(newEvents))
+	}
 }
