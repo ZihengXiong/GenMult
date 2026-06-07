@@ -1,5 +1,15 @@
 package handlers
 
+// NOTE(merge): main replaced this remote-proxy supermarket with a locally
+// embedded registry (internal/supermarket/registry.go, //go:embed all:data).
+// That change was intentionally NOT merged: the embedded data (11 MCP + 6 skill
+// definitions) was never committed to the repo — .gitignore's generic "data"
+// rule excluded internal/supermarket/data/ — so the embed fails to compile.
+// We keep this working proxy version instead. To switch to the embedded
+// registry later: obtain the data files (from memohai/supermarket), narrow the
+// .gitignore "data" rule so internal/supermarket/data/ can be committed, then
+// bring back registry.go + NewRegistry wiring.
+
 import (
 	"archive/tar"
 	"compress/gzip"
