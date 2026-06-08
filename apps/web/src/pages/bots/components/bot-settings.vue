@@ -166,6 +166,40 @@
           </div>
         </div>
       </div>
+      <!-- System Prompt -->
+      <div class="space-y-2">
+        <Label>System Prompt</Label>
+        <textarea
+          v-model="form.system_prompt"
+          :placeholder="$t('bots.systemPromptPlaceholder', 'Describe the agent\'s personality, role, and behavior...')"
+          rows="4"
+          class="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-y"
+        />
+        <p class="text-xs text-muted-foreground">
+          Custom instructions prepended to the default system prompt.
+        </p>
+      </div>
+
+      <!-- Capabilities -->
+      <div class="space-y-2">
+        <Label>Capabilities</Label>
+        <div class="flex flex-wrap gap-2">
+          <label
+            v-for="cap in availableCapabilities"
+            :key="cap"
+            class="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs cursor-pointer transition-colors"
+            :class="(form.capabilities || []).includes(cap) ? 'bg-primary/10 border-primary text-primary' : 'border-border text-muted-foreground hover:border-foreground/30'"
+          >
+            <input
+              type="checkbox"
+              :checked="(form.capabilities || []).includes(cap)"
+              class="sr-only"
+              @change="toggleCapability(cap)"
+            >
+            {{ cap }}
+          </label>
+        </div>
+      </div>
     </template>
 
     <BotClaudecodeSettings
@@ -499,10 +533,10 @@ const { mutateAsync: updateSettings, isLoading } = useMutation({
 })
 
 const { mutateAsync: updateBot, isLoading: isUpdatingBot } = useMutation({
-  mutation: async (timezone: string) => {
+  mutation: async (body: Record<string, unknown>) => {
     const { data } = await putBotsById({
       path: { id: botIdRef.value },
-      body: { timezone },
+      body,
       throwOnError: true,
     })
     return data
@@ -555,6 +589,8 @@ const enabledTranscriptionProviderIds = computed(() => new Set(transcriptionProv
 const ttsModels = computed(() => (ttsModelData.value ?? []).filter((m: Record<string, unknown>) => enabledTtsProviderIds.value.has(m.provider_id as string)))
 const transcriptionModels = computed(() => (transcriptionModelData.value ?? []).filter((m: Record<string, unknown>) => enabledTranscriptionProviderIds.value.has(m.provider_id as string)))
 // ---- Form ----
+const availableCapabilities = ['plan', 'code', 'test', 'review', 'edit', 'exec', 'search', 'memory']
+
 const form = reactive({
   chat_model_id: '',
   title_model_id: '',
@@ -571,7 +607,16 @@ const form = reactive({
   display_enabled: false,
   overlay_config: {} as Record<string, unknown>,
   provider_ext: {} as Record<string, unknown>,
+  system_prompt: '',
+  capabilities: [] as string[],
 })
+
+function toggleCapability(cap: string) {
+  if (!form.capabilities) form.capabilities = []
+  const idx = form.capabilities.indexOf(cap)
+  if (idx >= 0) form.capabilities.splice(idx, 1)
+  else form.capabilities.push(cap)
+}
 
 const overlayConfigClaudecode = computed({
   get() {
@@ -730,6 +775,8 @@ watch(settings, (val) => {
 
 watch(bot, (val) => {
   form.timezone = val?.timezone ?? ''
+  form.system_prompt = (val as Record<string, unknown>)?.system_prompt as string ?? ''
+  form.capabilities = ((val as Record<string, unknown>)?.capabilities as string[]) ?? []
 }, { immediate: true })
 
 const hasSettingsChanges = computed(() => {
@@ -755,17 +802,32 @@ const hasSettingsChanges = computed(() => {
 })
 
 const hasTimezoneChanges = computed(() => form.timezone !== (bot.value?.timezone ?? ''))
-const hasChanges = computed(() => hasSettingsChanges.value || hasTimezoneChanges.value)
+const hasBotProfileChanges = computed(() => {
+  const b = bot.value as Record<string, unknown> | undefined
+  return form.system_prompt !== (b?.system_prompt ?? '')
+    || JSON.stringify(form.capabilities) !== JSON.stringify((b?.capabilities as string[]) ?? [])
+})
+const hasChanges = computed(() => hasSettingsChanges.value || hasTimezoneChanges.value || hasBotProfileChanges.value)
 const saveLoading = computed(() => isLoading.value || isUpdatingBot.value)
 
 async function handleSave() {
   try {
     if (hasSettingsChanges.value) {
-      const { timezone: _timezone, ...settingsPayload } = form
+      const { timezone: _timezone, system_prompt: _sp, capabilities: _caps, ...settingsPayload } = form
       await updateSettings(settingsPayload)
     }
+    const botPayload: Record<string, unknown> = {}
     if (hasTimezoneChanges.value) {
-      await updateBot(form.timezone)
+      botPayload.timezone = form.timezone
+    }
+    if (form.system_prompt !== ((bot.value as Record<string, unknown>)?.system_prompt ?? '')) {
+      botPayload.system_prompt = form.system_prompt
+    }
+    if (JSON.stringify(form.capabilities) !== JSON.stringify(((bot.value as Record<string, unknown>)?.capabilities as string[]) ?? [])) {
+      botPayload.capabilities = form.capabilities
+    }
+    if (Object.keys(botPayload).length > 0) {
+      await updateBot(botPayload)
     }
     toast.success(t('bots.settings.saveSuccess'))
   } catch (error) {

@@ -1,10 +1,37 @@
 <template>
   <section class="p-4 mx-auto max-w-2xl">
-    <h2 class="text-lg font-semibold mb-6">
+    <h2 class="text-lg font-semibold mb-4">
       {{ $t('bots.createBot') }}
     </h2>
 
-    <form @submit.prevent="handleSubmit">
+    <div class="flex items-center gap-2 mb-6">
+      <button
+        type="button"
+        class="px-3 py-1 rounded-full text-xs font-medium transition-colors"
+        :class="createMode === 'form' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground'"
+        @click="createMode = 'form'"
+      >
+        {{ $t('bots.formMode', 'Form') }}
+      </button>
+      <button
+        type="button"
+        class="px-3 py-1 rounded-full text-xs font-medium transition-colors"
+        :class="createMode === 'wizard' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground'"
+        @click="createMode = 'wizard'"
+      >
+        {{ $t('bots.wizardMode', 'Guided') }}
+      </button>
+    </div>
+
+    <BotCreateWizard
+      v-if="createMode === 'wizard'"
+      @submit="handleWizardSubmit"
+    />
+
+    <form
+      v-else
+      @submit.prevent="handleSubmit"
+    >
       <!-- Basic Info -->
       <div>
         <h3 class="text-sm font-medium mb-4">
@@ -247,6 +274,52 @@
         <Separator class="my-6" />
       </template>
 
+      <!-- System Prompt (for memoh framework) -->
+      <template v-if="form.framework === 'memoh'">
+        <div>
+          <h3 class="text-sm font-medium mb-4">
+            System Prompt
+            <span class="text-muted-foreground text-xs ml-1">({{ $t('common.optional') }})</span>
+          </h3>
+          <textarea
+            v-model="form.system_prompt"
+            :placeholder="$t('bots.systemPromptPlaceholder', 'Describe the agent\'s personality, role, and behavior...')"
+            rows="4"
+            class="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-y"
+          />
+          <p class="text-xs text-muted-foreground mt-1.5">
+            Custom instructions prepended to the default system prompt.
+          </p>
+        </div>
+
+        <Separator class="my-6" />
+
+        <div>
+          <h3 class="text-sm font-medium mb-4">
+            Capabilities
+            <span class="text-muted-foreground text-xs ml-1">({{ $t('common.optional') }})</span>
+          </h3>
+          <div class="flex flex-wrap gap-2">
+            <label
+              v-for="cap in availableCapabilities"
+              :key="cap"
+              class="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs cursor-pointer transition-colors"
+              :class="form.capabilities.includes(cap) ? 'bg-primary/10 border-primary text-primary' : 'border-border text-muted-foreground hover:border-foreground/30'"
+            >
+              <input
+                type="checkbox"
+                :checked="form.capabilities.includes(cap)"
+                class="sr-only"
+                @change="toggleCapability(cap)"
+              >
+              {{ cap }}
+            </label>
+          </div>
+        </div>
+
+        <Separator class="my-6" />
+      </template>
+
       <!-- Security Policy -->
       <div>
         <h3 class="text-sm font-medium mb-4">
@@ -426,11 +499,13 @@ import TimezoneSelect from '@/components/timezone-select/index.vue'
 import ModelSelect from './components/model-select.vue'
 import MemoryProviderSelect from './components/memory-provider-select.vue'
 import AvatarEditDialog from './components/avatar-edit-dialog.vue'
+import BotCreateWizard from './components/bot-create-wizard.vue'
 
 const router = useRouter()
 const { t } = useI18n()
 const queryCache = useQueryCache()
 const capabilities = useCapabilitiesStore()
+const createMode = ref<'form' | 'wizard'>('form')
 
 onMounted(() => {
   void capabilities.load()
@@ -444,6 +519,8 @@ const frameworkOptions = [
   { value: 'codex', label: 'Codex', description: 'OpenAI CLI Agent，自带模型和工具链' },
 ] as const
 
+const availableCapabilities = ['plan', 'code', 'test', 'review', 'edit', 'exec', 'search', 'memory']
+
 const form = reactive({
   display_name: '',
   avatar_url: '',
@@ -454,7 +531,15 @@ const form = reactive({
   timezone: emptyTimezoneValue,
   workspace_backend: 'container',
   local_workspace_path: '',
+  system_prompt: '',
+  capabilities: [] as string[],
 })
+
+function toggleCapability(cap: string) {
+  const idx = form.capabilities.indexOf(cap)
+  if (idx >= 0) form.capabilities.splice(idx, 1)
+  else form.capabilities.push(cap)
+}
 
 watch(localWorkspaceEnabled, (enabled) => {
   if (enabled) {
@@ -640,6 +725,30 @@ const { mutateAsync: createBot, isLoading: submitLoading } = useMutation({
   onSettled: () => queryCache.invalidateQueries({ key: getBotsQueryKey() }),
 })
 
+async function handleWizardSubmit(data: { display_name: string; framework: string; system_prompt: string; capabilities: string[] }) {
+  try {
+    const bot = await createBot({
+      body: {
+        display_name: data.display_name.trim(),
+        is_active: true,
+        acl_preset: defaultAclPreset,
+        framework: data.framework,
+        system_prompt: data.system_prompt.trim() || undefined,
+        capabilities: data.capabilities.length > 0 ? data.capabilities : undefined,
+      },
+    })
+    toast.success(t('bots.createBotSuccess'))
+    const botId = bot?.id
+    if (botId) {
+      router.push({ name: 'bot-detail', params: { botId } })
+    } else {
+      router.push({ name: 'bots' })
+    }
+  } catch (error) {
+    toast.error(resolveApiErrorMessage(error, t('common.saveFailed')))
+  }
+}
+
 async function handleSubmit() {
   if (!canSubmit.value || submitLoading.value) return
 
@@ -663,6 +772,8 @@ async function handleSubmit() {
         is_active: true,
         acl_preset: form.acl_preset,
         framework: form.framework,
+        system_prompt: form.system_prompt.trim() || undefined,
+        capabilities: form.capabilities.length > 0 ? form.capabilities : undefined,
         metadata,
       },
     })

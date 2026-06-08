@@ -12,20 +12,22 @@ import (
 )
 
 const createBot = `-- name: CreateBot :one
-INSERT INTO bots (owner_user_id, display_name, avatar_url, timezone, is_active, metadata, status, framework)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-RETURNING id, owner_user_id, display_name, avatar_url, timezone, is_active, status, language, reasoning_enabled, reasoning_effort, chat_model_id, search_provider_id, memory_provider_id, heartbeat_enabled, heartbeat_interval, heartbeat_prompt, framework, metadata, created_at, updated_at
+INSERT INTO bots (owner_user_id, display_name, avatar_url, timezone, is_active, metadata, status, framework, system_prompt, capabilities)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+RETURNING id, owner_user_id, display_name, avatar_url, timezone, is_active, status, language, reasoning_enabled, reasoning_effort, chat_model_id, search_provider_id, memory_provider_id, heartbeat_enabled, heartbeat_interval, heartbeat_prompt, framework, system_prompt, capabilities, metadata, created_at, updated_at
 `
 
 type CreateBotParams struct {
-	OwnerUserID pgtype.UUID `json:"owner_user_id"`
-	DisplayName pgtype.Text `json:"display_name"`
-	AvatarUrl   pgtype.Text `json:"avatar_url"`
-	Timezone    pgtype.Text `json:"timezone"`
-	IsActive    bool        `json:"is_active"`
-	Metadata    []byte      `json:"metadata"`
-	Status      string      `json:"status"`
-	Framework   string      `json:"framework"`
+	OwnerUserID  pgtype.UUID `json:"owner_user_id"`
+	DisplayName  pgtype.Text `json:"display_name"`
+	AvatarUrl    pgtype.Text `json:"avatar_url"`
+	Timezone     pgtype.Text `json:"timezone"`
+	IsActive     bool        `json:"is_active"`
+	Metadata     []byte      `json:"metadata"`
+	Status       string      `json:"status"`
+	Framework    string      `json:"framework"`
+	SystemPrompt string      `json:"system_prompt"`
+	Capabilities []string    `json:"capabilities"`
 }
 
 type CreateBotRow struct {
@@ -46,6 +48,8 @@ type CreateBotRow struct {
 	HeartbeatInterval int32              `json:"heartbeat_interval"`
 	HeartbeatPrompt   string             `json:"heartbeat_prompt"`
 	Framework         string             `json:"framework"`
+	SystemPrompt      string             `json:"system_prompt"`
+	Capabilities      []string           `json:"capabilities"`
 	Metadata          []byte             `json:"metadata"`
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
@@ -61,6 +65,8 @@ func (q *Queries) CreateBot(ctx context.Context, arg CreateBotParams) (CreateBot
 		arg.Metadata,
 		arg.Status,
 		arg.Framework,
+		arg.SystemPrompt,
+		arg.Capabilities,
 	)
 	var i CreateBotRow
 	err := row.Scan(
@@ -81,6 +87,8 @@ func (q *Queries) CreateBot(ctx context.Context, arg CreateBotParams) (CreateBot
 		&i.HeartbeatInterval,
 		&i.HeartbeatPrompt,
 		&i.Framework,
+		&i.SystemPrompt,
+		&i.Capabilities,
 		&i.Metadata,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -98,7 +106,7 @@ func (q *Queries) DeleteBotByID(ctx context.Context, id pgtype.UUID) error {
 }
 
 const getBotByID = `-- name: GetBotByID :one
-SELECT id, owner_user_id, display_name, avatar_url, timezone, is_active, status, language, reasoning_enabled, reasoning_effort, chat_model_id, search_provider_id, memory_provider_id, heartbeat_enabled, heartbeat_interval, heartbeat_prompt, compaction_enabled, compaction_threshold, compaction_ratio, compaction_model_id, framework, metadata, created_at, updated_at
+SELECT id, owner_user_id, display_name, avatar_url, timezone, is_active, status, language, reasoning_enabled, reasoning_effort, chat_model_id, search_provider_id, memory_provider_id, heartbeat_enabled, heartbeat_interval, heartbeat_prompt, compaction_enabled, compaction_threshold, compaction_ratio, compaction_model_id, framework, system_prompt, capabilities, metadata, created_at, updated_at
 FROM bots
 WHERE id = $1
 `
@@ -125,6 +133,8 @@ type GetBotByIDRow struct {
 	CompactionRatio     int32              `json:"compaction_ratio"`
 	CompactionModelID   pgtype.UUID        `json:"compaction_model_id"`
 	Framework           string             `json:"framework"`
+	SystemPrompt        string             `json:"system_prompt"`
+	Capabilities        []string           `json:"capabilities"`
 	Metadata            []byte             `json:"metadata"`
 	CreatedAt           pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
@@ -155,6 +165,8 @@ func (q *Queries) GetBotByID(ctx context.Context, id pgtype.UUID) (GetBotByIDRow
 		&i.CompactionRatio,
 		&i.CompactionModelID,
 		&i.Framework,
+		&i.SystemPrompt,
+		&i.Capabilities,
 		&i.Metadata,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -163,7 +175,7 @@ func (q *Queries) GetBotByID(ctx context.Context, id pgtype.UUID) (GetBotByIDRow
 }
 
 const listBotsByOwner = `-- name: ListBotsByOwner :many
-SELECT id, owner_user_id, display_name, avatar_url, timezone, is_active, status, language, reasoning_enabled, reasoning_effort, chat_model_id, search_provider_id, memory_provider_id, heartbeat_enabled, heartbeat_interval, heartbeat_prompt, framework, metadata, created_at, updated_at
+SELECT id, owner_user_id, display_name, avatar_url, timezone, is_active, status, language, reasoning_enabled, reasoning_effort, chat_model_id, search_provider_id, memory_provider_id, heartbeat_enabled, heartbeat_interval, heartbeat_prompt, framework, system_prompt, capabilities, metadata, created_at, updated_at
 FROM bots
 WHERE owner_user_id = $1
 ORDER BY created_at DESC
@@ -187,6 +199,8 @@ type ListBotsByOwnerRow struct {
 	HeartbeatInterval int32              `json:"heartbeat_interval"`
 	HeartbeatPrompt   string             `json:"heartbeat_prompt"`
 	Framework         string             `json:"framework"`
+	SystemPrompt      string             `json:"system_prompt"`
+	Capabilities      []string           `json:"capabilities"`
 	Metadata          []byte             `json:"metadata"`
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
@@ -219,6 +233,8 @@ func (q *Queries) ListBotsByOwner(ctx context.Context, ownerUserID pgtype.UUID) 
 			&i.HeartbeatInterval,
 			&i.HeartbeatPrompt,
 			&i.Framework,
+			&i.SystemPrompt,
+			&i.Capabilities,
 			&i.Metadata,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -278,7 +294,7 @@ UPDATE bots
 SET owner_user_id = $2,
     updated_at = now()
 WHERE id = $1
-RETURNING id, owner_user_id, display_name, avatar_url, timezone, is_active, status, language, reasoning_enabled, reasoning_effort, chat_model_id, search_provider_id, memory_provider_id, heartbeat_enabled, heartbeat_interval, heartbeat_prompt, framework, metadata, created_at, updated_at
+RETURNING id, owner_user_id, display_name, avatar_url, timezone, is_active, status, language, reasoning_enabled, reasoning_effort, chat_model_id, search_provider_id, memory_provider_id, heartbeat_enabled, heartbeat_interval, heartbeat_prompt, framework, system_prompt, capabilities, metadata, created_at, updated_at
 `
 
 type UpdateBotOwnerParams struct {
@@ -304,6 +320,8 @@ type UpdateBotOwnerRow struct {
 	HeartbeatInterval int32              `json:"heartbeat_interval"`
 	HeartbeatPrompt   string             `json:"heartbeat_prompt"`
 	Framework         string             `json:"framework"`
+	SystemPrompt      string             `json:"system_prompt"`
+	Capabilities      []string           `json:"capabilities"`
 	Metadata          []byte             `json:"metadata"`
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
@@ -330,6 +348,8 @@ func (q *Queries) UpdateBotOwner(ctx context.Context, arg UpdateBotOwnerParams) 
 		&i.HeartbeatInterval,
 		&i.HeartbeatPrompt,
 		&i.Framework,
+		&i.SystemPrompt,
+		&i.Capabilities,
 		&i.Metadata,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -344,18 +364,22 @@ SET display_name = $2,
     timezone = $4,
     is_active = $5,
     metadata = $6,
+    system_prompt = $7,
+    capabilities = $8,
     updated_at = now()
 WHERE id = $1
-RETURNING id, owner_user_id, display_name, avatar_url, timezone, is_active, status, language, reasoning_enabled, reasoning_effort, chat_model_id, search_provider_id, memory_provider_id, heartbeat_enabled, heartbeat_interval, heartbeat_prompt, framework, metadata, created_at, updated_at
+RETURNING id, owner_user_id, display_name, avatar_url, timezone, is_active, status, language, reasoning_enabled, reasoning_effort, chat_model_id, search_provider_id, memory_provider_id, heartbeat_enabled, heartbeat_interval, heartbeat_prompt, framework, system_prompt, capabilities, metadata, created_at, updated_at
 `
 
 type UpdateBotProfileParams struct {
-	ID          pgtype.UUID `json:"id"`
-	DisplayName pgtype.Text `json:"display_name"`
-	AvatarUrl   pgtype.Text `json:"avatar_url"`
-	Timezone    pgtype.Text `json:"timezone"`
-	IsActive    bool        `json:"is_active"`
-	Metadata    []byte      `json:"metadata"`
+	ID           pgtype.UUID `json:"id"`
+	DisplayName  pgtype.Text `json:"display_name"`
+	AvatarUrl    pgtype.Text `json:"avatar_url"`
+	Timezone     pgtype.Text `json:"timezone"`
+	IsActive     bool        `json:"is_active"`
+	Metadata     []byte      `json:"metadata"`
+	SystemPrompt string      `json:"system_prompt"`
+	Capabilities []string    `json:"capabilities"`
 }
 
 type UpdateBotProfileRow struct {
@@ -376,6 +400,8 @@ type UpdateBotProfileRow struct {
 	HeartbeatInterval int32              `json:"heartbeat_interval"`
 	HeartbeatPrompt   string             `json:"heartbeat_prompt"`
 	Framework         string             `json:"framework"`
+	SystemPrompt      string             `json:"system_prompt"`
+	Capabilities      []string           `json:"capabilities"`
 	Metadata          []byte             `json:"metadata"`
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
@@ -389,6 +415,8 @@ func (q *Queries) UpdateBotProfile(ctx context.Context, arg UpdateBotProfilePara
 		arg.Timezone,
 		arg.IsActive,
 		arg.Metadata,
+		arg.SystemPrompt,
+		arg.Capabilities,
 	)
 	var i UpdateBotProfileRow
 	err := row.Scan(
@@ -409,6 +437,8 @@ func (q *Queries) UpdateBotProfile(ctx context.Context, arg UpdateBotProfilePara
 		&i.HeartbeatInterval,
 		&i.HeartbeatPrompt,
 		&i.Framework,
+		&i.SystemPrompt,
+		&i.Capabilities,
 		&i.Metadata,
 		&i.CreatedAt,
 		&i.UpdatedAt,

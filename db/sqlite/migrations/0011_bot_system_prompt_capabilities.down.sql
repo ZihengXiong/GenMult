@@ -1,0 +1,3 @@
+-- 0011_bot_system_prompt_capabilities (rollback)
+-- SQLite does not support DROP COLUMN before 3.35; recreate if needed.
+-- For dev environments this is a no-op placeholder.

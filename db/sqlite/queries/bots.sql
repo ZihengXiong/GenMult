@@ -1,5 +1,5 @@
 -- name: CreateBot :one
-INSERT INTO bots (id, owner_user_id, type, display_name, avatar_url, timezone, is_active, metadata, status, framework)
+INSERT INTO bots (id, owner_user_id, type, display_name, avatar_url, timezone, is_active, metadata, status, framework, system_prompt, capabilities)
 VALUES (
   lower(hex(randomblob(4))) || '-' ||
   lower(hex(randomblob(2))) || '-' ||
@@ -14,17 +14,19 @@ VALUES (
   sqlc.arg(is_active),
   sqlc.arg(metadata),
   sqlc.arg(status),
-  sqlc.arg(framework)
+  sqlc.arg(framework),
+  sqlc.arg(system_prompt),
+  sqlc.arg(capabilities)
 )
-RETURNING id, owner_user_id, display_name, avatar_url, timezone, is_active, status, language, reasoning_enabled, reasoning_effort, chat_model_id, search_provider_id, memory_provider_id, heartbeat_enabled, heartbeat_interval, heartbeat_prompt, framework, metadata, created_at, updated_at;
+RETURNING id, owner_user_id, display_name, avatar_url, timezone, is_active, status, language, reasoning_enabled, reasoning_effort, chat_model_id, search_provider_id, memory_provider_id, heartbeat_enabled, heartbeat_interval, heartbeat_prompt, framework, system_prompt, capabilities, metadata, created_at, updated_at;
 
 -- name: GetBotByID :one
-SELECT id, owner_user_id, display_name, avatar_url, timezone, is_active, status, language, reasoning_enabled, reasoning_effort, chat_model_id, search_provider_id, memory_provider_id, heartbeat_enabled, heartbeat_interval, heartbeat_prompt, compaction_enabled, compaction_threshold, compaction_ratio, compaction_model_id, framework, metadata, created_at, updated_at
+SELECT id, owner_user_id, display_name, avatar_url, timezone, is_active, status, language, reasoning_enabled, reasoning_effort, chat_model_id, search_provider_id, memory_provider_id, heartbeat_enabled, heartbeat_interval, heartbeat_prompt, compaction_enabled, compaction_threshold, compaction_ratio, compaction_model_id, framework, system_prompt, capabilities, metadata, created_at, updated_at
 FROM bots
 WHERE id = sqlc.arg(id);
 
 -- name: ListBotsByOwner :many
-SELECT id, owner_user_id, display_name, avatar_url, timezone, is_active, status, language, reasoning_enabled, reasoning_effort, chat_model_id, search_provider_id, memory_provider_id, heartbeat_enabled, heartbeat_interval, heartbeat_prompt, framework, metadata, created_at, updated_at
+SELECT id, owner_user_id, display_name, avatar_url, timezone, is_active, status, language, reasoning_enabled, reasoning_effort, chat_model_id, search_provider_id, memory_provider_id, heartbeat_enabled, heartbeat_interval, heartbeat_prompt, framework, system_prompt, capabilities, metadata, created_at, updated_at
 FROM bots
 WHERE owner_user_id = sqlc.arg(owner_user_id)
 ORDER BY created_at DESC;
@@ -36,16 +38,18 @@ SET display_name = sqlc.arg(display_name),
     timezone = sqlc.arg(timezone),
     is_active = sqlc.arg(is_active),
     metadata = sqlc.arg(metadata),
+    system_prompt = sqlc.arg(system_prompt),
+    capabilities = sqlc.arg(capabilities),
     updated_at = CURRENT_TIMESTAMP
 WHERE id = sqlc.arg(id)
-RETURNING id, owner_user_id, display_name, avatar_url, timezone, is_active, status, language, reasoning_enabled, reasoning_effort, chat_model_id, search_provider_id, memory_provider_id, heartbeat_enabled, heartbeat_interval, heartbeat_prompt, framework, metadata, created_at, updated_at;
+RETURNING id, owner_user_id, display_name, avatar_url, timezone, is_active, status, language, reasoning_enabled, reasoning_effort, chat_model_id, search_provider_id, memory_provider_id, heartbeat_enabled, heartbeat_interval, heartbeat_prompt, framework, system_prompt, capabilities, metadata, created_at, updated_at;
 
 -- name: UpdateBotOwner :one
 UPDATE bots
 SET owner_user_id = sqlc.arg(owner_user_id),
     updated_at = CURRENT_TIMESTAMP
 WHERE id = sqlc.arg(id)
-RETURNING id, owner_user_id, display_name, avatar_url, timezone, is_active, status, language, reasoning_enabled, reasoning_effort, chat_model_id, search_provider_id, memory_provider_id, heartbeat_enabled, heartbeat_interval, heartbeat_prompt, framework, metadata, created_at, updated_at;
+RETURNING id, owner_user_id, display_name, avatar_url, timezone, is_active, status, language, reasoning_enabled, reasoning_effort, chat_model_id, search_provider_id, memory_provider_id, heartbeat_enabled, heartbeat_interval, heartbeat_prompt, framework, system_prompt, capabilities, metadata, created_at, updated_at;
 
 -- name: UpdateBotStatus :exec
 UPDATE bots

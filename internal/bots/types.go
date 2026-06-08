@@ -15,6 +15,8 @@ type Bot struct {
 	IsActive        bool           `json:"is_active"`
 	Status          string         `json:"status"`
 	Framework       string         `json:"framework"`
+	SystemPrompt    string         `json:"system_prompt,omitempty"`
+	Capabilities    []string       `json:"capabilities,omitempty"`
 	CheckState      string         `json:"check_state"`
 	CheckIssueCount int32          `json:"check_issue_count"`
 	Metadata        map[string]any `json:"metadata,omitempty"`
@@ -36,22 +38,26 @@ type BotCheck struct {
 
 // CreateBotRequest is the input for creating a bot.
 type CreateBotRequest struct {
-	DisplayName string         `json:"display_name,omitempty"`
-	AvatarURL   string         `json:"avatar_url,omitempty"`
-	Timezone    *string        `json:"timezone,omitempty"`
-	IsActive    *bool          `json:"is_active,omitempty"`
-	AclPreset   string         `json:"acl_preset,omitempty"`
-	Framework   string         `json:"framework,omitempty"`
-	Metadata    map[string]any `json:"metadata,omitempty"`
+	DisplayName  string         `json:"display_name,omitempty"`
+	AvatarURL    string         `json:"avatar_url,omitempty"`
+	Timezone     *string        `json:"timezone,omitempty"`
+	IsActive     *bool          `json:"is_active,omitempty"`
+	AclPreset    string         `json:"acl_preset,omitempty"`
+	Framework    string         `json:"framework,omitempty"`
+	SystemPrompt string         `json:"system_prompt,omitempty"`
+	Capabilities []string       `json:"capabilities,omitempty"`
+	Metadata     map[string]any `json:"metadata,omitempty"`
 }
 
 // UpdateBotRequest is the input for updating a bot.
 type UpdateBotRequest struct {
-	DisplayName *string        `json:"display_name,omitempty"`
-	AvatarURL   *string        `json:"avatar_url,omitempty"`
-	Timezone    *string        `json:"timezone,omitempty"`
-	IsActive    *bool          `json:"is_active,omitempty"`
-	Metadata    map[string]any `json:"metadata,omitempty"`
+	DisplayName  *string        `json:"display_name,omitempty"`
+	AvatarURL    *string        `json:"avatar_url,omitempty"`
+	Timezone     *string        `json:"timezone,omitempty"`
+	IsActive     *bool          `json:"is_active,omitempty"`
+	SystemPrompt *string        `json:"system_prompt,omitempty"`
+	Capabilities []string       `json:"capabilities,omitempty"`
+	Metadata     map[string]any `json:"metadata,omitempty"`
 }
 
 // TransferBotRequest is the input for transferring bot ownership.

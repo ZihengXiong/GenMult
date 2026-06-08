@@ -835,6 +835,7 @@ func (r *Resolver) prepareRunConfig(ctx context.Context, cfg agentpkg.RunConfig)
 		SupportsImageInput:        supportsImageInput,
 		SupportsToolCall:          cfg.SupportsToolCall,
 		PlatformIdentitiesSection: platformIdentitiesSection,
+		CustomSystemPrompt:        r.loadBotSystemPrompt(ctx, cfg.Identity.BotID),
 	})
 
 	if cfg.Query != "" {

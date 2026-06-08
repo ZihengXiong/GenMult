@@ -30,10 +30,21 @@ It started from the idea of giving every agent its own long-running context, too
 ### Agent Workspace
 
 - Multi-agent and multi-user chat.
+- Three agent frameworks: Memoh (built-in), Claude Code, and Codex (CLI-backed runtimes).
+- Custom agent creation with user-defined system prompts and capability tags.
+- Guided wizard for conversational agent setup (name → framework → prompt → capabilities).
 - Per-agent model, provider, memory, channel, and permission settings.
 - AgentHub rooms for shared collaboration, mentions, room messages, and agent membership.
+- Orchestrator DAG engine with LLM-powered task planning, dependency resolution, and parallel dispatch.
 - Long-term memory providers with history compaction and retrieval hooks.
 - Scheduled tasks, heartbeat sessions, discuss mode, and subagent workflows.
+
+### Artifact Preview and Editing
+
+- Inline web preview cards (sandboxed iframe) for URLs detected in agent output.
+- Diff cards with one-click apply — review file edits and write them to the workspace container directly from the chat.
+- Full-screen Monaco code viewer for inspecting agent-produced code artifacts.
+- Media gallery lightbox for image attachments.
 
 ### Channels
 
@@ -164,9 +175,20 @@ packages/            Shared UI, SDK, icons, and config packages
 db/                  PostgreSQL and SQLite migrations and queries
 conf/                Example configuration and provider templates
 docker/              Production Dockerfiles and nginx config
-docs/                Documentation site
+docs/                Documentation site (VitePress)
+  docs/zh/           Chinese documentation (product design, architecture, AI collaboration, demo script)
 deploy/              Kubernetes deployment examples
+.agents/skills/      Reusable agent skill definitions
 ```
+
+## Documentation
+
+Project documentation lives under `docs/docs/` and is built with VitePress.
+
+- **[Product Design](docs/docs/zh/product-design.md)** — Problem definition, user personas, page flow, feature checklist, and innovation highlights.
+- **[Architecture](docs/docs/zh/architecture.md)** — System architecture, Rooms vs Sessions data model, dual adapter layer design, Orchestrator DAG engine, and sequence diagrams.
+- **[AI Collaboration](docs/docs/zh/ai-collaboration.md)** — How Claude Code and Codex were used to build this project, AGENTS.md rule constraints, prompt–review iteration workflow, and contribution statistics.
+- **[Demo Script](docs/docs/zh/demo-script.md)** — 3-minute demo storyboard and recording checklist.
 
 ## Security Notes
 
@@ -177,7 +199,7 @@ deploy/              Kubernetes deployment examples
 
 ## Current Status
 
-GenMult is under active development. Some internal package names and historical paths may still use the original module naming while the product identity moves toward GenMult.
+GenMult is under active development. The project is built collaboratively with Claude Code and Codex — see [AI Collaboration](docs/docs/zh/ai-collaboration.md) for details on the development workflow. Some internal package names and historical paths may still use the original module naming while the product identity moves toward GenMult.
 
 ## License
 

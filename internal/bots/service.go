@@ -131,15 +131,23 @@ func (s *Service) Create(ctx context.Context, ownerUserID string, req CreateBotR
 	if err != nil {
 		return Bot{}, err
 	}
+	systemPrompt := strings.TrimSpace(req.SystemPrompt)
+	capabilities := req.Capabilities
+	if capabilities == nil {
+		capabilities = []string{}
+	}
+
 	row, err := s.queries.CreateBot(ctx, sqlc.CreateBotParams{
-		OwnerUserID: ownerUUID,
-		DisplayName: pgtype.Text{String: displayName, Valid: displayName != ""},
-		AvatarUrl:   pgtype.Text{String: avatarURL, Valid: avatarURL != ""},
-		Timezone:    timezoneValue,
-		IsActive:    isActive,
-		Metadata:    payload,
-		Status:      BotStatusCreating,
-		Framework:   framework,
+		OwnerUserID:  ownerUUID,
+		DisplayName:  pgtype.Text{String: displayName, Valid: displayName != ""},
+		AvatarUrl:    pgtype.Text{String: avatarURL, Valid: avatarURL != ""},
+		Timezone:     timezoneValue,
+		IsActive:     isActive,
+		Metadata:     payload,
+		Status:       BotStatusCreating,
+		Framework:    framework,
+		SystemPrompt: systemPrompt,
+		Capabilities: capabilities,
 	})
 	if err != nil {
 		return Bot{}, err
@@ -258,6 +266,14 @@ func (s *Service) Update(ctx context.Context, botID string, req UpdateBotRequest
 	if req.Metadata != nil {
 		metadata = req.Metadata
 	}
+	systemPrompt := existing.SystemPrompt
+	if req.SystemPrompt != nil {
+		systemPrompt = strings.TrimSpace(*req.SystemPrompt)
+	}
+	capabilities := existing.Capabilities
+	if req.Capabilities != nil {
+		capabilities = req.Capabilities
+	}
 	if displayName == "" {
 		displayName = "bot-" + uuid.NewString()
 	}
@@ -266,12 +282,14 @@ func (s *Service) Update(ctx context.Context, botID string, req UpdateBotRequest
 		return Bot{}, err
 	}
 	row, err := s.queries.UpdateBotProfile(ctx, sqlc.UpdateBotProfileParams{
-		ID:          botUUID,
-		DisplayName: pgtype.Text{String: displayName, Valid: displayName != ""},
-		AvatarUrl:   pgtype.Text{String: avatarURL, Valid: avatarURL != ""},
-		Timezone:    timezoneValue,
-		IsActive:    isActive,
-		Metadata:    payload,
+		ID:           botUUID,
+		DisplayName:  pgtype.Text{String: displayName, Valid: displayName != ""},
+		AvatarUrl:    pgtype.Text{String: avatarURL, Valid: avatarURL != ""},
+		Timezone:     timezoneValue,
+		IsActive:     isActive,
+		Metadata:     payload,
+		SystemPrompt: systemPrompt,
+		Capabilities: capabilities,
 	})
 	if err != nil {
 		return Bot{}, err
@@ -456,15 +474,15 @@ func asSQLCBot(v any) sqlc.Bot {
 	case sqlc.Bot:
 		return r
 	case sqlc.CreateBotRow:
-		return sqlc.Bot{ID: r.ID, OwnerUserID: r.OwnerUserID, DisplayName: r.DisplayName, AvatarUrl: r.AvatarUrl, Timezone: r.Timezone, IsActive: r.IsActive, Status: r.Status, Language: r.Language, ReasoningEnabled: r.ReasoningEnabled, ReasoningEffort: r.ReasoningEffort, ChatModelID: r.ChatModelID, SearchProviderID: r.SearchProviderID, MemoryProviderID: r.MemoryProviderID, HeartbeatEnabled: r.HeartbeatEnabled, HeartbeatInterval: r.HeartbeatInterval, HeartbeatPrompt: r.HeartbeatPrompt, Framework: r.Framework, Metadata: r.Metadata, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt}
+		return sqlc.Bot{ID: r.ID, OwnerUserID: r.OwnerUserID, DisplayName: r.DisplayName, AvatarUrl: r.AvatarUrl, Timezone: r.Timezone, IsActive: r.IsActive, Status: r.Status, Language: r.Language, ReasoningEnabled: r.ReasoningEnabled, ReasoningEffort: r.ReasoningEffort, ChatModelID: r.ChatModelID, SearchProviderID: r.SearchProviderID, MemoryProviderID: r.MemoryProviderID, HeartbeatEnabled: r.HeartbeatEnabled, HeartbeatInterval: r.HeartbeatInterval, HeartbeatPrompt: r.HeartbeatPrompt, Framework: r.Framework, SystemPrompt: r.SystemPrompt, Capabilities: r.Capabilities, Metadata: r.Metadata, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt}
 	case sqlc.GetBotByIDRow:
-		return sqlc.Bot{ID: r.ID, OwnerUserID: r.OwnerUserID, DisplayName: r.DisplayName, AvatarUrl: r.AvatarUrl, Timezone: r.Timezone, IsActive: r.IsActive, Status: r.Status, Language: r.Language, ReasoningEnabled: r.ReasoningEnabled, ReasoningEffort: r.ReasoningEffort, ChatModelID: r.ChatModelID, SearchProviderID: r.SearchProviderID, MemoryProviderID: r.MemoryProviderID, HeartbeatEnabled: r.HeartbeatEnabled, HeartbeatInterval: r.HeartbeatInterval, HeartbeatPrompt: r.HeartbeatPrompt, CompactionEnabled: r.CompactionEnabled, CompactionThreshold: r.CompactionThreshold, CompactionModelID: r.CompactionModelID, Framework: r.Framework, Metadata: r.Metadata, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt}
+		return sqlc.Bot{ID: r.ID, OwnerUserID: r.OwnerUserID, DisplayName: r.DisplayName, AvatarUrl: r.AvatarUrl, Timezone: r.Timezone, IsActive: r.IsActive, Status: r.Status, Language: r.Language, ReasoningEnabled: r.ReasoningEnabled, ReasoningEffort: r.ReasoningEffort, ChatModelID: r.ChatModelID, SearchProviderID: r.SearchProviderID, MemoryProviderID: r.MemoryProviderID, HeartbeatEnabled: r.HeartbeatEnabled, HeartbeatInterval: r.HeartbeatInterval, HeartbeatPrompt: r.HeartbeatPrompt, CompactionEnabled: r.CompactionEnabled, CompactionThreshold: r.CompactionThreshold, CompactionModelID: r.CompactionModelID, Framework: r.Framework, SystemPrompt: r.SystemPrompt, Capabilities: r.Capabilities, Metadata: r.Metadata, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt}
 	case sqlc.ListBotsByOwnerRow:
-		return sqlc.Bot{ID: r.ID, OwnerUserID: r.OwnerUserID, DisplayName: r.DisplayName, AvatarUrl: r.AvatarUrl, Timezone: r.Timezone, IsActive: r.IsActive, Status: r.Status, Language: r.Language, ReasoningEnabled: r.ReasoningEnabled, ReasoningEffort: r.ReasoningEffort, ChatModelID: r.ChatModelID, SearchProviderID: r.SearchProviderID, MemoryProviderID: r.MemoryProviderID, HeartbeatEnabled: r.HeartbeatEnabled, HeartbeatInterval: r.HeartbeatInterval, HeartbeatPrompt: r.HeartbeatPrompt, Framework: r.Framework, Metadata: r.Metadata, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt}
+		return sqlc.Bot{ID: r.ID, OwnerUserID: r.OwnerUserID, DisplayName: r.DisplayName, AvatarUrl: r.AvatarUrl, Timezone: r.Timezone, IsActive: r.IsActive, Status: r.Status, Language: r.Language, ReasoningEnabled: r.ReasoningEnabled, ReasoningEffort: r.ReasoningEffort, ChatModelID: r.ChatModelID, SearchProviderID: r.SearchProviderID, MemoryProviderID: r.MemoryProviderID, HeartbeatEnabled: r.HeartbeatEnabled, HeartbeatInterval: r.HeartbeatInterval, HeartbeatPrompt: r.HeartbeatPrompt, Framework: r.Framework, SystemPrompt: r.SystemPrompt, Capabilities: r.Capabilities, Metadata: r.Metadata, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt}
 	case sqlc.UpdateBotProfileRow:
-		return sqlc.Bot{ID: r.ID, OwnerUserID: r.OwnerUserID, DisplayName: r.DisplayName, AvatarUrl: r.AvatarUrl, Timezone: r.Timezone, IsActive: r.IsActive, Status: r.Status, Language: r.Language, ReasoningEnabled: r.ReasoningEnabled, ReasoningEffort: r.ReasoningEffort, ChatModelID: r.ChatModelID, SearchProviderID: r.SearchProviderID, MemoryProviderID: r.MemoryProviderID, HeartbeatEnabled: r.HeartbeatEnabled, HeartbeatInterval: r.HeartbeatInterval, HeartbeatPrompt: r.HeartbeatPrompt, Framework: r.Framework, Metadata: r.Metadata, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt}
+		return sqlc.Bot{ID: r.ID, OwnerUserID: r.OwnerUserID, DisplayName: r.DisplayName, AvatarUrl: r.AvatarUrl, Timezone: r.Timezone, IsActive: r.IsActive, Status: r.Status, Language: r.Language, ReasoningEnabled: r.ReasoningEnabled, ReasoningEffort: r.ReasoningEffort, ChatModelID: r.ChatModelID, SearchProviderID: r.SearchProviderID, MemoryProviderID: r.MemoryProviderID, HeartbeatEnabled: r.HeartbeatEnabled, HeartbeatInterval: r.HeartbeatInterval, HeartbeatPrompt: r.HeartbeatPrompt, Framework: r.Framework, SystemPrompt: r.SystemPrompt, Capabilities: r.Capabilities, Metadata: r.Metadata, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt}
 	case sqlc.UpdateBotOwnerRow:
-		return sqlc.Bot{ID: r.ID, OwnerUserID: r.OwnerUserID, DisplayName: r.DisplayName, AvatarUrl: r.AvatarUrl, Timezone: r.Timezone, IsActive: r.IsActive, Status: r.Status, Language: r.Language, ReasoningEnabled: r.ReasoningEnabled, ReasoningEffort: r.ReasoningEffort, ChatModelID: r.ChatModelID, SearchProviderID: r.SearchProviderID, MemoryProviderID: r.MemoryProviderID, HeartbeatEnabled: r.HeartbeatEnabled, HeartbeatInterval: r.HeartbeatInterval, HeartbeatPrompt: r.HeartbeatPrompt, Framework: r.Framework, Metadata: r.Metadata, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt}
+		return sqlc.Bot{ID: r.ID, OwnerUserID: r.OwnerUserID, DisplayName: r.DisplayName, AvatarUrl: r.AvatarUrl, Timezone: r.Timezone, IsActive: r.IsActive, Status: r.Status, Language: r.Language, ReasoningEnabled: r.ReasoningEnabled, ReasoningEffort: r.ReasoningEffort, ChatModelID: r.ChatModelID, SearchProviderID: r.SearchProviderID, MemoryProviderID: r.MemoryProviderID, HeartbeatEnabled: r.HeartbeatEnabled, HeartbeatInterval: r.HeartbeatInterval, HeartbeatPrompt: r.HeartbeatPrompt, Framework: r.Framework, SystemPrompt: r.SystemPrompt, Capabilities: r.Capabilities, Metadata: r.Metadata, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt}
 	default:
 		return sqlc.Bot{}
 	}
@@ -495,6 +513,13 @@ func toBot(row sqlc.Bot) (Bot, error) {
 	if row.UpdatedAt.Valid {
 		updatedAt = row.UpdatedAt.Time
 	}
+	caps := make([]string, 0, len(row.Capabilities))
+	for _, c := range row.Capabilities {
+		if v := strings.TrimSpace(c); v != "" {
+			caps = append(caps, v)
+		}
+	}
+
 	return Bot{
 		ID:              row.ID.String(),
 		OwnerUserID:     row.OwnerUserID.String(),
@@ -504,6 +529,8 @@ func toBot(row sqlc.Bot) (Bot, error) {
 		IsActive:        row.IsActive,
 		Status:          strings.TrimSpace(row.Status),
 		Framework:       normalizeFrameworkValue(row.Framework),
+		SystemPrompt:    row.SystemPrompt,
+		Capabilities:    caps,
 		CheckState:      BotCheckStateUnknown,
 		CheckIssueCount: 0,
 		Metadata:        metadata,

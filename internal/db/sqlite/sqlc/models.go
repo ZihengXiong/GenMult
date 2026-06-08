@@ -151,6 +151,8 @@ type Bot struct {
 	UpdatedAt              string         `json:"updated_at"`
 	Framework              string         `json:"framework"`
 	ProviderExt            string         `json:"provider_ext"`
+	SystemPrompt           string         `json:"system_prompt"`
+	Capabilities           string         `json:"capabilities"`
 }
 
 type BotAclRule struct {

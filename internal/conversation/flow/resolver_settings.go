@@ -52,6 +52,21 @@ func (r *Resolver) loadBotFramework(ctx context.Context, botID string) string {
 	return bots.FrameworkMemoh
 }
 
+func (r *Resolver) loadBotSystemPrompt(ctx context.Context, botID string) string {
+	if r.queries == nil {
+		return ""
+	}
+	botUUID, err := db.ParseUUID(botID)
+	if err != nil {
+		return ""
+	}
+	row, err := r.queries.GetBotByID(ctx, botUUID)
+	if err != nil {
+		return ""
+	}
+	return row.SystemPrompt
+}
+
 func (r *Resolver) loadBotSettings(ctx context.Context, botID string) (settings.Settings, error) {
 	if r.settingsService == nil {
 		return settings.Settings{}, errors.New("settings service not configured")

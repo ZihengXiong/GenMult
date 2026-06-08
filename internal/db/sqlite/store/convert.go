@@ -2,6 +2,7 @@ package store
 
 import (
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
@@ -102,6 +103,18 @@ func assignValue(src reflect.Value, dst reflect.Value) error {
 	case reflect.Slice:
 		if dst.Type().Elem().Kind() == reflect.Uint8 {
 			dst.SetBytes([]byte(stringValue(src)))
+			return nil
+		}
+		if src.Kind() == reflect.String {
+			raw := src.String()
+			sliceVal := reflect.MakeSlice(dst.Type(), 0, 0)
+			if raw != "" && raw != "[]" {
+				ptr := reflect.New(dst.Type())
+				if err := json.Unmarshal([]byte(raw), ptr.Interface()); err == nil {
+					sliceVal = ptr.Elem()
+				}
+			}
+			dst.Set(sliceVal)
 			return nil
 		}
 		if src.Kind() != reflect.Slice {
@@ -242,6 +255,9 @@ func stringValue(value reflect.Value) string {
 	case reflect.Slice:
 		if value.Type().Elem().Kind() == reflect.Uint8 {
 			return string(value.Bytes())
+		}
+		if data, err := json.Marshal(value.Interface()); err == nil {
+			return string(data)
 		}
 	case reflect.Bool:
 		if value.Bool() {

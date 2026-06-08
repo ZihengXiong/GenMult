@@ -50,11 +50,11 @@ func (d *fakeDBTX) QueryRow(ctx context.Context, sql string, args ...any) pgx.Ro
 // chat_model_id, search_provider_id, memory_provider_id,
 // heartbeat_enabled, heartbeat_interval, heartbeat_prompt,
 // compaction_enabled, compaction_threshold, compaction_ratio, compaction_model_id,
-// framework, metadata, created_at, updated_at.
+// framework, system_prompt, capabilities, metadata, created_at, updated_at.
 func makeBotRow(botID, ownerUserID pgtype.UUID) *fakeRow {
 	return &fakeRow{
 		scanFunc: func(dest ...any) error {
-			if len(dest) < 24 {
+			if len(dest) < 26 {
 				return pgx.ErrNoRows
 			}
 			*dest[0].(*pgtype.UUID) = botID
@@ -78,9 +78,11 @@ func makeBotRow(botID, ownerUserID pgtype.UUID) *fakeRow {
 			*dest[18].(*int32) = 80                  // CompactionRatio
 			*dest[19].(*pgtype.UUID) = pgtype.UUID{} // CompactionModelID
 			*dest[20].(*string) = FrameworkMemoh     // Framework
-			*dest[21].(*[]byte) = []byte(`{}`)
-			*dest[22].(*pgtype.Timestamptz) = pgtype.Timestamptz{}
-			*dest[23].(*pgtype.Timestamptz) = pgtype.Timestamptz{}
+			*dest[21].(*string) = ""                 // SystemPrompt
+			*dest[22].(*[]string) = []string{}       // Capabilities
+			*dest[23].(*[]byte) = []byte(`{}`)
+			*dest[24].(*pgtype.Timestamptz) = pgtype.Timestamptz{}
+			*dest[25].(*pgtype.Timestamptz) = pgtype.Timestamptz{}
 			return nil
 		},
 	}
