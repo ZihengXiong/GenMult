@@ -80,16 +80,32 @@
                   :is-scrolling="isScrolling"
                   @active="isActiveEl"
                 />
-                <button
+                <div
                   v-if="!activeChatReadOnly && (msg.role === 'user' || msg.role === 'assistant')"
-                  type="button"
-                  class="absolute right-2 top-2 z-10 hidden items-center gap-1 rounded-md border border-border bg-card px-1.5 py-0.5 text-[10px] text-muted-foreground shadow-sm transition-colors hover:bg-muted/60 hover:text-foreground group-hover:inline-flex"
-                  :title="t('chat.quote')"
-                  @click="handleQuote(msg)"
+                  class="absolute right-2 top-2 z-10 hidden gap-1 group-hover:flex"
                 >
-                  <Quote class="size-3" />
-                  {{ t('chat.quote') }}
-                </button>
+                  <button
+                    type="button"
+                    class="inline-flex items-center gap-1 rounded-md border border-border bg-card px-1.5 py-0.5 text-[10px] text-muted-foreground shadow-sm transition-colors hover:bg-muted/60 hover:text-foreground"
+                    :title="t('chat.quote')"
+                    @click="handleQuote(msg)"
+                  >
+                    <Quote class="size-3" />
+                    {{ t('chat.quote') }}
+                  </button>
+                  <button
+                    type="button"
+                    class="inline-flex items-center rounded-md border border-border bg-card px-1.5 py-0.5 text-[10px] shadow-sm transition-colors hover:bg-muted/60"
+                    :class="chatStore.isMessagePinnedAsContext(quoteableText(msg)) ? 'text-primary' : 'text-muted-foreground hover:text-foreground'"
+                    :title="chatStore.isMessagePinnedAsContext(quoteableText(msg)) ? t('chat.unpinContext') : t('chat.pinContext')"
+                    @click="chatStore.toggleMessagePinnedAsContext(quoteableText(msg))"
+                  >
+                    <component
+                      :is="chatStore.isMessagePinnedAsContext(quoteableText(msg)) ? PinOff : Pin"
+                      class="size-3"
+                    />
+                  </button>
+                </div>
               </div>
             </div>
           </ScrollArea>
@@ -146,6 +162,13 @@
             >
               <CircleAlert class="mt-0.5 size-3.5 shrink-0" />
               <span class="min-w-0 break-words">{{ composerError }}</span>
+            </div>
+            <div
+              v-if="chatStore.pinnedContextCount > 0"
+              class="mb-2 flex items-center gap-1 text-[10px] text-muted-foreground"
+            >
+              <Pin class="size-2.5 shrink-0" />
+              <span>{{ chatStore.pinnedContextCount }} {{ t('chat.pinnedContextHint') }}</span>
             </div>
             <div
               v-if="canRegenerate"
@@ -281,7 +304,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onBeforeUnmount, useTemplateRef, watchEffect, watch, nextTick, onActivated, onDeactivated } from 'vue'
-import { LoaderCircle, Image as ImageIcon, File as FileIcon, X, Paperclip, Send, ChevronDown, Lightbulb, CircleAlert, RefreshCw, Quote } from 'lucide-vue-next'
+import { LoaderCircle, Image as ImageIcon, File as FileIcon, X, Paperclip, Send, ChevronDown, Lightbulb, CircleAlert, RefreshCw, Quote, Pin, PinOff } from 'lucide-vue-next'
 import { ScrollArea, Button, InputGroup, InputGroupAddon, InputGroupTextarea, Popover, PopoverContent, PopoverTrigger } from '@memohai/ui'
 import { useChatStore, type ChatMessage } from '@/store/chat-list'
 import { storeToRefs } from 'pinia'

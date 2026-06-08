@@ -367,6 +367,47 @@ export const useChatStore = defineStore('chat', () => {
     return setSessionFlag(session, 'archived', archived)
   }
 
+  // Pinned long-term context: texts the user pinned are stored on the active
+  // session's metadata.pinned_context and injected into the system prompt by the
+  // backend resolver, so they persist across turns / history trimming.
+  function activeSessionPinnedContext(): string[] {
+    const arr = (activeSession.value?.metadata as Record<string, unknown> | undefined)?.pinned_context
+    return Array.isArray(arr) ? arr.filter((x): x is string => typeof x === 'string') : []
+  }
+
+  const pinnedContextCount = computed(() => activeSessionPinnedContext().length)
+
+  function isMessagePinnedAsContext(text: string): boolean {
+    return activeSessionPinnedContext().includes(text.trim())
+  }
+
+  async function toggleMessagePinnedAsContext(text: string) {
+    const trimmed = text.trim()
+    const active = activeSession.value
+    if (!trimmed || !active?.bot_id) return
+    const target = sessions.value.find(entry => entry.id === active.id)
+    if (!target) return
+    const previous = { ...(target.metadata ?? {}) }
+    const list = Array.isArray((previous as Record<string, unknown>).pinned_context)
+      ? ((previous as Record<string, unknown>).pinned_context as unknown[]).filter((x): x is string => typeof x === 'string')
+      : []
+    const idx = list.indexOf(trimmed)
+    if (idx >= 0) list.splice(idx, 1)
+    else list.push(trimmed)
+    const next = { ...previous, pinned_context: list }
+    target.metadata = next
+    try {
+      const updated = await updateSessionMetadata(target.bot_id, target.id, next)
+      const latest = sessions.value.find(entry => entry.id === active.id)
+      if (latest) latest.metadata = updated.metadata ?? next
+    }
+    catch (error) {
+      console.error('Failed to toggle pinned context:', error)
+      const latest = sessions.value.find(entry => entry.id === active.id)
+      if (latest) latest.metadata = previous
+    }
+  }
+
   function getPreferredSession(): SessionSummary | null {
     const directSessions = listVisibleSessions('chat')
     return directSessions[0] ?? null
@@ -1634,6 +1675,9 @@ export const useChatStore = defineStore('chat', () => {
     isSessionArchived,
     setSessionPinned,
     setSessionArchived,
+    pinnedContextCount,
+    isMessagePinnedAsContext,
+    toggleMessagePinnedAsContext,
     loading,
     loadingChats,
     loadingOlder,
