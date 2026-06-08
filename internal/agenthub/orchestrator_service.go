@@ -8,12 +8,15 @@ import (
 	"strings"
 	"sync"
 
+	sdk "github.com/memohai/twilight-ai/sdk"
+
 	orch "github.com/ZihengXiong/GenMult/internal/agenthub/orchestrator"
 	"github.com/ZihengXiong/GenMult/internal/agenthub/providers"
 	"github.com/ZihengXiong/GenMult/internal/config"
 	"github.com/ZihengXiong/GenMult/internal/db"
 	postgresstore "github.com/ZihengXiong/GenMult/internal/db/postgres/store"
 	sqlitestore "github.com/ZihengXiong/GenMult/internal/db/sqlite/store"
+	"github.com/ZihengXiong/GenMult/internal/models"
 	"github.com/ZihengXiong/GenMult/internal/workspace"
 )
 
@@ -84,7 +87,7 @@ func NewOrchestratorService(
 		orch.NoopProvider{},
 	)
 
-	orchestrator := orch.NewService(store, orch.NewRulePlanner(), registry, log, orch.Config{
+	orchestrator := orch.NewService(store, buildPlanner(provCfg.ClaudeCode, log), registry, log, orch.Config{
 		MaxParallelPerRun:   3,
 		MaxParallelPerAgent: 1,
 		DispatchAsync:       false,
@@ -209,6 +212,43 @@ func (s *OrchestratorService) ReconcileActiveRuns(ctx context.Context, ownerUser
 		out = append(out, snapshot)
 	}
 	return out, nil
+}
+
+// buildPlanner returns an LLM-backed planner (with rule-planner fallback) when
+// Anthropic credentials are available, otherwise the deterministic rule planner.
+// It logs which path is active so "the orchestrator is intelligent" is verifiable.
+func buildPlanner(cfg providers.ClaudeCodeConfig, log *slog.Logger) orch.Planner {
+	if log == nil {
+		log = slog.Default()
+	}
+	rule := orch.NewRulePlanner()
+	model := buildPlannerModel(cfg)
+	if model == nil {
+		log.Info("agenthub planner: using rule planner (no Anthropic credentials configured for LLM planning)")
+		return rule
+	}
+	log.Info("agenthub planner: using LLM planner with rule-planner fallback")
+	return newLLMPlanner(model, rule, log)
+}
+
+func buildPlannerModel(cfg providers.ClaudeCodeConfig) *sdk.Model {
+	key := strings.TrimSpace(cfg.APIKey)
+	if key == "" {
+		key = strings.TrimSpace(cfg.AuthToken)
+	}
+	if key == "" {
+		return nil
+	}
+	modelID := strings.TrimSpace(cfg.Model)
+	if modelID == "" {
+		modelID = "claude-3-5-sonnet-latest"
+	}
+	return models.NewSDKChatModel(models.SDKModelConfig{
+		ClientType: string(models.ClientTypeAnthropicMessages),
+		APIKey:     key,
+		BaseURL:    strings.TrimSpace(cfg.BaseURL),
+		ModelID:    modelID,
+	})
 }
 
 func agentsFromRoom(room Room) []orch.AgentDescriptor {
