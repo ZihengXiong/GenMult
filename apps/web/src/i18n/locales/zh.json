@@ -268,6 +268,7 @@
     "showArchived": "显示归档会话",
     "hideArchived": "隐藏归档会话",
     "regenerate": "重新生成",
+    "quote": "引用",
     "deleteSessionConfirm": "确定要删除此会话吗？",
     "renameSession": "重命名会话",
     "sessionTitle": "会话",

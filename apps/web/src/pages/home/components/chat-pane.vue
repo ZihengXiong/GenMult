@@ -66,7 +66,7 @@
                 :key="msg.id"
                 :data-message-id="msg.id"
                 :data-external-message-id="(msg.role === 'user' || msg.role === 'assistant') ? msg.externalMessageId : undefined"
-                class="rounded-2xl transition-[background-color,box-shadow] duration-500"
+                class="group relative rounded-2xl transition-[background-color,box-shadow] duration-500"
                 :class="highlightedMessageId === msg.id ? 'bg-primary/10 ring-2 ring-primary/25' : ''"
                 :data-anchor="msg.id"
               >
@@ -80,6 +80,16 @@
                   :is-scrolling="isScrolling"
                   @active="isActiveEl"
                 />
+                <button
+                  v-if="!activeChatReadOnly && (msg.role === 'user' || msg.role === 'assistant')"
+                  type="button"
+                  class="absolute right-2 top-2 z-10 hidden items-center gap-1 rounded-md border border-border bg-card px-1.5 py-0.5 text-[10px] text-muted-foreground shadow-sm transition-colors hover:bg-muted/60 hover:text-foreground group-hover:inline-flex"
+                  :title="t('chat.quote')"
+                  @click="handleQuote(msg)"
+                >
+                  <Quote class="size-3" />
+                  {{ t('chat.quote') }}
+                </button>
               </div>
             </div>
           </ScrollArea>
@@ -271,9 +281,9 @@
 
 <script setup lang="ts">
 import { ref, computed, onBeforeUnmount, useTemplateRef, watchEffect, watch, nextTick, onActivated, onDeactivated } from 'vue'
-import { LoaderCircle, Image as ImageIcon, File as FileIcon, X, Paperclip, Send, ChevronDown, Lightbulb, CircleAlert, RefreshCw } from 'lucide-vue-next'
+import { LoaderCircle, Image as ImageIcon, File as FileIcon, X, Paperclip, Send, ChevronDown, Lightbulb, CircleAlert, RefreshCw, Quote } from 'lucide-vue-next'
 import { ScrollArea, Button, InputGroup, InputGroupAddon, InputGroupTextarea, Popover, PopoverContent, PopoverTrigger } from '@memohai/ui'
-import { useChatStore } from '@/store/chat-list'
+import { useChatStore, type ChatMessage } from '@/store/chat-list'
 import { storeToRefs } from 'pinia'
 import { useScroll, useElementBounding, useIntersectionObserver, useStorage } from '@vueuse/core'
 import { useQuery } from '@pinia/colada'
@@ -804,5 +814,28 @@ const canRegenerate = computed(() =>
 async function handleRegenerate() {
   if (!canRegenerate.value) return
   await chatStore.sendMessage(lastUserText.value)
+}
+
+// quoteableText extracts a message's plain text (user text, or the assistant's
+// text blocks) for quoting into a follow-up.
+function quoteableText(msg: ChatMessage): string {
+  if (msg.role === 'user') return (msg.text ?? '').trim()
+  if (msg.role === 'assistant') {
+    return msg.messages
+      .filter(block => block.type === 'text')
+      .map(block => (block as { content?: string }).content ?? '')
+      .join('\n\n')
+      .trim()
+  }
+  return ''
+}
+
+// handleQuote prepends the message as a markdown blockquote into the composer.
+function handleQuote(msg: ChatMessage) {
+  const text = quoteableText(msg)
+  if (!text) return
+  const quoted = text.split('\n').map(line => `> ${line}`).join('\n')
+  const current = inputText.value.trim()
+  inputText.value = current ? `${quoted}\n\n${current}` : `${quoted}\n\n`
 }
 </script>

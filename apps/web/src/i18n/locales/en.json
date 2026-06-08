@@ -272,6 +272,7 @@
     "showArchived": "Show archived",
     "hideArchived": "Hide archived",
     "regenerate": "Regenerate",
+    "quote": "Quote",
     "deleteSessionConfirm": "Are you sure you want to delete this session?",
     "renameSession": "Rename Session",
     "sessionTitle": "Session",
