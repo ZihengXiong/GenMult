@@ -2253,6 +2253,39 @@ async function removeAgentFromSelectedRoom(agentId: string) {
   }
 }
 
+// runRoomObjective starts an Orchestrator run for the room. Shared by the
+// "发起任务" button and the composer @-mention path. With synchronous dispatch
+// the backend projects task output into room messages during the call, so we
+// refetch both the latest-run snapshot (task panel) and the message stream.
+async function runRoomObjective(room: RoomItem, objective: string, announce: boolean) {
+  if (!isPersistedRoomId(room.id) || isStartingRun.value || selectedRoomAgents.value.length === 0) return
+  isStartingRun.value = true
+  try {
+    if (announce) {
+      await createMessageMutation({
+        roomId: room.id,
+        payload: {
+          sender_type: 'system',
+          sender_name: 'AgentHub',
+          kind: 'task',
+          title: '已发起协作任务',
+          body: objective,
+        },
+      })
+    }
+    await createAgentHubRoomRun(room.id, { objective, auto_dispatch: true })
+    activeActivity.value = 'tasks'
+    queryCache.invalidateQueries({ key: ['agent-hub', 'runs', 'latest', room.id] })
+    queryCache.invalidateQueries({ key: ['agent-hub', 'messages', room.id] })
+  }
+  catch (error) {
+    console.error('Failed to create AgentHub room run:', error)
+  }
+  finally {
+    isStartingRun.value = false
+  }
+}
+
 async function startSelectedRoomRun() {
   const room = selectedRoom.value
   if (!room || !isPersistedRoomId(room.id) || isStartingRun.value || selectedRoomAgents.value.length === 0) return
@@ -2263,38 +2296,31 @@ async function startSelectedRoomRun() {
     || ''
   const objective = window.prompt('输入本次协作任务目标', suggestedObjective)?.trim()
   if (!objective) return
+  await runRoomObjective(room, objective, true)
+}
 
-  isStartingRun.value = true
-  try {
-    await createAgentHubRoomRun(room.id, {
-      objective,
-      auto_dispatch: true,
-    })
-    activeActivity.value = 'tasks'
-    queryCache.invalidateQueries({ key: ['agent-hub', 'runs', 'latest', room.id] })
-    await createMessageMutation({
-      roomId: room.id,
-      payload: {
-        sender_type: 'system',
-        sender_name: 'AgentHub',
-        kind: 'task',
-        title: '已发起协作任务',
-        body: objective,
-      },
-    })
-  }
-  catch (error) {
-    console.error('Failed to create AgentHub room run:', error)
-  }
-  finally {
-    isStartingRun.value = false
-  }
+// mentionedRoomAgents returns the room agents explicitly @-mentioned in a body.
+function mentionedRoomAgents(body: string): AgentItem[] {
+  const text = body.toLowerCase()
+  return selectedRoomAgents.value.filter((a) =>
+    text.includes(`@${a.name.toLowerCase()}`) || text.includes(`@${a.id.toLowerCase()}`))
+}
+
+// wantsOrchestration decides whether a composer message should kick off an
+// Orchestrator run (auto task decomposition) rather than a single-agent reply:
+// when the user @-mentions the main/orchestrator agent, or two+ agents.
+function wantsOrchestration(body: string): boolean {
+  const text = body.toLowerCase()
+  if (/@(主|orchestrator|编排|主\s*agent)/i.test(body) || text.includes('orchestrator')) return true
+  const main = mainAgent.value
+  if (main && (text.includes(`@${main.name.toLowerCase()}`) || text.includes(`@${main.id.toLowerCase()}`))) return true
+  return mentionedRoomAgents(body).length >= 2
 }
 
 async function sendRoomMessage() {
   const room = selectedRoom.value
   const body = composerText.value.trim()
-  if (!room || !body || !isPersistedRoomId(room.id) || isAgentReplying.value) return
+  if (!room || !body || !isPersistedRoomId(room.id) || isAgentReplying.value || isStartingRun.value) return
 
   try {
     await createMessageMutation({
@@ -2308,8 +2334,18 @@ async function sendRoomMessage() {
       },
     })
     composerText.value = ''
+
+    // @主/@orchestrator or @multiple agents → Orchestrator decomposes & dispatches.
+    if (wantsOrchestration(body)) {
+      await runRoomObjective(room, body, false)
+      return
+    }
+
+    // Otherwise a single agent replies: the one @-mentioned, else the main agent.
     await ensureMainAgentInSelectedRoom()
-    void requestMainAgentReply(room, body)
+    const mentioned = mentionedRoomAgents(body)
+    const replyAgent = mentioned.length === 1 ? mentioned[0] : mainAgent.value
+    void requestAgentReply(room, replyAgent, body)
   }
   catch (error) {
     console.error('Failed to create AgentHub room message:', error)
@@ -2348,9 +2384,8 @@ async function persistAgentSessionId(room: RoomItem, agentId: string, sessionId:
   }
 }
 
-async function requestMainAgentReply(room: RoomItem, prompt: string) {
+async function requestAgentReply(room: RoomItem, agent: AgentItem | undefined, prompt: string) {
   const roomId = room.id
-  const agent = mainAgent.value
   if (!agent?.botId) {
     await createMessageMutation({
       roomId,
@@ -2358,8 +2393,8 @@ async function requestMainAgentReply(room: RoomItem, prompt: string) {
         sender_type: 'system',
         sender_name: 'AgentHub',
         kind: 'error',
-        title: '没有可执行的主 Agent',
-        body: '还没有找到可以执行回复的 Agent。请先创建或接入一个机器人。',
+        title: '没有可执行的 Agent',
+        body: '还没有找到可以执行回复的 Agent。请先创建或接入一个机器人，或 @ 主 Agent 发起协作任务。',
       },
     })
     return
