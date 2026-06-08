@@ -137,6 +137,7 @@
               :content="message.text"
               :is-dark="isDark"
               :typewriter="message.streaming"
+              :code-block-props="{ showCopyButton: true }"
               custom-id="chat-msg"
             />
           </div>
@@ -261,6 +262,7 @@
               :content="item.block.content"
               :is-dark="isDark"
               :typewriter="isAssistantBlockStreaming(item.index)"
+              :code-block-props="{ showCopyButton: true }"
               custom-id="chat-msg"
             />
           </div>
