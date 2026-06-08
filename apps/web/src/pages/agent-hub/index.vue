@@ -1073,11 +1073,19 @@ interface AgentHubRunSnapshot {
   tasks: AgentHubRunTask[]
 }
 
+interface RunAgentDescriptor {
+  id: string
+  provider_name: string
+  name: string
+  capabilities: string[]
+}
+
 interface CreateAgentHubRunPayload {
   objective: string
   trigger_message_id?: string
   created_by?: string
   auto_dispatch?: boolean
+  agents?: RunAgentDescriptor[]
 }
 
 interface CreateAgentHubMessagePayload {
@@ -2253,6 +2261,30 @@ async function removeAgentFromSelectedRoom(agentId: string) {
   }
 }
 
+// agentProviderName resolves a room agent to its orchestrator provider by the
+// bot's framework (falling back to id heuristics), so claudecode/codex bots run
+// on their real provider instead of the noop placeholder.
+function agentProviderName(agent: AgentItem): string {
+  const fw = (agent.framework ?? '').toLowerCase()
+  if (fw === 'claudecode') return 'claudecode'
+  if (fw === 'codex') return 'codex'
+  const id = agent.id.toLowerCase()
+  if (id.includes('claude')) return 'claudecode'
+  if (id.includes('codex')) return 'codex'
+  return 'noop'
+}
+
+// buildRunAgents passes the room's resolved agents (real bot id for workspace
+// resolution + provider by framework) so the backend doesn't have to guess.
+function buildRunAgents(): RunAgentDescriptor[] {
+  return selectedRoomAgents.value.map(agent => ({
+    id: agent.botId || agent.id,
+    provider_name: agentProviderName(agent),
+    name: agent.name,
+    capabilities: agent.capabilities,
+  }))
+}
+
 // runRoomObjective starts an Orchestrator run for the room. Shared by the
 // "发起任务" button and the composer @-mention path. With synchronous dispatch
 // the backend projects task output into room messages during the call, so we
@@ -2273,7 +2305,7 @@ async function runRoomObjective(room: RoomItem, objective: string, announce: boo
         },
       })
     }
-    await createAgentHubRoomRun(room.id, { objective, auto_dispatch: true })
+    await createAgentHubRoomRun(room.id, { objective, auto_dispatch: true, agents: buildRunAgents() })
     activeActivity.value = 'tasks'
     queryCache.invalidateQueries({ key: ['agent-hub', 'runs', 'latest', room.id] })
     queryCache.invalidateQueries({ key: ['agent-hub', 'messages', room.id] })
