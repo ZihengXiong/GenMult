@@ -43,6 +43,15 @@ export async function updateSessionTitle(botId: string, sessionId: string, title
   return data as SessionSummary
 }
 
+export async function updateSessionMetadata(botId: string, sessionId: string, metadata: Record<string, unknown>): Promise<SessionSummary> {
+  const { data } = await patchBotsByBotIdSessionsBySessionId({
+    path: { bot_id: botId.trim(), session_id: sessionId.trim() },
+    body: { metadata },
+    throwOnError: true,
+  })
+  return data as SessionSummary
+}
+
 export async function deleteSession(botId: string, sessionId: string): Promise<void> {
   await deleteBotsByBotIdSessionsBySessionId({
     path: { bot_id: botId.trim(), session_id: sessionId.trim() },

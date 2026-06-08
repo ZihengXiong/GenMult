@@ -10,6 +10,7 @@ import {
   deleteSession as requestDeleteSession,
   fetchSessions,
   updateSessionTitle,
+  updateSessionMetadata,
   type Bot,
   type SessionSummary,
   type MessageStreamEvent,
@@ -306,16 +307,64 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
+  // Per-session pin/archive state lives in the session's metadata bag (no schema
+  // change needed); the sidebar reflects it via sort/filter here.
+  const showArchived = ref(false)
+
+  function isSessionPinned(session: SessionSummary): boolean {
+    return Boolean((session.metadata as Record<string, unknown> | undefined)?.pinned)
+  }
+
+  function isSessionArchived(session: SessionSummary): boolean {
+    return Boolean((session.metadata as Record<string, unknown> | undefined)?.archived)
+  }
+
   function listVisibleSessions(filterType = 'chat'): SessionSummary[] {
     let list = [...sessions.value]
     if (filterType === 'chat') {
       list = list.filter(isDirectChatSession)
       if (!list.length) return []
       const preferred = list.filter(isPreferredDirectChatSession)
-      const pool = preferred.length ? preferred : list
-      return [...pool].sort((left, right) => sessionUpdatedAtValue(right) - sessionUpdatedAtValue(left))
+      let pool = preferred.length ? preferred : list
+      if (!showArchived.value) {
+        pool = pool.filter(session => !isSessionArchived(session))
+      }
+      // Pinned first, then most-recently-active.
+      return [...pool].sort((left, right) => {
+        const pinDelta = (isSessionPinned(right) ? 1 : 0) - (isSessionPinned(left) ? 1 : 0)
+        if (pinDelta !== 0) return pinDelta
+        return sessionUpdatedAtValue(right) - sessionUpdatedAtValue(left)
+      })
     }
     return list.filter(session => session.type === filterType)
+  }
+
+  // setSessionFlag optimistically toggles a metadata flag (pinned/archived) and
+  // persists the full metadata via PATCH, reverting on failure.
+  async function setSessionFlag(session: SessionSummary, key: 'pinned' | 'archived', value: boolean) {
+    const target = sessions.value.find(entry => entry.id === session.id)
+    if (!target || !target.bot_id) return
+    const previous = { ...(target.metadata ?? {}) }
+    const next = { ...previous, [key]: value }
+    target.metadata = next
+    try {
+      const updated = await updateSessionMetadata(target.bot_id, target.id, next)
+      const latest = sessions.value.find(entry => entry.id === session.id)
+      if (latest) latest.metadata = updated.metadata ?? next
+    }
+    catch (error) {
+      console.error('Failed to update session flag:', error)
+      const latest = sessions.value.find(entry => entry.id === session.id)
+      if (latest) latest.metadata = previous
+    }
+  }
+
+  function setSessionPinned(session: SessionSummary, pinned: boolean) {
+    return setSessionFlag(session, 'pinned', pinned)
+  }
+
+  function setSessionArchived(session: SessionSummary, archived: boolean) {
+    return setSessionFlag(session, 'archived', archived)
   }
 
   function getPreferredSession(): SessionSummary | null {
@@ -1580,6 +1629,11 @@ export const useChatStore = defineStore('chat', () => {
     resolveSessionAgentLabel,
     listVisibleSessions,
     getPreferredSession,
+    showArchived,
+    isSessionPinned,
+    isSessionArchived,
+    setSessionPinned,
+    setSessionArchived,
     loading,
     loadingChats,
     loadingOlder,

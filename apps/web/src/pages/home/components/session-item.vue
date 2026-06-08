@@ -49,6 +49,11 @@
           {{ sessionTitle }}
         </span>
 
+        <Pin
+          v-if="isPinned"
+          class="ml-1 size-2.5 shrink-0 text-muted-foreground"
+        />
+
         <span
           v-if="session.updated_at"
           class="text-[8px] text-muted-foreground ml-1 shrink-0"
@@ -74,6 +79,20 @@
             align="end"
             @click.stop
           >
+            <DropdownMenuItem @select="chatStore.setSessionPinned(session, !isPinned)">
+              <component
+                :is="isPinned ? PinOff : Pin"
+                class="mr-2 size-3.5"
+              />
+              {{ isPinned ? t('chat.unpinSession') : t('chat.pinSession') }}
+            </DropdownMenuItem>
+            <DropdownMenuItem @select="chatStore.setSessionArchived(session, !isArchived)">
+              <component
+                :is="isArchived ? ArchiveRestore : Archive"
+                class="mr-2 size-3.5"
+              />
+              {{ isArchived ? t('chat.unarchiveSession') : t('chat.archiveSession') }}
+            </DropdownMenuItem>
             <DropdownMenuItem
               class="text-destructive focus:text-destructive"
               @select="$emit('delete', session)"
@@ -108,7 +127,7 @@
 
 <script setup lang="ts">
 import { computed, ref, type Component } from 'vue'
-import { HeartPulse, Clock, GitBranch, MessageSquare, MoreHorizontal, Trash2 } from 'lucide-vue-next'
+import { HeartPulse, Clock, GitBranch, MessageSquare, MoreHorizontal, Trash2, Pin, PinOff, Archive, ArchiveRestore } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import type { SessionSummary } from '@/composables/api/useChat'
 import { useChatStore } from '@/store/chat-list'
@@ -193,6 +212,9 @@ const displayLabel = computed(() => {
 const avatarFallback = computed(() => {
   return displayLabel.value ? displayLabel.value.charAt(0).toUpperCase() : '?'
 })
+
+const isPinned = computed(() => chatStore.isSessionPinned(props.session))
+const isArchived = computed(() => chatStore.isSessionArchived(props.session))
 
 const sessionTitle = computed(() => chatStore.resolveSessionTitle(props.session))
 const agentLabel = computed(() => chatStore.resolveSessionAgentLabel(props.session))
