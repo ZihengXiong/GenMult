@@ -1,15 +1,15 @@
 -- name: CreateBot :one
-INSERT INTO bots (owner_user_id, display_name, avatar_url, timezone, is_active, metadata, status, framework)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-RETURNING id, owner_user_id, display_name, avatar_url, timezone, is_active, status, language, reasoning_enabled, reasoning_effort, chat_model_id, search_provider_id, memory_provider_id, heartbeat_enabled, heartbeat_interval, heartbeat_prompt, framework, metadata, created_at, updated_at;
+INSERT INTO bots (owner_user_id, display_name, avatar_url, timezone, is_active, metadata, status, framework, system_prompt, capabilities)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+RETURNING id, owner_user_id, display_name, avatar_url, timezone, is_active, status, language, reasoning_enabled, reasoning_effort, chat_model_id, search_provider_id, memory_provider_id, heartbeat_enabled, heartbeat_interval, heartbeat_prompt, framework, system_prompt, capabilities, metadata, created_at, updated_at;
 
 -- name: GetBotByID :one
-SELECT id, owner_user_id, display_name, avatar_url, timezone, is_active, status, language, reasoning_enabled, reasoning_effort, chat_model_id, search_provider_id, memory_provider_id, heartbeat_enabled, heartbeat_interval, heartbeat_prompt, compaction_enabled, compaction_threshold, compaction_ratio, compaction_model_id, framework, metadata, created_at, updated_at
+SELECT id, owner_user_id, display_name, avatar_url, timezone, is_active, status, language, reasoning_enabled, reasoning_effort, chat_model_id, search_provider_id, memory_provider_id, heartbeat_enabled, heartbeat_interval, heartbeat_prompt, compaction_enabled, compaction_threshold, compaction_ratio, compaction_model_id, framework, system_prompt, capabilities, metadata, created_at, updated_at
 FROM bots
 WHERE id = $1;
 
 -- name: ListBotsByOwner :many
-SELECT id, owner_user_id, display_name, avatar_url, timezone, is_active, status, language, reasoning_enabled, reasoning_effort, chat_model_id, search_provider_id, memory_provider_id, heartbeat_enabled, heartbeat_interval, heartbeat_prompt, framework, metadata, created_at, updated_at
+SELECT id, owner_user_id, display_name, avatar_url, timezone, is_active, status, language, reasoning_enabled, reasoning_effort, chat_model_id, search_provider_id, memory_provider_id, heartbeat_enabled, heartbeat_interval, heartbeat_prompt, framework, system_prompt, capabilities, metadata, created_at, updated_at
 FROM bots
 WHERE owner_user_id = $1
 ORDER BY created_at DESC;
@@ -21,16 +21,18 @@ SET display_name = $2,
     timezone = $4,
     is_active = $5,
     metadata = $6,
+    system_prompt = $7,
+    capabilities = $8,
     updated_at = now()
 WHERE id = $1
-RETURNING id, owner_user_id, display_name, avatar_url, timezone, is_active, status, language, reasoning_enabled, reasoning_effort, chat_model_id, search_provider_id, memory_provider_id, heartbeat_enabled, heartbeat_interval, heartbeat_prompt, framework, metadata, created_at, updated_at;
+RETURNING id, owner_user_id, display_name, avatar_url, timezone, is_active, status, language, reasoning_enabled, reasoning_effort, chat_model_id, search_provider_id, memory_provider_id, heartbeat_enabled, heartbeat_interval, heartbeat_prompt, framework, system_prompt, capabilities, metadata, created_at, updated_at;
 
 -- name: UpdateBotOwner :one
 UPDATE bots
 SET owner_user_id = $2,
     updated_at = now()
 WHERE id = $1
-RETURNING id, owner_user_id, display_name, avatar_url, timezone, is_active, status, language, reasoning_enabled, reasoning_effort, chat_model_id, search_provider_id, memory_provider_id, heartbeat_enabled, heartbeat_interval, heartbeat_prompt, framework, metadata, created_at, updated_at;
+RETURNING id, owner_user_id, display_name, avatar_url, timezone, is_active, status, language, reasoning_enabled, reasoning_effort, chat_model_id, search_provider_id, memory_provider_id, heartbeat_enabled, heartbeat_interval, heartbeat_prompt, framework, system_prompt, capabilities, metadata, created_at, updated_at;
 
 -- name: UpdateBotStatus :exec
 UPDATE bots

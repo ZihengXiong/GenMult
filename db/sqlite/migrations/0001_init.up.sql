@@ -173,13 +173,17 @@ CREATE TABLE IF NOT EXISTS bots (
   overlay_enabled INTEGER NOT NULL DEFAULT 0,
   overlay_config TEXT NOT NULL DEFAULT '{}',
   provider_ext TEXT NOT NULL DEFAULT '{}',
+  framework TEXT NOT NULL DEFAULT 'memoh',
+  system_prompt TEXT NOT NULL DEFAULT '',
+  capabilities TEXT NOT NULL DEFAULT '[]',
   metadata TEXT NOT NULL DEFAULT '{}',
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT bots_type_check CHECK (type IN ('personal', 'public')),
   CONSTRAINT bots_status_check CHECK (status IN ('creating', 'ready', 'deleting')),
   CONSTRAINT bots_acl_default_effect_check CHECK (acl_default_effect IN ('allow', 'deny')),
-  CONSTRAINT bots_reasoning_effort_check CHECK (reasoning_effort IN ('low', 'medium', 'high'))
+  CONSTRAINT bots_reasoning_effort_check CHECK (reasoning_effort IN ('low', 'medium', 'high')),
+  CONSTRAINT bots_framework_check CHECK (framework IN ('memoh', 'claudecode', 'codex'))
 );
 
 CREATE INDEX IF NOT EXISTS idx_bots_owner_user_id ON bots(owner_user_id);

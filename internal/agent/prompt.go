@@ -151,7 +151,7 @@ func GenerateSystemPrompt(params SystemPromptParams) string {
 
 	tmpl := selectSystemTemplate(params.SessionType)
 
-	return render(tmpl, map[string]string{
+	base := render(tmpl, map[string]string{
 		"home":                      home,
 		"currentTime":               now.Format(time.RFC3339),
 		"timezone":                  timezoneName,
@@ -160,6 +160,12 @@ func GenerateSystemPrompt(params SystemPromptParams) string {
 		"platformIdentitiesSection": strings.TrimSpace(params.PlatformIdentitiesSection),
 		"fileSections":              fileSections,
 	})
+
+	custom := strings.TrimSpace(params.CustomSystemPrompt)
+	if custom != "" {
+		return custom + "\n\n" + base
+	}
+	return base
 }
 
 // SystemPromptParams holds all inputs for system prompt generation.
@@ -172,6 +178,7 @@ type SystemPromptParams struct {
 	SupportsImageInput        bool
 	SupportsToolCall          bool
 	PlatformIdentitiesSection string
+	CustomSystemPrompt        string
 }
 
 // GenerateSchedulePrompt builds the user message for a scheduled task trigger.

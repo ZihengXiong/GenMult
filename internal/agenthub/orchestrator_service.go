@@ -289,8 +289,9 @@ func buildPlannerModel(cfg providers.ClaudeCodeConfig) *sdk.Model {
 }
 
 func agentsFromRoom(room Room) []orch.AgentDescriptor {
+	defaultCaps := []string{"plan", "code", "test", "review"}
 	if len(room.AgentIDs) == 0 {
-		return []orch.AgentDescriptor{{ID: "orchestrator", ProviderName: "noop", Name: "Orchestrator", Capabilities: []string{"plan", "code", "test", "review"}}}
+		return []orch.AgentDescriptor{{ID: "orchestrator", ProviderName: "noop", Name: "Orchestrator", Capabilities: defaultCaps}}
 	}
 	out := make([]orch.AgentDescriptor, 0, len(room.AgentIDs))
 	for _, id := range room.AgentIDs {
@@ -299,16 +300,20 @@ func agentsFromRoom(room Room) []orch.AgentDescriptor {
 			continue
 		}
 		provider, name := friendlyAgentName(id)
+		caps := defaultCaps
+		if provider == "claudecode" || provider == "codex" {
+			caps = []string{"plan", "code", "test", "review", "edit", "exec"}
+		}
 		out = append(out, orch.AgentDescriptor{
 			ID:           id,
 			ProviderName: provider,
 			Name:         name,
-			Capabilities: []string{"code", "review"},
+			Capabilities: caps,
 			Metadata:     map[string]any{"source": "room", "index": strconv.Itoa(len(out))},
 		})
 	}
 	if len(out) == 0 {
-		return []orch.AgentDescriptor{{ID: "orchestrator", ProviderName: "noop", Name: "Orchestrator", Capabilities: []string{"plan", "code", "test", "review"}}}
+		return []orch.AgentDescriptor{{ID: "orchestrator", ProviderName: "noop", Name: "Orchestrator", Capabilities: defaultCaps}}
 	}
 	return out
 }

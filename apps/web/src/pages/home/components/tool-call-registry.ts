@@ -18,6 +18,7 @@ import {
   MailOpen,
   MailPlus,
   MessagesSquare,
+  Rocket,
   Search,
   SearchCheck,
   Send,
@@ -375,6 +376,12 @@ export function getToolDisplay(block: ToolCallBlock): ToolDisplay {
         icon: Sparkles,
         actionKey: 'use_skill',
         target: pickString(input, 'skillName'),
+      }
+    case 'deploy_status':
+      return {
+        icon: Rocket,
+        actionKey: 'deploy_status',
+        target: pickString(input, 'environment', 'url'),
       }
     default:
       return {

@@ -256,14 +256,21 @@
           <!-- Text block -->
           <div
             v-else-if="item.block.type === 'text' && (item.block.content || isAssistantBlockStreaming(item.index))"
-            class="prose prose-sm dark:prose-invert max-w-none *:first:mt-0"
+            class="space-y-2"
           >
-            <MarkdownRender
-              :content="item.block.content"
-              :is-dark="isDark"
-              :typewriter="isAssistantBlockStreaming(item.index)"
-              :code-block-props="{ showCopyButton: true }"
-              custom-id="chat-msg"
+            <div class="prose prose-sm dark:prose-invert max-w-none *:first:mt-0">
+              <MarkdownRender
+                :content="item.block.content"
+                :is-dark="isDark"
+                :typewriter="isAssistantBlockStreaming(item.index)"
+                :code-block-props="{ showCopyButton: true }"
+                custom-id="chat-msg"
+              />
+            </div>
+            <ArtifactPreviewCard
+              v-for="artifactUrl in extractArtifactUrls(item.block.content)"
+              :key="artifactUrl"
+              :url="artifactUrl"
             />
           </div>
 
@@ -309,6 +316,7 @@ import { Avatar, AvatarImage, AvatarFallback } from '@memohai/ui'
 import MarkdownRender, { enableKatex, enableMermaid } from 'markstream-vue'
 import { useSettingsStore } from '@/store/settings'
 import AgentActivityBlock from './agent-activity-block.vue'
+import ArtifactPreviewCard from './artifact-preview-card.vue'
 import AttachmentBlock from './attachment-block.vue'
 import BackgroundTaskBlock from './background-task-block.vue'
 import HeartbeatTriggerBlock from './heartbeat-trigger-block.vue'
@@ -427,6 +435,30 @@ function cleanUserText(content?: string): string {
     .filter((line) => !/^\[attachment:\w+\]\s/.test(line.trim()))
     .join('\n')
     .trim()
+}
+
+const URL_PATTERN = /https?:\/\/[^\s)<>\]"'`]+/g
+const PREVIEWABLE_EXTENSIONS = /\.(html?|htm)$/i
+
+function extractArtifactUrls(text?: string): string[] {
+  if (!text) return []
+  const matches = text.match(URL_PATTERN)
+  if (!matches) return []
+  const seen = new Set<string>()
+  return matches.filter((url) => {
+    if (seen.has(url)) return false
+    seen.add(url)
+    try {
+      const u = new URL(url)
+      return PREVIEWABLE_EXTENSIONS.test(u.pathname)
+        || u.hostname === 'localhost'
+        || u.hostname.endsWith('.vercel.app')
+        || u.hostname.endsWith('.netlify.app')
+        || u.hostname.endsWith('.github.io')
+    } catch {
+      return false
+    }
+  })
 }
 
 const isSpecialUserMessage = computed(() =>

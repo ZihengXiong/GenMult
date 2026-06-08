@@ -177,12 +177,16 @@ CREATE TABLE IF NOT EXISTS bots (
   overlay_enabled BOOLEAN NOT NULL DEFAULT false,
   overlay_config JSONB NOT NULL DEFAULT '{}'::jsonb,
   provider_ext JSONB NOT NULL DEFAULT '{}'::jsonb,
+  framework TEXT NOT NULL DEFAULT 'memoh',
+  system_prompt TEXT NOT NULL DEFAULT '',
+  capabilities TEXT[] NOT NULL DEFAULT '{}',
   metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   CONSTRAINT bots_type_check CHECK (type IN ('personal', 'public')),
   CONSTRAINT bots_status_check CHECK (status IN ('creating', 'ready', 'deleting')),
-  CONSTRAINT bots_reasoning_effort_check CHECK (reasoning_effort IN ('low', 'medium', 'high'))
+  CONSTRAINT bots_reasoning_effort_check CHECK (reasoning_effort IN ('low', 'medium', 'high')),
+  CONSTRAINT bots_framework_check CHECK (framework IN ('memoh', 'claudecode', 'codex'))
 );
 
 CREATE INDEX IF NOT EXISTS idx_bots_owner_user_id ON bots(owner_user_id);

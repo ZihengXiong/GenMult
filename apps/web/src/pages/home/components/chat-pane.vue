@@ -303,7 +303,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onBeforeUnmount, useTemplateRef, watchEffect, watch, nextTick, onActivated, onDeactivated } from 'vue'
+import { ref, computed, onBeforeUnmount, useTemplateRef, watchEffect, watch, nextTick, onActivated, onDeactivated, provide } from 'vue'
 import { LoaderCircle, Image as ImageIcon, File as FileIcon, X, Paperclip, Send, ChevronDown, Lightbulb, CircleAlert, RefreshCw, Quote, Pin, PinOff } from 'lucide-vue-next'
 import { ScrollArea, Button, InputGroup, InputGroupAddon, InputGroupTextarea, Popover, PopoverContent, PopoverTrigger } from '@memohai/ui'
 import { useChatStore, type ChatMessage } from '@/store/chat-list'
@@ -351,6 +351,8 @@ const {
   overrideModelId,
   overrideReasoningEffort
 } = storeToRefs(chatStore)
+
+provide('botId', computed(() => currentBotId.value ?? ''))
 
 const isActive = computed(() => props.active !== false)
 
