@@ -42,6 +42,10 @@ func (*mockStore) ListRunsByStatus(_ context.Context, _ ...orchestrator.RunStatu
 	return nil, nil
 }
 
+func (*mockStore) GetLatestRunByRoom(_ context.Context, _ string) (orchestrator.Run, error) {
+	return orchestrator.Run{}, orchestrator.ErrNotFound
+}
+
 func (*mockStore) CreateTasks(_ context.Context, _ string, _ []orchestrator.TaskDraft) ([]orchestrator.Task, []orchestrator.TaskDependency, error) {
 	return nil, nil, nil
 }

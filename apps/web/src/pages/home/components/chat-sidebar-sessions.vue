@@ -63,6 +63,21 @@
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+
+      <button
+        v-if="filterType === 'chat'"
+        class="ml-auto flex items-center gap-1 text-[10px] font-medium text-muted-foreground hover:text-foreground transition-colors"
+        :title="chatStore.showArchived ? t('chat.hideArchived') : t('chat.showArchived')"
+        @click="chatStore.showArchived = !chatStore.showArchived"
+      >
+        <component
+          :is="chatStore.showArchived ? ArchiveRestore : Archive"
+          class="size-2.5"
+        />
+        <span class="uppercase tracking-[0.7px]">
+          {{ chatStore.showArchived ? t('chat.hideArchived') : t('chat.showArchived') }}
+        </span>
+      </button>
     </div>
 
     <div class="flex-1 relative min-h-0">
@@ -131,7 +146,7 @@
 
 <script setup lang="ts">
 import { ref, computed, type Component } from 'vue'
-import { Search, Plus, ChevronDown, Check, LoaderCircle, MessageSquare, MessageCircle, HeartPulse, Clock, GitBranch } from 'lucide-vue-next'
+import { Search, Plus, ChevronDown, Check, LoaderCircle, MessageSquare, MessageCircle, HeartPulse, Clock, GitBranch, Archive, ArchiveRestore } from 'lucide-vue-next'
 import { storeToRefs } from 'pinia'
 import { useI18n } from 'vue-i18n'
 import { useChatStore } from '@/store/chat-list'

@@ -10,6 +10,7 @@ import {
   deleteSession as requestDeleteSession,
   fetchSessions,
   updateSessionTitle,
+  updateSessionMetadata,
   type Bot,
   type SessionSummary,
   type MessageStreamEvent,
@@ -306,16 +307,137 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
+  // Per-session pin/archive state lives in the session's metadata bag (no schema
+  // change needed); the sidebar reflects it via sort/filter here.
+  const showArchived = ref(false)
+
+  // Metadata PATCH replaces the whole bag, so two near-simultaneous edits to the
+  // same session (e.g. pin session + pin a message as context) would each build
+  // their body from a stale snapshot and the later PATCH would clobber the
+  // earlier one. Serialize writes per session id: the second edit only reads
+  // metadata after the first has been applied locally and confirmed remotely.
+  const metadataWriteChains = new Map<string, Promise<unknown>>()
+
+  function withSessionMetadataLock<T>(sessionId: string, fn: () => Promise<T>): Promise<T> {
+    const prev = metadataWriteChains.get(sessionId) ?? Promise.resolve()
+    const run = prev.then(fn, fn)
+    const guard = run.then(() => {}, () => {})
+    metadataWriteChains.set(sessionId, guard)
+    // Reclaim the entry once this write settles, unless a newer write has already
+    // chained onto it (in which case that newer write owns the slot and cleanup).
+    void guard.then(() => {
+      if (metadataWriteChains.get(sessionId) === guard) metadataWriteChains.delete(sessionId)
+    })
+    return run
+  }
+
+  function isSessionPinned(session: SessionSummary): boolean {
+    return Boolean((session.metadata as Record<string, unknown> | undefined)?.pinned)
+  }
+
+  function isSessionArchived(session: SessionSummary): boolean {
+    return Boolean((session.metadata as Record<string, unknown> | undefined)?.archived)
+  }
+
   function listVisibleSessions(filterType = 'chat'): SessionSummary[] {
     let list = [...sessions.value]
     if (filterType === 'chat') {
       list = list.filter(isDirectChatSession)
       if (!list.length) return []
+      // Drop archived first so an archived session can never slip through as the
+      // "preferred" (and thus auto-selected) session, nor lock the pool to an
+      // empty preferred set while non-archived sessions still exist.
+      if (!showArchived.value) {
+        list = list.filter(session => !isSessionArchived(session))
+        if (!list.length) return []
+      }
       const preferred = list.filter(isPreferredDirectChatSession)
       const pool = preferred.length ? preferred : list
-      return [...pool].sort((left, right) => sessionUpdatedAtValue(right) - sessionUpdatedAtValue(left))
+      // Pinned first, then most-recently-active.
+      return [...pool].sort((left, right) => {
+        const pinDelta = (isSessionPinned(right) ? 1 : 0) - (isSessionPinned(left) ? 1 : 0)
+        if (pinDelta !== 0) return pinDelta
+        return sessionUpdatedAtValue(right) - sessionUpdatedAtValue(left)
+      })
     }
     return list.filter(session => session.type === filterType)
+  }
+
+  // setSessionFlag optimistically toggles a metadata flag (pinned/archived) and
+  // persists the full metadata via PATCH, reverting on failure.
+  async function setSessionFlag(session: SessionSummary, key: 'pinned' | 'archived', value: boolean) {
+    const botId = sessions.value.find(entry => entry.id === session.id)?.bot_id
+    if (!botId) return
+    await withSessionMetadataLock(session.id, async () => {
+      const target = sessions.value.find(entry => entry.id === session.id)
+      if (!target) return
+      const previous = { ...(target.metadata ?? {}) }
+      const next = { ...previous, [key]: value }
+      target.metadata = next
+      try {
+        const updated = await updateSessionMetadata(botId, session.id, next)
+        const latest = sessions.value.find(entry => entry.id === session.id)
+        if (latest) latest.metadata = updated.metadata ?? next
+      }
+      catch (error) {
+        console.error('Failed to update session flag:', error)
+        const latest = sessions.value.find(entry => entry.id === session.id)
+        if (latest) latest.metadata = previous
+      }
+    })
+  }
+
+  function setSessionPinned(session: SessionSummary, pinned: boolean) {
+    return setSessionFlag(session, 'pinned', pinned)
+  }
+
+  function setSessionArchived(session: SessionSummary, archived: boolean) {
+    return setSessionFlag(session, 'archived', archived)
+  }
+
+  // Pinned long-term context: texts the user pinned are stored on the active
+  // session's metadata.pinned_context and injected into the system prompt by the
+  // backend resolver, so they persist across turns / history trimming.
+  function activeSessionPinnedContext(): string[] {
+    const arr = (activeSession.value?.metadata as Record<string, unknown> | undefined)?.pinned_context
+    return Array.isArray(arr) ? arr.filter((x): x is string => typeof x === 'string') : []
+  }
+
+  const pinnedContextCount = computed(() => activeSessionPinnedContext().length)
+
+  function isMessagePinnedAsContext(text: string): boolean {
+    return activeSessionPinnedContext().includes(text.trim())
+  }
+
+  async function toggleMessagePinnedAsContext(text: string) {
+    const trimmed = text.trim()
+    const active = activeSession.value
+    if (!trimmed || !active?.bot_id) return
+    const sessionId = active.id
+    const botId = active.bot_id
+    await withSessionMetadataLock(sessionId, async () => {
+      const target = sessions.value.find(entry => entry.id === sessionId)
+      if (!target) return
+      const previous = { ...(target.metadata ?? {}) }
+      const list = Array.isArray((previous as Record<string, unknown>).pinned_context)
+        ? ((previous as Record<string, unknown>).pinned_context as unknown[]).filter((x): x is string => typeof x === 'string')
+        : []
+      const idx = list.indexOf(trimmed)
+      if (idx >= 0) list.splice(idx, 1)
+      else list.push(trimmed)
+      const next = { ...previous, pinned_context: list }
+      target.metadata = next
+      try {
+        const updated = await updateSessionMetadata(botId, sessionId, next)
+        const latest = sessions.value.find(entry => entry.id === sessionId)
+        if (latest) latest.metadata = updated.metadata ?? next
+      }
+      catch (error) {
+        console.error('Failed to toggle pinned context:', error)
+        const latest = sessions.value.find(entry => entry.id === sessionId)
+        if (latest) latest.metadata = previous
+      }
+    })
   }
 
   function getPreferredSession(): SessionSummary | null {
@@ -1580,6 +1702,14 @@ export const useChatStore = defineStore('chat', () => {
     resolveSessionAgentLabel,
     listVisibleSessions,
     getPreferredSession,
+    showArchived,
+    isSessionPinned,
+    isSessionArchived,
+    setSessionPinned,
+    setSessionArchived,
+    pinnedContextCount,
+    isMessagePinnedAsContext,
+    toggleMessagePinnedAsContext,
     loading,
     loadingChats,
     loadingOlder,

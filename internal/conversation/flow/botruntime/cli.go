@@ -307,18 +307,24 @@ func (c *cliRuntime) Stream(ctx context.Context, in RunInput) <-chan agentpkg.St
 			switch ev.Type {
 			case "thinking":
 				// Claude's extended thinking content (snapshot mode).
+				if len(ev.Content) < lastThinkingLen {
+					lastThinkingLen = 0
+				}
 				if len(ev.Content) > lastThinkingLen {
 					delta := ev.Content[lastThinkingLen:]
 					send(agentpkg.StreamEvent{Type: agentpkg.EventReasoningDelta, Delta: delta})
 					lastThinkingLen = len(ev.Content)
 				}
 				// Emit visible text that arrived alongside the thinking block.
+				if len(ev.TextContent) < lastTextLen {
+					lastTextLen = 0
+				}
 				if len(ev.TextContent) > lastTextLen {
 					delta := ev.TextContent[lastTextLen:]
 					send(agentpkg.StreamEvent{Type: agentpkg.EventTextDelta, Delta: delta})
 					lastTextLen = len(ev.TextContent)
 				}
-				if ev.ToolName != "" {
+				if ev.ToolName != "" && activeToolCallID == "" {
 					activeToolCallID = uuid.NewString()
 					send(agentpkg.StreamEvent{
 						Type:       agentpkg.EventToolCallStart,
@@ -329,12 +335,15 @@ func (c *cliRuntime) Stream(ctx context.Context, in RunInput) <-chan agentpkg.St
 				}
 			case "text":
 				// Claude's visible text reply (snapshot mode).
+				if len(ev.Content) < lastTextLen {
+					lastTextLen = 0
+				}
 				if len(ev.Content) > lastTextLen {
 					delta := ev.Content[lastTextLen:]
 					send(agentpkg.StreamEvent{Type: agentpkg.EventTextDelta, Delta: delta})
 					lastTextLen = len(ev.Content)
 				}
-				if ev.ToolName != "" {
+				if ev.ToolName != "" && activeToolCallID == "" {
 					activeToolCallID = uuid.NewString()
 					send(agentpkg.StreamEvent{
 						Type:       agentpkg.EventToolCallStart,

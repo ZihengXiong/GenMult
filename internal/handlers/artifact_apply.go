@@ -23,7 +23,7 @@ type applyEditRequest struct {
 // @Success 200 {object} map[string]string
 // @Failure 400 {object} map[string]string
 // @Failure 500 {object} map[string]string
-// @Router /bots/{bot_id}/apply-edit [post]
+// @Router /bots/{bot_id}/apply-edit [post].
 func (h *ContainerdHandler) ApplyEdit(c echo.Context) error {
 	botID := c.Param("bot_id")
 	if strings.TrimSpace(botID) == "" {
@@ -84,7 +84,7 @@ type applyWriteRequest struct {
 // @Success 200 {object} map[string]string
 // @Failure 400 {object} map[string]string
 // @Failure 500 {object} map[string]string
-// @Router /bots/{bot_id}/apply-write [post]
+// @Router /bots/{bot_id}/apply-write [post].
 func (h *ContainerdHandler) ApplyWrite(c echo.Context) error {
 	botID := c.Param("bot_id")
 	if strings.TrimSpace(botID) == "" {

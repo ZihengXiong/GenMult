@@ -6,6 +6,9 @@ import (
 	"log/slog"
 	"strconv"
 	"strings"
+	"sync"
+
+	sdk "github.com/memohai/twilight-ai/sdk"
 
 	orch "github.com/ZihengXiong/GenMult/internal/agenthub/orchestrator"
 	"github.com/ZihengXiong/GenMult/internal/agenthub/providers"
@@ -13,6 +16,7 @@ import (
 	"github.com/ZihengXiong/GenMult/internal/db"
 	postgresstore "github.com/ZihengXiong/GenMult/internal/db/postgres/store"
 	sqlitestore "github.com/ZihengXiong/GenMult/internal/db/sqlite/store"
+	"github.com/ZihengXiong/GenMult/internal/models"
 	"github.com/ZihengXiong/GenMult/internal/workspace"
 )
 
@@ -20,6 +24,24 @@ type OrchestratorService struct {
 	rooms *Service
 	orch  *orch.Service
 	log   *slog.Logger
+
+	// projSeq tracks the last orchestrator event seq projected to each room as a
+	// chat message, so projectRun can incrementally and idempotently surface new
+	// run events. Idempotency is correct within a process lifetime.
+	//
+	// DURABILITY CONTRACT: this map is in-memory only, so after a restart it
+	// starts empty and projectRun(after=0) would re-post a run's full event
+	// history. Today that path is unreachable — ReconcileActiveRuns is only
+	// exposed via POST /runs/reconcile-active and is never called automatically
+	// (no client hits it, no boot-time self-heal). Before wiring any automatic
+	// reconcile / boot-time re-projection, make projection idempotent at the
+	// insert layer instead of relying on this map: each projected message already
+	// carries {run_id, event_seq} in its metadata (see roomMessageForEvent), so a
+	// unique constraint on (run_id, event_seq) + INSERT … ON CONFLICT DO NOTHING
+	// closes the restart window fully (a persisted high-water mark would still
+	// leave a crash gap between the message insert and the seq write).
+	projMu  sync.Mutex
+	projSeq map[string]int64
 }
 
 type StartRunRequest struct {
@@ -77,12 +99,17 @@ func NewOrchestratorService(
 		orch.NoopProvider{},
 	)
 
-	orchestrator := orch.NewService(store, orch.NewRulePlanner(), registry, log, orch.Config{
+	orchestrator := orch.NewService(store, buildPlanner(provCfg.ClaudeCode, log), registry, log, orch.Config{
 		MaxParallelPerRun:   3,
 		MaxParallelPerAgent: 1,
 		DispatchAsync:       false,
 	})
-	return &OrchestratorService{rooms: roomService, orch: orchestrator, log: log.With(slog.String("service", "agenthub_orchestrator"))}, nil
+	return &OrchestratorService{
+		rooms:   roomService,
+		orch:    orchestrator,
+		log:     log.With(slog.String("service", "agenthub_orchestrator")),
+		projSeq: make(map[string]int64),
+	}, nil
 }
 
 func (s *OrchestratorService) StartRun(ctx context.Context, ownerUserID, roomID string, req StartRunRequest) (orch.RunSnapshot, error) {
@@ -106,15 +133,31 @@ func (s *OrchestratorService) StartRun(ctx context.Context, ownerUserID, roomID 
 	if req.AutoDispatch != nil {
 		autoDispatch = *req.AutoDispatch
 	}
-	return s.orch.StartRun(ctx, orch.StartRunInput{
+	// Carry the room's recent conversation as run metadata so the planner and
+	// the executing agents have multi-turn context ("上下文连续/多轮迭代修改").
+	metadata := make(map[string]any, len(req.Metadata)+1)
+	for k, v := range req.Metadata {
+		metadata[k] = v
+	}
+	if _, exists := metadata["room_history"]; !exists {
+		if hist := s.recentRoomHistory(ctx, ownerUserID, roomID, 20); hist != "" {
+			metadata["room_history"] = hist
+		}
+	}
+	snapshot, err := s.orch.StartRun(ctx, orch.StartRunInput{
 		RoomID:           roomID,
 		TriggerMessageID: strings.TrimSpace(req.TriggerMessageID),
 		Objective:        objective,
 		CreatedBy:        firstNonEmpty(strings.TrimSpace(req.CreatedBy), ownerUserID),
 		Agents:           agents,
-		Metadata:         req.Metadata,
+		Metadata:         metadata,
 		AutoDispatch:     autoDispatch,
 	})
+	if err != nil {
+		return snapshot, err
+	}
+	s.projectRun(ctx, ownerUserID, snapshot)
+	return snapshot, nil
 }
 
 func (s *OrchestratorService) GetSnapshot(ctx context.Context, ownerUserID, runID string) (orch.RunSnapshot, error) {
@@ -128,12 +171,26 @@ func (s *OrchestratorService) GetSnapshot(ctx context.Context, ownerUserID, runI
 	return snapshot, nil
 }
 
+// GetLatestRoomRun returns the most recent run snapshot for a room the caller
+// owns, or orch.ErrNotFound (→ 404) if the room has no runs yet.
+func (s *OrchestratorService) GetLatestRoomRun(ctx context.Context, ownerUserID, roomID string) (orch.RunSnapshot, error) {
+	if _, err := s.rooms.Get(ctx, ownerUserID, strings.TrimSpace(roomID)); err != nil {
+		return orch.RunSnapshot{}, err
+	}
+	return s.orch.LatestSnapshotByRoom(ctx, strings.TrimSpace(roomID))
+}
+
 func (s *OrchestratorService) ReconcileRun(ctx context.Context, ownerUserID, runID string) (orch.RunSnapshot, error) {
 	snapshot, err := s.GetSnapshot(ctx, ownerUserID, runID)
 	if err != nil {
 		return orch.RunSnapshot{}, err
 	}
-	return s.orch.ReconcileRun(ctx, snapshot.Run.ID)
+	reconciled, err := s.orch.ReconcileRun(ctx, snapshot.Run.ID)
+	if err != nil {
+		return reconciled, err
+	}
+	s.projectRun(ctx, ownerUserID, reconciled)
+	return reconciled, nil
 }
 
 func (s *OrchestratorService) CancelRun(ctx context.Context, ownerUserID, runID string) (orch.RunSnapshot, error) {
@@ -174,9 +231,77 @@ func (s *OrchestratorService) ReconcileActiveRuns(ctx context.Context, ownerUser
 		if err != nil {
 			return out, err
 		}
+		// NOTE: across a process restart projSeq is empty, so this re-projects the
+		// run's whole event history as duplicate room messages. Safe only while
+		// this entry point isn't called automatically — see the projSeq durability
+		// contract before wiring boot-time / periodic reconcile.
+		s.projectRun(ctx, ownerUserID, snapshot)
 		out = append(out, snapshot)
 	}
 	return out, nil
+}
+
+// buildPlanner returns an LLM-backed planner (with rule-planner fallback) when
+// Anthropic credentials are available, otherwise the deterministic rule planner.
+// It logs which path is active so "the orchestrator is intelligent" is verifiable.
+// recentRoomHistory renders the room's most recent messages as a plain-text
+// transcript (oldest→newest) for use as orchestrator run context. Best-effort:
+// returns "" on any error.
+func (s *OrchestratorService) recentRoomHistory(ctx context.Context, ownerUserID, roomID string, limit int32) string {
+	resp, err := s.rooms.ListMessages(ctx, ownerUserID, roomID, limit)
+	if err != nil || len(resp.Items) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	for _, m := range resp.Items {
+		body := strings.TrimSpace(m.Body)
+		if body == "" {
+			continue
+		}
+		name := strings.TrimSpace(m.SenderName)
+		if name == "" {
+			name = strings.TrimSpace(m.SenderType)
+		}
+		b.WriteString(name)
+		b.WriteString("：")
+		b.WriteString(body)
+		b.WriteString("\n")
+	}
+	return strings.TrimSpace(b.String())
+}
+
+func buildPlanner(cfg providers.ClaudeCodeConfig, log *slog.Logger) orch.Planner {
+	if log == nil {
+		log = slog.Default()
+	}
+	rule := orch.NewRulePlanner()
+	model := buildPlannerModel(cfg)
+	if model == nil {
+		log.Info("agenthub planner: using rule planner (no Anthropic credentials configured for LLM planning)")
+		return rule
+	}
+	log.Info("agenthub planner: using LLM planner with rule-planner fallback")
+	return newLLMPlanner(model, rule, log)
+}
+
+func buildPlannerModel(cfg providers.ClaudeCodeConfig) *sdk.Model {
+	key := strings.TrimSpace(cfg.APIKey)
+	if key == "" {
+		key = strings.TrimSpace(cfg.AuthToken)
+	}
+	if key == "" {
+		return nil
+	}
+	modelID := strings.TrimSpace(cfg.Model)
+	if modelID == "" {
+		modelID = "claude-3-5-sonnet-latest"
+	}
+	return models.NewSDKChatModel(models.SDKModelConfig{
+		ClientType: string(models.ClientTypeAnthropicMessages),
+		APIKey:     key,
+		BaseURL:    strings.TrimSpace(cfg.BaseURL),
+		ModelID:    modelID,
+	})
 }
 
 func agentsFromRoom(room Room) []orch.AgentDescriptor {
@@ -190,17 +315,9 @@ func agentsFromRoom(room Room) []orch.AgentDescriptor {
 		if id == "" {
 			continue
 		}
-		provider := "noop"
-		name := id
+		provider, name := friendlyAgentName(id)
 		caps := defaultCaps
-		lc := strings.ToLower(id)
-		if strings.Contains(lc, "claude") {
-			provider = "claudecode"
-			name = "Claude Code"
-			caps = []string{"plan", "code", "test", "review", "edit", "exec"}
-		} else if strings.Contains(lc, "codex") {
-			provider = "codex"
-			name = "Codex"
+		if provider == "claudecode" || provider == "codex" {
 			caps = []string{"plan", "code", "test", "review", "edit", "exec"}
 		}
 		out = append(out, orch.AgentDescriptor{

@@ -254,6 +254,27 @@ func (s *SQLStore) GetRun(ctx context.Context, runID string) (Run, error) {
 	return run, nil
 }
 
+func (s *SQLStore) GetLatestRunByRoom(ctx context.Context, roomID string) (Run, error) {
+	roomID = strings.TrimSpace(roomID)
+	if roomID == "" {
+		return Run{}, ErrInvalidInput
+	}
+	var id string
+	// Uses idx_agent_hub_runs_room_updated(room_id, updated_at_ms DESC).
+	if s.dialect == dialectPostgres {
+		err := s.pg.QueryRow(ctx, `SELECT id FROM agent_hub_runs WHERE room_id=$1 ORDER BY updated_at_ms DESC, created_at_ms DESC LIMIT 1`, roomID).Scan(&id)
+		if err != nil {
+			return Run{}, mapNotFound(err)
+		}
+	} else {
+		err := s.sq.QueryRowContext(ctx, `SELECT id FROM agent_hub_runs WHERE room_id=? ORDER BY updated_at_ms DESC, created_at_ms DESC LIMIT 1`, roomID).Scan(&id)
+		if err != nil {
+			return Run{}, mapNotFound(err)
+		}
+	}
+	return s.GetRun(ctx, id)
+}
+
 func (s *SQLStore) UpdateRunStatus(ctx context.Context, runID string, status RunStatus) (Run, error) {
 	run, err := s.GetRun(ctx, runID)
 	if err != nil {

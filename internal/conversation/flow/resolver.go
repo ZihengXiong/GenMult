@@ -475,9 +475,7 @@ func (r *Resolver) Chat(ctx context.Context, req conversation.ChatRequest) (conv
 
 	cfg := rc.runConfig
 	rt := r.runtimeForBot(ctx, cfg.Identity.BotID)
-	if rt.Name() == bots.FrameworkMemoh {
-		cfg = r.prepareRunConfig(ctx, cfg)
-	}
+	cfg = r.prepareRunConfig(ctx, cfg)
 
 	result, err := rt.Generate(ctx, botruntime.RunInput{Config: cfg})
 	if err != nil {
@@ -797,6 +795,31 @@ func (r *Resolver) ResolveRunConfig(ctx context.Context, botID, sessionID, chann
 	}, nil
 }
 
+// pinnedContextFromMetadata renders the session's pinned messages (stored by the
+// web client under metadata["pinned_context"] as a string array) into a bullet
+// list for inclusion in the system prompt. Returns "" when none are pinned.
+func pinnedContextFromMetadata(meta map[string]any) string {
+	raw, ok := meta["pinned_context"]
+	if !ok {
+		return ""
+	}
+	arr, ok := raw.([]any)
+	if !ok {
+		return ""
+	}
+	var b strings.Builder
+	for _, item := range arr {
+		s, _ := item.(string)
+		if s = strings.TrimSpace(s); s == "" {
+			continue
+		}
+		b.WriteString("- ")
+		b.WriteString(s)
+		b.WriteString("\n")
+	}
+	return strings.TrimSpace(b.String())
+}
+
 // prepareRunConfig generates the system prompt and appends the user message.
 func (r *Resolver) prepareRunConfig(ctx context.Context, cfg agentpkg.RunConfig) agentpkg.RunConfig {
 	supportsImageInput := cfg.SupportsImageInput
@@ -837,6 +860,17 @@ func (r *Resolver) prepareRunConfig(ctx context.Context, cfg agentpkg.RunConfig)
 		PlatformIdentitiesSection: platformIdentitiesSection,
 		CustomSystemPrompt:        r.loadBotSystemPrompt(ctx, cfg.Identity.BotID),
 	})
+
+	// Always-on context: messages the user pinned (stored in session metadata)
+	// are appended to the system prompt so they survive history trimming and
+	// stay in scope across turns ("手动 pin 关键消息作为长期上下文").
+	if r.sessionService != nil && strings.TrimSpace(cfg.Identity.SessionID) != "" {
+		if sess, err := r.sessionService.Get(ctx, cfg.Identity.SessionID); err == nil {
+			if pinned := pinnedContextFromMetadata(sess.Metadata); pinned != "" {
+				cfg.System += "\n\n# 用户置顶的长期上下文（请始终参考）\n" + pinned
+			}
+		}
+	}
 
 	if cfg.Query != "" {
 		var extra []sdk.MessagePart

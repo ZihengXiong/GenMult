@@ -140,6 +140,16 @@ func (s *Service) GetSnapshot(ctx context.Context, runID string) (RunSnapshot, e
 	return RunSnapshot{Run: run, Tasks: tasks, Dependencies: deps, Attempts: attempts}, nil
 }
 
+// LatestSnapshotByRoom returns a full snapshot of the room's most recent run,
+// or ErrNotFound if the room has no runs yet.
+func (s *Service) LatestSnapshotByRoom(ctx context.Context, roomID string) (RunSnapshot, error) {
+	run, err := s.store.GetLatestRunByRoom(ctx, strings.TrimSpace(roomID))
+	if err != nil {
+		return RunSnapshot{}, err
+	}
+	return s.GetSnapshot(ctx, run.ID)
+}
+
 func (s *Service) ReconcileRun(ctx context.Context, runID string) (RunSnapshot, error) {
 	run, err := s.store.GetRun(ctx, strings.TrimSpace(runID))
 	if err != nil {
@@ -402,7 +412,7 @@ func (s *Service) executeAttempt(ctx context.Context, run Run, task Task, attemp
 	attempts, _ := s.store.ListAttempts(ctx, run.ID)
 	deps, _ := s.store.ListDependencies(ctx, run.ID)
 	upstream := successfulAttemptsForDependencies(task, deps, attempts)
-	result, err := provider.Execute(execCtx, ExecuteTaskRequest{Run: run, Task: task, AttemptNo: attempt.AttemptNo, Upstream: upstream})
+	result, err := provider.Execute(execCtx, ExecuteTaskRequest{Run: run, Task: task, AttemptNo: attempt.AttemptNo, Context: run.Metadata, Upstream: upstream})
 	if execCtx.Err() == context.DeadlineExceeded {
 		s.logger.Warn("task attempt timed out",
 			slog.String("run_id", run.ID),

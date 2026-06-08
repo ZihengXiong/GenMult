@@ -109,10 +109,7 @@ func (p *CodexProvider) Execute(ctx context.Context, req orchestrator.ExecuteTas
 		OnEvent:    onEvent,
 	}, p.logger)
 
-	prompt := req.Task.Description
-	if prompt == "" {
-		prompt = req.Task.Title
-	}
+	prompt := PromptWithContext(req)
 
 	output, err := runner.Run(ctx, prompt, workDir, p.executor, env)
 	if err != nil {

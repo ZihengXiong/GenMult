@@ -1073,11 +1073,19 @@ interface AgentHubRunSnapshot {
   tasks: AgentHubRunTask[]
 }
 
+interface RunAgentDescriptor {
+  id: string
+  provider_name: string
+  name: string
+  capabilities: string[]
+}
+
 interface CreateAgentHubRunPayload {
   objective: string
   trigger_message_id?: string
   created_by?: string
   auto_dispatch?: boolean
+  agents?: RunAgentDescriptor[]
 }
 
 interface CreateAgentHubMessagePayload {
@@ -1180,7 +1188,7 @@ const defaultRooms: RoomItem[] = [
     live: 'Codex 执行中',
     accent: 'bg-emerald-600',
     statusClass: 'bg-emerald-500',
-    agentIds: ['orchestrator', 'codex', 'claude-code', 'test-agent'],
+    agentIds: ['orchestrator'],
   },
   {
     id: 'mobile',
@@ -1194,7 +1202,7 @@ const defaultRooms: RoomItem[] = [
     live: '等待输入',
     accent: 'bg-blue-600',
     statusClass: 'bg-blue-500',
-    agentIds: ['orchestrator', 'claude-code'],
+    agentIds: ['orchestrator'],
   },
   {
     id: 'ops',
@@ -1208,7 +1216,7 @@ const defaultRooms: RoomItem[] = [
     live: '审查中',
     accent: 'bg-amber-600',
     statusClass: 'bg-amber-500',
-    agentIds: ['orchestrator', 'codex'],
+    agentIds: ['orchestrator'],
   },
 ]
 
@@ -1221,33 +1229,6 @@ const baseAgents: AgentItem[] = [
     icon: Workflow,
     tone: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
     capabilities: ['任务拆解', '群聊调度', '记忆召回'],
-  },
-  {
-    id: 'codex',
-    name: 'Codex',
-    kind: 'CLI Agent',
-    status: 'busy',
-    icon: TerminalSquare,
-    tone: 'border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-300',
-    capabilities: ['改代码', '跑测试', '开子任务'],
-  },
-  {
-    id: 'claude-code',
-    name: 'Claude Code',
-    kind: 'CLI Agent',
-    status: 'online',
-    icon: Code2,
-    tone: 'border-violet-500/30 bg-violet-500/10 text-violet-700 dark:text-violet-300',
-    capabilities: ['代码审查', '方案讨论', '仓库分析'],
-  },
-  {
-    id: 'test-agent',
-    name: '测试 Agent',
-    kind: 'Custom Agent',
-    status: 'draft',
-    icon: ListChecks,
-    tone: 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300',
-    capabilities: ['用例生成', '覆盖率检查', '回归提醒'],
   },
 ]
 
@@ -1295,6 +1276,10 @@ const hasMigratedRooms = ref(
 const isMigratingRooms = ref(false)
 const isAgentReplying = ref(false)
 const isStartingRun = ref(false)
+// Guards the whole sendRoomMessage flow (post user message → branch to run or
+// reply). Set synchronously before the first await so a double Enter/click can't
+// post the user message — or kick off the run — twice.
+const isSendingRoomMessage = ref(false)
 const joiningMainAgentKey = ref('')
 const queryCache = useQueryCache()
 
@@ -1383,35 +1368,14 @@ const claudeBridgeBot = computed(() =>
 )
 
 const memohAgents = computed<AgentItem[]>(() =>
-  rawMemohAgents.value.filter((agent) => agent.framework !== 'codex' && agent.framework !== 'claudecode'),
+  rawMemohAgents.value,
 )
 
-const agents = computed(() => {
-  const codexBot = codexBridgeBot.value
-  const claudeBot = claudeBridgeBot.value
-  const bridgedBaseAgents = baseAgents.map((agent) => {
-    if (agent.id === 'codex' && codexBot) {
-      return {
-        ...agent,
-        status: codexBot.status,
-        kind: 'CLI Agent · Memoh Bridge',
-        botId: codexBot.botId,
-        capabilities: [...agent.capabilities, '单聊复用'],
-      }
-    }
-    if (agent.id === 'claude-code' && claudeBot) {
-      return {
-        ...agent,
-        status: claudeBot.status,
-        kind: 'CLI Agent · Memoh Bridge',
-        botId: claudeBot.botId,
-        capabilities: [...agent.capabilities, '单聊复用'],
-      }
-    }
-    return agent
-  })
-  return [...bridgedBaseAgents, ...memohAgents.value]
-})
+// Real codex/claudecode bots now surface directly from memohAgents (with their
+// own botId + framework), so the hard-coded CLI placeholders and the bridge that
+// grafted a real botId onto them were removed — they only duplicated the real
+// bot and could mis-trigger orchestration via mentionedRoomAgents().length>=2.
+const agents = computed(() => [...baseAgents, ...memohAgents.value])
 
 // Orchestrator selection (ours) layered onto the bridge agents (theirs): prefer
 // the room's chosen orchestrator agent, then the peppa/main agent, then first.
@@ -2253,6 +2217,89 @@ async function removeAgentFromSelectedRoom(agentId: string) {
   }
 }
 
+// agentProviderName resolves a room agent to its orchestrator provider by the
+// bot's framework (falling back to id heuristics), so claudecode/codex bots run
+// on their real provider instead of the noop placeholder.
+function agentProviderName(agent: AgentItem): string {
+  const fw = (agent.framework ?? '').toLowerCase()
+  if (fw === 'claudecode') return 'claudecode'
+  if (fw === 'codex') return 'codex'
+  const id = agent.id.toLowerCase()
+  if (id.includes('claude')) return 'claudecode'
+  if (id.includes('codex')) return 'codex'
+  return 'noop'
+}
+
+// buildRunAgents passes the room's resolved agents (real bot id for workspace
+// resolution + provider by framework) so the backend doesn't have to guess.
+function buildRunAgents(): RunAgentDescriptor[] {
+  return selectedRoomAgents.value.map(agent => ({
+    id: agent.botId || agent.id,
+    provider_name: agentProviderName(agent),
+    name: agent.name,
+    capabilities: agent.capabilities,
+  }))
+}
+
+// runRoomObjective starts an Orchestrator run for the room. Shared by the
+// "发起任务" button and the composer @-mention path. With synchronous dispatch
+// the backend projects task output into room messages during the call, so we
+// refetch both the latest-run snapshot (task panel) and the message stream.
+async function runRoomObjective(room: RoomItem, objective: string, announce: boolean) {
+  if (!isPersistedRoomId(room.id) || isStartingRun.value || selectedRoomAgents.value.length === 0) return
+  isStartingRun.value = true
+  let announced = false
+  try {
+    // Announce first so it precedes the run's projected task messages: with
+    // synchronous dispatch the backend writes 任务规划/产出 with an earlier
+    // created_at *during* createAgentHubRoomRun, so a later announcement would
+    // sort below the very tasks it introduces. Failure is handled in catch.
+    if (announce) {
+      await createMessageMutation({
+        roomId: room.id,
+        payload: {
+          sender_type: 'system',
+          sender_name: 'AgentHub',
+          kind: 'task',
+          title: '已发起协作任务',
+          body: objective,
+        },
+      })
+      announced = true
+    }
+    await createAgentHubRoomRun(room.id, { objective, auto_dispatch: true, agents: buildRunAgents() })
+    activeActivity.value = 'tasks'
+    queryCache.invalidateQueries({ key: ['agent-hub', 'runs', 'latest', room.id] })
+    queryCache.invalidateQueries({ key: ['agent-hub', 'messages', room.id] })
+  }
+  catch (error) {
+    console.error('Failed to create AgentHub room run:', error)
+    // A room message can't be un-sent, so if we already announced but the run
+    // failed to start, append a correction rather than leaving the announcement
+    // dangling without a corresponding run.
+    if (announced) {
+      try {
+        await createMessageMutation({
+          roomId: room.id,
+          payload: {
+            sender_type: 'system',
+            sender_name: 'AgentHub',
+            kind: 'error',
+            title: '任务发起失败',
+            body: '协作任务未能启动，请稍后重试。',
+          },
+        })
+      }
+      catch (notifyError) {
+        console.error('Failed to post run-failure notice:', notifyError)
+      }
+    }
+  }
+  finally {
+    isStartingRun.value = false
+  }
+}
+
 async function startSelectedRoomRun() {
   const room = selectedRoom.value
   if (!room || !isPersistedRoomId(room.id) || isStartingRun.value || selectedRoomAgents.value.length === 0) return
@@ -2263,39 +2310,35 @@ async function startSelectedRoomRun() {
     || ''
   const objective = window.prompt('输入本次协作任务目标', suggestedObjective)?.trim()
   if (!objective) return
+  await runRoomObjective(room, objective, true)
+}
 
-  isStartingRun.value = true
-  try {
-    await createAgentHubRoomRun(room.id, {
-      objective,
-      auto_dispatch: true,
-    })
-    activeActivity.value = 'tasks'
-    queryCache.invalidateQueries({ key: ['agent-hub', 'runs', 'latest', room.id] })
-    await createMessageMutation({
-      roomId: room.id,
-      payload: {
-        sender_type: 'system',
-        sender_name: 'AgentHub',
-        kind: 'task',
-        title: '已发起协作任务',
-        body: objective,
-      },
-    })
-  }
-  catch (error) {
-    console.error('Failed to create AgentHub room run:', error)
-  }
-  finally {
-    isStartingRun.value = false
-  }
+// mentionedRoomAgents returns the room agents explicitly @-mentioned in a body.
+function mentionedRoomAgents(body: string): AgentItem[] {
+  const text = body.toLowerCase()
+  return selectedRoomAgents.value.filter((a) =>
+    text.includes(`@${a.name.toLowerCase()}`) || text.includes(`@${a.id.toLowerCase()}`))
+}
+
+// wantsOrchestration decides whether a composer message should kick off an
+// Orchestrator run (auto task decomposition) rather than a single-agent reply:
+// when the user @-mentions the main/orchestrator agent, or two+ agents.
+function wantsOrchestration(body: string): boolean {
+  const text = body.toLowerCase()
+  // Only an explicit @-mention of the orchestrator triggers a run — a bare
+  // mention of the word "orchestrator" in prose must not hijack a normal reply.
+  if (/@(主|orchestrator|编排|主\s*agent)/i.test(body)) return true
+  const main = mainAgent.value
+  if (main && (text.includes(`@${main.name.toLowerCase()}`) || text.includes(`@${main.id.toLowerCase()}`))) return true
+  return mentionedRoomAgents(body).length >= 2
 }
 
 async function sendRoomMessage() {
   const room = selectedRoom.value
   const body = composerText.value.trim()
-  if (!room || !body || !isPersistedRoomId(room.id) || isAgentReplying.value) return
+  if (!room || !body || !isPersistedRoomId(room.id) || isAgentReplying.value || isStartingRun.value || isSendingRoomMessage.value) return
 
+  isSendingRoomMessage.value = true
   try {
     await createMessageMutation({
       roomId: room.id,
@@ -2308,11 +2351,24 @@ async function sendRoomMessage() {
       },
     })
     composerText.value = ''
+
+    // @主/@orchestrator or @multiple agents → Orchestrator decomposes & dispatches.
+    if (wantsOrchestration(body)) {
+      await runRoomObjective(room, body, false)
+      return
+    }
+
+    // Otherwise a single agent replies: the one @-mentioned, else the main agent.
     await ensureMainAgentInSelectedRoom()
-    void requestMainAgentReply(room, body)
+    const mentioned = mentionedRoomAgents(body)
+    const replyAgent = mentioned.length === 1 ? mentioned[0] : mainAgent.value
+    void requestAgentReply(room, replyAgent, body)
   }
   catch (error) {
     console.error('Failed to create AgentHub room message:', error)
+  }
+  finally {
+    isSendingRoomMessage.value = false
   }
 }
 
@@ -2348,9 +2404,8 @@ async function persistAgentSessionId(room: RoomItem, agentId: string, sessionId:
   }
 }
 
-async function requestMainAgentReply(room: RoomItem, prompt: string) {
+async function requestAgentReply(room: RoomItem, agent: AgentItem | undefined, prompt: string) {
   const roomId = room.id
-  const agent = mainAgent.value
   if (!agent?.botId) {
     await createMessageMutation({
       roomId,
@@ -2358,8 +2413,8 @@ async function requestMainAgentReply(room: RoomItem, prompt: string) {
         sender_type: 'system',
         sender_name: 'AgentHub',
         kind: 'error',
-        title: '没有可执行的主 Agent',
-        body: '还没有找到可以执行回复的 Agent。请先创建或接入一个机器人。',
+        title: '没有可执行的 Agent',
+        body: '还没有找到可以执行回复的 Agent。请先创建或接入一个机器人，或 @ 主 Agent 发起协作任务。',
       },
     })
     return
@@ -2500,12 +2555,17 @@ function handleConnectorClick(connector: ConnectorItem) {
     return
   }
   if (connector.id === 'codex-bridge') {
-    selectedAgentId.value = 'codex'
+    // Connector is only enabled when the real codex bot exists; select it directly.
+    const id = codexBridgeBot.value?.id
+    if (!id) return
+    selectedAgentId.value = id
     void addAgentToSelectedRoom()
     return
   }
   if (connector.id === 'claude-bridge') {
-    selectedAgentId.value = 'claude-code'
+    const id = claudeBridgeBot.value?.id
+    if (!id) return
+    selectedAgentId.value = id
     void addAgentToSelectedRoom()
   }
 }

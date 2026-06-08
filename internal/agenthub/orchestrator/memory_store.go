@@ -100,6 +100,29 @@ func (s *MemoryStore) ListRunsByStatus(_ context.Context, statuses ...RunStatus)
 	return out, nil
 }
 
+func (s *MemoryStore) GetLatestRunByRoom(_ context.Context, roomID string) (Run, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	roomID = strings.TrimSpace(roomID)
+	var latest Run
+	found := false
+	for _, run := range s.runs {
+		if run.RoomID != roomID {
+			continue
+		}
+		if !found ||
+			run.UpdatedAt.After(latest.UpdatedAt) ||
+			(run.UpdatedAt.Equal(latest.UpdatedAt) && run.CreatedAt.After(latest.CreatedAt)) {
+			latest = run
+			found = true
+		}
+	}
+	if !found {
+		return Run{}, ErrNotFound
+	}
+	return cloneRun(latest), nil
+}
+
 func (s *MemoryStore) CreateTasks(_ context.Context, runID string, drafts []TaskDraft) ([]Task, []TaskDependency, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
