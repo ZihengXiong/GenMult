@@ -137,6 +137,19 @@
               <CircleAlert class="mt-0.5 size-3.5 shrink-0" />
               <span class="min-w-0 break-words">{{ composerError }}</span>
             </div>
+            <div
+              v-if="canRegenerate"
+              class="mb-2 flex justify-center"
+            >
+              <button
+                type="button"
+                class="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
+                @click="handleRegenerate"
+              >
+                <RefreshCw class="size-3" />
+                {{ $t('chat.regenerate') }}
+              </button>
+            </div>
             <InputGroup class="overflow-hidden rounded-lg! border-border! bg-card shadow-sm! ring-0!">
               <InputGroupTextarea
                 v-model="inputText"
@@ -258,7 +271,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onBeforeUnmount, useTemplateRef, watchEffect, watch, nextTick, onActivated, onDeactivated } from 'vue'
-import { LoaderCircle, Image as ImageIcon, File as FileIcon, X, Paperclip, Send, ChevronDown, Lightbulb, CircleAlert } from 'lucide-vue-next'
+import { LoaderCircle, Image as ImageIcon, File as FileIcon, X, Paperclip, Send, ChevronDown, Lightbulb, CircleAlert, RefreshCw } from 'lucide-vue-next'
 import { ScrollArea, Button, InputGroup, InputGroupAddon, InputGroupTextarea, Popover, PopoverContent, PopoverTrigger } from '@memohai/ui'
 import { useChatStore } from '@/store/chat-list'
 import { storeToRefs } from 'pinia'
@@ -766,5 +779,30 @@ async function handleSend() {
     pendingFiles.value = files
     composerError.value = result.error || t('chat.sendFailed')
   }
+}
+
+// Regenerate re-sends the most recent user message so the agent produces a fresh
+// reply. Only offered when the last message is a settled assistant reply.
+const lastUserText = computed(() => {
+  const list = messages.value
+  for (let i = list.length - 1; i >= 0; i--) {
+    const m = list[i]
+    if (m.role === 'user') return (m.text ?? '').trim()
+  }
+  return ''
+})
+
+const canRegenerate = computed(() =>
+  !streaming.value
+  && !activeChatReadOnly.value
+  && Boolean(currentBotId.value)
+  && messages.value.length > 0
+  && messages.value[messages.value.length - 1]?.role === 'assistant'
+  && lastUserText.value.length > 0,
+)
+
+async function handleRegenerate() {
+  if (!canRegenerate.value) return
+  await chatStore.sendMessage(lastUserText.value)
 }
 </script>
