@@ -145,13 +145,13 @@ type Bot struct {
 	OverlayEnabled         bool               `json:"overlay_enabled"`
 	OverlayConfig          []byte             `json:"overlay_config"`
 	ProviderExt            []byte             `json:"provider_ext"`
+	Framework              string             `json:"framework"`
+	SystemPrompt           string             `json:"system_prompt"`
+	Capabilities           []string           `json:"capabilities"`
 	Metadata               []byte             `json:"metadata"`
 	CreatedAt              pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt              pgtype.Timestamptz `json:"updated_at"`
 	AclDefaultEffect       string             `json:"acl_default_effect"`
-	Framework              string             `json:"framework"`
-	SystemPrompt           string             `json:"system_prompt"`
-	Capabilities           []string           `json:"capabilities"`
 }
 
 type BotAclRule struct {
