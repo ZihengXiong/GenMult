@@ -132,7 +132,10 @@ func roomMessageForEvent(ev orch.RunEvent, run orch.Run, taskByID map[string]orc
 		}, true
 
 	case orch.EventTaskSucceeded:
-		task := taskByID[ev.TaskID]
+		task, ok := taskByID[ev.TaskID]
+		if !ok {
+			return CreateMessageRequest{}, false
+		}
 		_, name := friendlyAgentName(task.AssignedAgentID)
 		body := taskOutputBody(ev.Payload)
 		if strings.TrimSpace(body) == "" {

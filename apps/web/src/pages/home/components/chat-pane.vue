@@ -81,7 +81,7 @@
                   @active="isActiveEl"
                 />
                 <div
-                  v-if="!activeChatReadOnly && (msg.role === 'user' || msg.role === 'assistant')"
+                  v-if="!activeChatReadOnly && (msg.role === 'user' || msg.role === 'assistant') && !msg.streaming"
                   class="absolute right-2 top-2 z-10 hidden gap-1 group-hover:flex"
                 >
                   <button
@@ -176,10 +176,14 @@
             >
               <button
                 type="button"
-                class="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
+                class="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                :disabled="isRegenerating"
                 @click="handleRegenerate"
               >
-                <RefreshCw class="size-3" />
+                <RefreshCw
+                  class="size-3"
+                  :class="isRegenerating ? 'animate-spin' : ''"
+                />
                 {{ $t('chat.regenerate') }}
               </button>
             </div>
@@ -836,9 +840,17 @@ const canRegenerate = computed(() =>
   && lastUserText.value.length > 0,
 )
 
+const isRegenerating = ref(false)
+
 async function handleRegenerate() {
-  if (!canRegenerate.value) return
-  await chatStore.sendMessage(lastUserText.value)
+  if (!canRegenerate.value || isRegenerating.value) return
+  isRegenerating.value = true
+  try {
+    await chatStore.sendMessage(lastUserText.value)
+  }
+  finally {
+    isRegenerating.value = false
+  }
 }
 
 // quoteableText extracts a message's plain text (user text, or the assistant's

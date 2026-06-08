@@ -27,7 +27,19 @@ type OrchestratorService struct {
 
 	// projSeq tracks the last orchestrator event seq projected to each room as a
 	// chat message, so projectRun can incrementally and idempotently surface new
-	// run events. In-memory only (M1); a restart may re-project a run's events.
+	// run events. Idempotency is correct within a process lifetime.
+	//
+	// DURABILITY CONTRACT: this map is in-memory only, so after a restart it
+	// starts empty and projectRun(after=0) would re-post a run's full event
+	// history. Today that path is unreachable — ReconcileActiveRuns is only
+	// exposed via POST /runs/reconcile-active and is never called automatically
+	// (no client hits it, no boot-time self-heal). Before wiring any automatic
+	// reconcile / boot-time re-projection, make projection idempotent at the
+	// insert layer instead of relying on this map: each projected message already
+	// carries {run_id, event_seq} in its metadata (see roomMessageForEvent), so a
+	// unique constraint on (run_id, event_seq) + INSERT … ON CONFLICT DO NOTHING
+	// closes the restart window fully (a persisted high-water mark would still
+	// leave a crash gap between the message insert and the seq write).
 	projMu  sync.Mutex
 	projSeq map[string]int64
 }
@@ -219,6 +231,10 @@ func (s *OrchestratorService) ReconcileActiveRuns(ctx context.Context, ownerUser
 		if err != nil {
 			return out, err
 		}
+		// NOTE: across a process restart projSeq is empty, so this re-projects the
+		// run's whole event history as duplicate room messages. Safe only while
+		// this entry point isn't called automatically — see the projSeq durability
+		// contract before wiring boot-time / periodic reconcile.
 		s.projectRun(ctx, ownerUserID, snapshot)
 		out = append(out, snapshot)
 	}
