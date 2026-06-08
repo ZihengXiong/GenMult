@@ -57,7 +57,7 @@ func (p *llmPlanner) Plan(ctx context.Context, input orch.PlanInput) (orch.Plan,
 	raw, err := sdk.GenerateText(cctx,
 		sdk.WithModel(p.model),
 		sdk.WithSystem(plannerSystemPrompt),
-		sdk.WithMessages([]sdk.Message{sdk.UserMessage(buildPlannerUserPrompt(objective, input.Agents))}),
+		sdk.WithMessages([]sdk.Message{sdk.UserMessage(buildPlannerUserPrompt(objective, input.Agents, input.Metadata))}),
 		sdk.WithMaxTokens(2048),
 		sdk.WithTemperature(0.2),
 	)
@@ -89,8 +89,15 @@ const plannerSystemPrompt = `你是 AgentHub 的主控编排器（Orchestrator�
 - depends_on：该任务依赖的其它任务 key 数组，无依赖则为空数组。
 规则：按能力把任务分给最合适的 Agent；可并行的任务不要相互依赖；任务数量与目标复杂度匹配（简单目标 1-2 个，复杂目标可到 5-6 个），不要为简单目标制造无谓步骤；至少有一个无依赖的起始任务；依赖关系不能成环。`
 
-func buildPlannerUserPrompt(objective string, agents []orch.AgentDescriptor) string {
+func buildPlannerUserPrompt(objective string, agents []orch.AgentDescriptor, metadata map[string]any) string {
 	var b strings.Builder
+	if hist, ok := metadata["room_history"].(string); ok {
+		if h := strings.TrimSpace(hist); h != "" {
+			b.WriteString("群聊近期对话（用于理解意图）：\n")
+			b.WriteString(h)
+			b.WriteString("\n\n")
+		}
+	}
 	b.WriteString("用户目标：\n")
 	b.WriteString(objective)
 	b.WriteString("\n\n可用 Agent：\n")

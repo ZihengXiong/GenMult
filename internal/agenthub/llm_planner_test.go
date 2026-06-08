@@ -2,10 +2,21 @@ package agenthub
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	orch "github.com/ZihengXiong/GenMult/internal/agenthub/orchestrator"
 )
+
+func TestBuildPlannerUserPrompt_IncludesHistory(t *testing.T) {
+	p := buildPlannerUserPrompt("做个功能", plannerAgents(), map[string]any{"room_history": "我：先讨论一下"})
+	if !strings.Contains(p, "先讨论一下") || !strings.Contains(p, "做个功能") || !strings.Contains(p, "id=codex") {
+		t.Errorf("prompt missing parts: %q", p)
+	}
+	if p2 := buildPlannerUserPrompt("x", plannerAgents(), nil); strings.Contains(p2, "群聊近期对话") {
+		t.Errorf("unexpected history header without metadata: %q", p2)
+	}
+}
 
 func plannerAgents() []orch.AgentDescriptor {
 	return []orch.AgentDescriptor{

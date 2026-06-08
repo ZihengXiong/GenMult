@@ -121,13 +121,24 @@ func (s *OrchestratorService) StartRun(ctx context.Context, ownerUserID, roomID 
 	if req.AutoDispatch != nil {
 		autoDispatch = *req.AutoDispatch
 	}
+	// Carry the room's recent conversation as run metadata so the planner and
+	// the executing agents have multi-turn context ("上下文连续/多轮迭代修改").
+	metadata := make(map[string]any, len(req.Metadata)+1)
+	for k, v := range req.Metadata {
+		metadata[k] = v
+	}
+	if _, exists := metadata["room_history"]; !exists {
+		if hist := s.recentRoomHistory(ctx, ownerUserID, roomID, 20); hist != "" {
+			metadata["room_history"] = hist
+		}
+	}
 	snapshot, err := s.orch.StartRun(ctx, orch.StartRunInput{
 		RoomID:           roomID,
 		TriggerMessageID: strings.TrimSpace(req.TriggerMessageID),
 		Objective:        objective,
 		CreatedBy:        firstNonEmpty(strings.TrimSpace(req.CreatedBy), ownerUserID),
 		Agents:           agents,
-		Metadata:         req.Metadata,
+		Metadata:         metadata,
 		AutoDispatch:     autoDispatch,
 	})
 	if err != nil {
@@ -217,6 +228,32 @@ func (s *OrchestratorService) ReconcileActiveRuns(ctx context.Context, ownerUser
 // buildPlanner returns an LLM-backed planner (with rule-planner fallback) when
 // Anthropic credentials are available, otherwise the deterministic rule planner.
 // It logs which path is active so "the orchestrator is intelligent" is verifiable.
+// recentRoomHistory renders the room's most recent messages as a plain-text
+// transcript (oldest→newest) for use as orchestrator run context. Best-effort:
+// returns "" on any error.
+func (s *OrchestratorService) recentRoomHistory(ctx context.Context, ownerUserID, roomID string, limit int32) string {
+	resp, err := s.rooms.ListMessages(ctx, ownerUserID, roomID, limit)
+	if err != nil || len(resp.Items) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	for _, m := range resp.Items {
+		body := strings.TrimSpace(m.Body)
+		if body == "" {
+			continue
+		}
+		name := strings.TrimSpace(m.SenderName)
+		if name == "" {
+			name = strings.TrimSpace(m.SenderType)
+		}
+		b.WriteString(name)
+		b.WriteString("：")
+		b.WriteString(body)
+		b.WriteString("\n")
+	}
+	return strings.TrimSpace(b.String())
+}
+
 func buildPlanner(cfg providers.ClaudeCodeConfig, log *slog.Logger) orch.Planner {
 	if log == nil {
 		log = slog.Default()
