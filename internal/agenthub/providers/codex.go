@@ -65,7 +65,7 @@ func (*CodexProvider) Capabilities() []string {
 // Execute starts the Codex subprocess to fulfill a task.
 func (p *CodexProvider) Execute(ctx context.Context, req orchestrator.ExecuteTaskRequest) (orchestrator.ExecuteTaskResult, error) {
 	if p.config.APIKey == "" {
-		return orchestrator.ExecuteTaskResult{Retryable: false}, fmt.Errorf("%w: OPENAI_API_KEY is not set", ErrAPIKeyMissing)
+		return orchestrator.ExecuteTaskResult{Retryable: false}, fmt.Errorf("%w: Codex provider needs an API key; set OPENAI_API_KEY, DEEPSEEK_API_KEY, or configure the bot's codex credentials", ErrAPIKeyMissing)
 	}
 
 	workDir, err := p.wsInfo.ResolveWorkDir(ctx, req)

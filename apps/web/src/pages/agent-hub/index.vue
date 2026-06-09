@@ -1002,7 +1002,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch, type Component } from 'vue'
+import { computed, onUnmounted, ref, watch, type Component } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { useMutation, useQuery, useQueryCache } from '@pinia/colada'
 import { getBotsQuery } from '@memohai/sdk/colada'
@@ -1223,6 +1223,7 @@ const hostAccessDialogOpen = ref(false)
 const searchQuery = ref('')
 const isCreatingRoom = ref(false)
 const showArchivedRooms = ref(false)
+const activeRunPollingId = ref('')
 const newRoomName = ref('')
 const newRoomSummary = ref('')
 const newRoomOrchestratorAgentId = ref('')
@@ -1449,7 +1450,7 @@ watch(
 const rawMemohAgents = computed<AgentItem[]>(() =>
   visibleBots(botData.value?.items ?? [])
     .map((bot: BotsBot) => {
-      const name = bot.display_name || 'Memoh Bot'
+      const name = agentDisplayName(bot)
       return {
         id: `bot:${bot.id ?? bot.display_name}`,
         name,
@@ -1469,6 +1470,15 @@ const rawMemohAgents = computed<AgentItem[]>(() =>
       }
     }),
 )
+
+function agentDisplayName(bot: BotsBot): string {
+  const displayName = bot.display_name?.trim()
+  if (displayName) return displayName
+  if (bot.framework === 'claudecode') return 'cc'
+  if (bot.framework === 'codex') return 'cx'
+  if (bot.framework === 'memoh') return 'ds'
+  return bot.id || 'Memoh Bot'
+}
 
 const codexBridgeBot = computed(() =>
   rawMemohAgents.value.find((agent) => agent.framework === 'codex') ?? null,
@@ -1640,6 +1650,74 @@ const timeline = computed<TimelineEvent[]>(() => {
 })
 
 const selectedRoomRun = computed(() => runData.value ?? null)
+
+let runPollingTimer: number | undefined
+let runPollingKey = ''
+const completedPolledRunIds = new Set<string>()
+
+function stopAgentHubRunPolling(runId = '') {
+  if (runPollingTimer !== undefined) {
+    window.clearInterval(runPollingTimer)
+    runPollingTimer = undefined
+  }
+  runPollingKey = ''
+  if (!runId || activeRunPollingId.value === runId) {
+    activeRunPollingId.value = ''
+  }
+}
+
+function startAgentHubRunPolling(roomId: string, runId: string) {
+  const key = `${roomId}:${runId}`
+  if (runPollingKey === key) return
+
+  stopAgentHubRunPolling()
+  completedPolledRunIds.delete(runId)
+  runPollingKey = key
+  activeRunPollingId.value = runId
+
+  const tick = async () => {
+    try {
+      const snapshot = await reconcileAgentHubRun(runId)
+      queryCache.invalidateQueries({ key: ['agent-hub', 'runs', 'latest', roomId] })
+      queryCache.invalidateQueries({ key: ['agent-hub', 'messages', roomId] })
+      if (isRunTerminal(snapshot.run.status)) {
+        completedPolledRunIds.add(runId)
+        stopAgentHubRunPolling(runId)
+      }
+    }
+    catch (error) {
+      console.error('Failed to refresh AgentHub run progress:', error)
+    }
+  }
+
+  void tick()
+  runPollingTimer = window.setInterval(tick, 1500)
+}
+
+watch(
+  () => {
+    const latestRun = selectedRoomRun.value?.run
+    const runId = activeRunPollingId.value || latestRun?.id || ''
+    const roomId = selectedRoom.value?.id ?? ''
+    const status = latestRun?.id === runId ? latestRun.status : ''
+    if (!isPersistedRoomId(roomId) || !runId || isRunTerminal(status) || completedPolledRunIds.has(runId)) {
+      return ''
+    }
+    return `${roomId}:${runId}`
+  },
+  (key) => {
+    if (!key) {
+      stopAgentHubRunPolling()
+      return
+    }
+    const separator = key.indexOf(':')
+    if (separator <= 0) return
+    startAgentHubRunPolling(key.slice(0, separator), key.slice(separator + 1))
+  },
+  { immediate: true },
+)
+
+onUnmounted(() => stopAgentHubRunPolling())
 
 const tasks = computed<TaskPanelItem[]>(() => {
   const snapshot = selectedRoomRun.value
@@ -2026,6 +2104,16 @@ async function createAgentHubRoomRun(roomId: string, payload: CreateAgentHubRunP
   return data
 }
 
+async function reconcileAgentHubRun(runId: string): Promise<AgentHubRunSnapshot> {
+  const { data } = await client.request<{ 200: AgentHubRunSnapshot }, unknown, true>({
+    method: 'POST',
+    url: '/agent-hub/runs/{run_id}/reconcile',
+    path: { run_id: runId },
+    throwOnError: true,
+  })
+  return data
+}
+
 async function createAgentHubRoom(room: RoomItem): Promise<AgentHubRoom> {
   const { data } = await client.request<{ 201: AgentHubRoom }, unknown, true>({
     method: 'POST',
@@ -2371,6 +2459,10 @@ function taskStatusProgressClass(status: string) {
   }
 }
 
+function isRunTerminal(status?: string) {
+  return status === 'completed' || status === 'failed' || status === 'cancelled'
+}
+
 function taskSortWeight(status: string) {
   switch (status) {
     case 'running':
@@ -2571,9 +2663,9 @@ function buildRunAgents(): RunAgentDescriptor[] {
 }
 
 // runRoomObjective starts an Orchestrator run for the room. Shared by the
-// "发起任务" button and the composer @-mention path. With synchronous dispatch
-// the backend projects task output into room messages during the call, so we
-// refetch both the latest-run snapshot (task panel) and the message stream.
+// "发起任务" button and the composer @-mention path. The backend dispatches
+// asynchronously, so the page polls reconcile until the run reaches a terminal
+// state and refreshes both the task panel and the message stream.
 async function runRoomObjective(room: RoomItem, objective: string, announce: boolean) {
   if (!isPersistedRoomId(room.id) || isStartingRun.value || selectedRoomAgents.value.length === 0) return
   isStartingRun.value = true
@@ -2596,7 +2688,8 @@ async function runRoomObjective(room: RoomItem, objective: string, announce: boo
       })
       announced = true
     }
-    await createAgentHubRoomRun(room.id, { objective, auto_dispatch: true, agents: buildRunAgents() })
+    const snapshot = await createAgentHubRoomRun(room.id, { objective, auto_dispatch: true, agents: buildRunAgents() })
+    activeRunPollingId.value = snapshot.run.id
     activeActivity.value = 'tasks'
     queryCache.invalidateQueries({ key: ['agent-hub', 'runs', 'latest', room.id] })
     queryCache.invalidateQueries({ key: ['agent-hub', 'messages', room.id] })

@@ -22,12 +22,13 @@ type Config struct {
 }
 
 type Service struct {
-	store    Store
-	planner  Planner
-	registry *ProviderRegistry
-	config   Config
-	logger   *slog.Logger
-	clock    func() time.Time
+	store     Store
+	planner   Planner
+	registry  *ProviderRegistry
+	config    Config
+	logger    *slog.Logger
+	clock     func() time.Time
+	startedAt time.Time
 }
 
 func NewService(store Store, planner Planner, registry *ProviderRegistry, logger *slog.Logger, cfg Config) *Service {
@@ -50,12 +51,13 @@ func NewService(store Store, planner Planner, registry *ProviderRegistry, logger
 		cfg.DefaultTaskTimeout = 10 * time.Minute
 	}
 	return &Service{
-		store:    store,
-		planner:  planner,
-		registry: registry,
-		config:   cfg,
-		logger:   logger.With(slog.String("component", "agenthub_orchestrator")),
-		clock:    time.Now,
+		store:     store,
+		planner:   planner,
+		registry:  registry,
+		config:    cfg,
+		logger:    logger.With(slog.String("component", "agenthub_orchestrator")),
+		clock:     time.Now,
+		startedAt: time.Now().UTC(),
 	}
 }
 
@@ -569,6 +571,13 @@ func (s *Service) failTimedOutTasks(ctx context.Context, run Run) (int, error) {
 		}
 		attempt, ok := latestByTask[task.ID]
 		if !ok {
+			continue
+		}
+		if s.config.DispatchAsync && !s.startedAt.IsZero() && attempt.StartedAt.Before(s.startedAt) {
+			if err := s.completeTaskAttempt(ctx, run, task, attempt, AttemptStatusTimedOut, nil, "task executor was interrupted by server restart", true); err != nil {
+				return failed, err
+			}
+			failed++
 			continue
 		}
 		timeout := task.Timeout

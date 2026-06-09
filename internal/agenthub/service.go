@@ -4,6 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -325,6 +328,7 @@ func (s *Service) ListMessages(ctx context.Context, ownerUserID, roomID string, 
 	for _, row := range rows {
 		items = append(items, messageFromRow(row))
 	}
+	sortMessagesForTimeline(items)
 	return ListMessagesResponse{Items: items}, nil
 }
 
@@ -532,6 +536,59 @@ func messageFromRow(row dbsqlc.AgentHubRoomMessage) Message {
 		Body:       row.Body,
 		Metadata:   metadata,
 		CreatedAt:  dbpkg.TimeFromPg(row.CreatedAt),
+	}
+}
+
+func sortMessagesForTimeline(items []Message) {
+	sort.SliceStable(items, func(i, j int) bool {
+		left := items[i]
+		right := items[j]
+		if !left.CreatedAt.Equal(right.CreatedAt) {
+			return left.CreatedAt.Before(right.CreatedAt)
+		}
+		leftRun := metadataString(left.Metadata, "run_id")
+		rightRun := metadataString(right.Metadata, "run_id")
+		if leftRun != "" && leftRun == rightRun {
+			leftSeq, leftOK := metadataInt64(left.Metadata, "event_seq")
+			rightSeq, rightOK := metadataInt64(right.Metadata, "event_seq")
+			if leftOK && rightOK && leftSeq != rightSeq {
+				return leftSeq < rightSeq
+			}
+		}
+		return left.ID < right.ID
+	})
+}
+
+func metadataString(metadata map[string]any, key string) string {
+	if metadata == nil {
+		return ""
+	}
+	switch value := metadata[key].(type) {
+	case nil:
+		return ""
+	case string:
+		return strings.TrimSpace(value)
+	default:
+		return strings.TrimSpace(fmt.Sprintf("%v", value))
+	}
+}
+
+func metadataInt64(metadata map[string]any, key string) (int64, bool) {
+	if metadata == nil {
+		return 0, false
+	}
+	switch value := metadata[key].(type) {
+	case int:
+		return int64(value), true
+	case int64:
+		return value, true
+	case float64:
+		return int64(value), true
+	case string:
+		n, err := strconv.ParseInt(strings.TrimSpace(value), 10, 64)
+		return n, err == nil
+	default:
+		return 0, false
 	}
 }
 

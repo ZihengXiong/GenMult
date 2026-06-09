@@ -49,6 +49,88 @@ func TestRulePlannerBuildsDAG(t *testing.T) {
 	}
 }
 
+func TestRulePlannerSingleAgentBuildsDirectTask(t *testing.T) {
+	planner := NewRulePlanner()
+	plan, err := planner.Plan(context.Background(), PlanInput{
+		RoomID:    "room-1",
+		Objective: "用一句话说明测试是否真实执行",
+		Agents: []AgentDescriptor{
+			{ID: "bot:ds", ProviderName: "memoh", Name: "ds", Capabilities: []string{"chat", "plan"}},
+		},
+	})
+	if err != nil {
+		t.Fatalf("Plan returned error: %v", err)
+	}
+	if len(plan.Tasks) != 1 {
+		t.Fatalf("expected 1 direct task, got %d", len(plan.Tasks))
+	}
+	task := plan.Tasks[0]
+	if task.ClientKey != "direct-1" || task.AssignedAgentID != "bot:ds" || task.ProviderName != "memoh" {
+		t.Fatalf("unexpected direct task: %#v", task)
+	}
+	if task.Description != "用一句话说明测试是否真实执行" {
+		t.Fatalf("direct task should preserve objective, got %q", task.Description)
+	}
+	if task.Timeout != 90*time.Second {
+		t.Fatalf("default direct task timeout = %s, want 90s", task.Timeout)
+	}
+	if task.MaxRetries != 0 {
+		t.Fatalf("default direct task max retries = %d, want 0", task.MaxRetries)
+	}
+}
+
+func TestRulePlannerMentionedAgentsBuildDirectTasks(t *testing.T) {
+	planner := NewRulePlanner()
+	plan, err := planner.Plan(context.Background(), PlanInput{
+		RoomID:    "room-1",
+		Objective: "@ds 做 plan，@cx 实现，@cc 验证",
+		Agents: []AgentDescriptor{
+			{ID: "bot:ds-id", ProviderName: "memoh", Name: "ds"},
+			{ID: "bot:codex-id", ProviderName: "codex", Name: "cx"},
+			{ID: "bot:claude-id", ProviderName: "claudecode", Name: "cc"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("Plan returned error: %v", err)
+	}
+	if len(plan.Tasks) != 3 {
+		t.Fatalf("expected 3 direct tasks, got %d", len(plan.Tasks))
+	}
+	wantProviders := []string{"memoh", "codex", "claudecode"}
+	for i, want := range wantProviders {
+		if plan.Tasks[i].ProviderName != want {
+			t.Fatalf("task %d provider = %q, want %q; tasks=%#v", i, plan.Tasks[i].ProviderName, want, plan.Tasks)
+		}
+	}
+	if len(plan.Tasks[1].DependsOn) != 1 || plan.Tasks[1].DependsOn[0] != "direct-1" {
+		t.Fatalf("second task should depend on first: %#v", plan.Tasks[1])
+	}
+	if len(plan.Tasks[2].DependsOn) != 1 || plan.Tasks[2].DependsOn[0] != "direct-2" {
+		t.Fatalf("third task should depend on second: %#v", plan.Tasks[2])
+	}
+}
+
+func TestRulePlannerMentionDoesNotMatchPrefixAgentName(t *testing.T) {
+	planner := NewRulePlanner()
+	plan, err := planner.Plan(context.Background(), PlanInput{
+		RoomID:    "room-1",
+		Objective: "请 @ds 做一个页面，让其他 agent review",
+		Agents: []AgentDescriptor{
+			{ID: "bot:ds-pro-id", ProviderName: "memoh", Name: "ds-pro"},
+			{ID: "bot:ds-id", ProviderName: "memoh", Name: "ds"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("Plan returned error: %v", err)
+	}
+	if len(plan.Tasks) != 1 {
+		t.Fatalf("expected only @ds to match one task, got %d: %#v", len(plan.Tasks), plan.Tasks)
+	}
+	if plan.Tasks[0].AssignedAgentID != "bot:ds-id" {
+		t.Fatalf("@ds matched wrong agent: %#v", plan.Tasks[0])
+	}
+}
+
 func TestServiceCompletesRunWithNoopProvider(t *testing.T) {
 	store := NewMemoryStore()
 	svc := NewService(store, fixedPlanner{plan: Plan{PlannerVersion: "test", Tasks: []TaskDraft{
@@ -162,6 +244,68 @@ func TestTimeoutMarksTaskFailed(t *testing.T) {
 	}
 	if snap.Attempts[0].Status != AttemptStatusTimedOut {
 		t.Fatalf("expected timed_out attempt, got %s", snap.Attempts[0].Status)
+	}
+}
+
+func TestAsyncReconcileFailsInterruptedRunningTaskAfterRestart(t *testing.T) {
+	store := NewMemoryStore()
+	startedAt := time.Now().UTC()
+	run, err := store.CreateRun(context.Background(), Run{
+		ID:             "run-restart",
+		RoomID:         "room-1",
+		Objective:      "ship",
+		Status:         RunStatusCollecting,
+		PlannerVersion: "test",
+		CreatedAt:      startedAt.Add(-time.Minute),
+		UpdatedAt:      startedAt.Add(-time.Minute),
+	})
+	if err != nil {
+		t.Fatalf("CreateRun returned error: %v", err)
+	}
+	tasks, _, err := store.CreateTasks(context.Background(), run.ID, []TaskDraft{
+		{ClientKey: "a", Title: "a", Description: "slow task", ProviderName: "slow", MaxRetries: 0, Timeout: time.Hour},
+	})
+	if err != nil {
+		t.Fatalf("CreateTasks returned error: %v", err)
+	}
+	task, err := store.UpdateTaskStatus(context.Background(), tasks[0].ID, TaskStatusReady)
+	if err != nil {
+		t.Fatalf("UpdateTaskStatus ready returned error: %v", err)
+	}
+	task, err = store.UpdateTaskStatus(context.Background(), task.ID, TaskStatusRunning)
+	if err != nil {
+		t.Fatalf("UpdateTaskStatus running returned error: %v", err)
+	}
+	task, err = store.IncrementTaskAttempt(context.Background(), task.ID)
+	if err != nil {
+		t.Fatalf("IncrementTaskAttempt returned error: %v", err)
+	}
+	_, err = store.CreateAttempt(context.Background(), TaskAttempt{
+		ID:           "attempt-before-restart",
+		TaskID:       task.ID,
+		RunID:        run.ID,
+		AttemptNo:    task.AttemptCount,
+		ProviderName: "slow",
+		AgentID:      task.AssignedAgentID,
+		Status:       AttemptStatusRunning,
+		StartedAt:    startedAt.Add(-time.Minute),
+	})
+	if err != nil {
+		t.Fatalf("CreateAttempt returned error: %v", err)
+	}
+
+	svc := NewService(store, fixedPlanner{}, NewProviderRegistry(&slowProvider{delay: time.Hour}), nil, Config{DispatchAsync: true})
+	svc.startedAt = startedAt
+
+	snap, err := svc.ReconcileRun(context.Background(), run.ID)
+	if err != nil {
+		t.Fatalf("ReconcileRun returned error: %v", err)
+	}
+	if snap.Run.Status != RunStatusFailed {
+		t.Fatalf("expected failed run after interrupted executor recovery, got %s", snap.Run.Status)
+	}
+	if len(snap.Attempts) != 1 || snap.Attempts[0].Status != AttemptStatusTimedOut {
+		t.Fatalf("expected one timed_out attempt, got %#v", snap.Attempts)
 	}
 }
 

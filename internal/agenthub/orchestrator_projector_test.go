@@ -53,13 +53,35 @@ func TestRoomMessageForEvent(t *testing.T) {
 		"t-retry": {ID: "t-retry", Title: "瞬时失败后成功", AssignedAgentID: "codex", Status: orch.TaskStatusSucceeded},
 	}
 
-	t.Run("run_planned surfaces task count", func(t *testing.T) {
+	t.Run("run_planned surfaces concrete task list", func(t *testing.T) {
 		req, ok := roomMessageForEvent(orch.RunEvent{Type: orch.EventRunPlanned, Seq: 1, Payload: map[string]any{"tasks": float64(3)}}, run, taskByID)
 		if !ok {
 			t.Fatal("expected ok")
 		}
-		if req.SenderType != "system" || !strings.Contains(req.Body, "3 个子任务") {
+		if req.SenderType != "system" || !strings.Contains(req.Body, "3 个子任务") || !strings.Contains(req.Body, "任务清单") || !strings.Contains(req.Body, "Codex：实现后端") {
 			t.Errorf("unexpected planned msg: %+v", req)
+		}
+	})
+
+	t.Run("agent_output surfaces visible agent text", func(t *testing.T) {
+		req, ok := roomMessageForEvent(orch.RunEvent{
+			Type: orch.EventAgentOutput, Seq: 4, TaskID: "t-ok",
+			Payload: map[string]any{"content": "正在实现组件", "raw_type": "text"},
+		}, run, taskByID)
+		if !ok {
+			t.Fatal("expected ok")
+		}
+		if req.SenderType != "agent" || req.SenderName != "Codex" || req.Body != "正在实现组件" || req.Metadata["streamed"] != true {
+			t.Errorf("unexpected agent output msg: %+v", req)
+		}
+	})
+
+	t.Run("agent_output skips non-visible process noise", func(t *testing.T) {
+		if _, ok := roomMessageForEvent(orch.RunEvent{
+			Type: orch.EventAgentOutput, Seq: 4, TaskID: "t-ok",
+			Payload: map[string]any{"content": "turn started", "raw_type": "turn"},
+		}, run, taskByID); ok {
+			t.Fatal("expected non-visible output to be skipped")
 		}
 	})
 
@@ -117,6 +139,30 @@ func TestRoomMessageForEvent(t *testing.T) {
 			t.Error("expected task_created to be skipped")
 		}
 	})
+}
+
+func TestRunEventsToMessages_DeduplicatesAgentOutputAndTaskSucceeded(t *testing.T) {
+	run := orch.Run{ID: "run-1", RoomID: "room-1"}
+	tasks := []orch.Task{{ID: "t-ok", Title: "实现后端", AssignedAgentID: "codex", Status: orch.TaskStatusSucceeded}}
+	events := []orch.RunEvent{
+		{Type: orch.EventAgentOutput, Seq: 1, TaskID: "t-ok", Payload: map[string]any{"content": "组件已生成", "raw_type": "text"}},
+		{Type: orch.EventTaskSucceeded, Seq: 2, TaskID: "t-ok", Payload: map[string]any{"output": map[string]any{"raw_output": "组件已生成"}}},
+		{Type: orch.EventRunStatusChanged, Seq: 3, Payload: map[string]any{"to": string(orch.RunStatusCompleted)}},
+	}
+
+	msgs, maxSeq := runEventsToMessages(events, run, tasks, 0)
+	if maxSeq != 3 {
+		t.Fatalf("maxSeq = %d, want 3", maxSeq)
+	}
+	var outputCount int
+	for _, msg := range msgs {
+		if msg.Body == "组件已生成" {
+			outputCount++
+		}
+	}
+	if outputCount != 1 {
+		t.Fatalf("expected agent output exactly once, got %d messages: %+v", outputCount, msgs)
+	}
 }
 
 // stubAgentProvider is a canned orchestrator.AgentProvider for spine tests: it

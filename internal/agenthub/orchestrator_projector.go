@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -71,15 +72,31 @@ func runEventsToMessages(events []orch.RunEvent, run orch.Run, tasks []orch.Task
 	}
 	out := make([]CreateMessageRequest, 0, len(events))
 	maxSeq := after
+	surfacedAgentOutput := make(map[string]map[string]bool)
 	for _, ev := range events {
 		if ev.Seq > maxSeq {
 			maxSeq = ev.Seq
+		}
+		if ev.Type == orch.EventTaskSucceeded {
+			body := normalizeProjectedOutput(taskOutputBody(ev.Payload))
+			if body != "" && surfacedAgentOutput[ev.TaskID][body] {
+				continue
+			}
 		}
 		req, ok := roomMessageForEvent(ev, run, taskByID)
 		if !ok {
 			continue
 		}
 		out = append(out, req)
+		if ev.Type == orch.EventAgentOutput {
+			body := normalizeProjectedOutput(req.Body)
+			if body != "" {
+				if surfacedAgentOutput[ev.TaskID] == nil {
+					surfacedAgentOutput[ev.TaskID] = make(map[string]bool)
+				}
+				surfacedAgentOutput[ev.TaskID][body] = true
+			}
+		}
 	}
 	return out, maxSeq
 }
@@ -104,14 +121,14 @@ func roomMessageForEvent(ev orch.RunEvent, run orch.Run, taskByID map[string]orc
 
 	switch ev.Type {
 	case orch.EventRunPlanned:
-		n := intFromPayload(ev.Payload, "tasks")
+		body := plannedRunBody(ev.Payload, taskByID)
 		return CreateMessageRequest{
 			SenderID:   "orchestrator",
 			SenderType: "system",
 			SenderName: "Orchestrator",
 			Kind:       "orchestrator",
 			Title:      "任务规划",
-			Body:       "📋 已理解目标并拆解为 " + strconv.Itoa(n) + " 个子任务，开始分派执行。",
+			Body:       body,
 			Metadata:   meta(nil),
 		}, true
 
@@ -129,6 +146,30 @@ func roomMessageForEvent(ev orch.RunEvent, run orch.Run, taskByID map[string]orc
 			Title:      task.Title,
 			Body:       "▶️ 开始执行：" + task.Title,
 			Metadata:   meta(nil),
+		}, true
+
+	case orch.EventAgentOutput:
+		task, ok := taskByID[ev.TaskID]
+		if !ok {
+			return CreateMessageRequest{}, false
+		}
+		body := agentOutputBody(ev.Payload)
+		if strings.TrimSpace(body) == "" {
+			return CreateMessageRequest{}, false
+		}
+		_, name := friendlyAgentName(task.AssignedAgentID)
+		title := task.Title
+		if title == "" {
+			title = name
+		}
+		return CreateMessageRequest{
+			SenderID:   task.AssignedAgentID,
+			SenderType: "agent",
+			SenderName: name,
+			Kind:       "message",
+			Title:      title,
+			Body:       body,
+			Metadata:   meta(map[string]any{"streamed": true}),
 		}, true
 
 	case orch.EventTaskSucceeded:
@@ -217,6 +258,61 @@ func roomMessageForEvent(ev orch.RunEvent, run orch.Run, taskByID map[string]orc
 	}
 }
 
+func plannedRunBody(payload map[string]any, taskByID map[string]orch.Task) string {
+	n := intFromPayload(payload, "tasks")
+	base := "📋 已理解目标并拆解为 " + strconv.Itoa(n) + " 个子任务，开始分派执行。"
+	if len(taskByID) == 0 {
+		return base
+	}
+	tasks := make([]orch.Task, 0, len(taskByID))
+	for _, task := range taskByID {
+		tasks = append(tasks, task)
+	}
+	sort.SliceStable(tasks, func(i, j int) bool {
+		if !tasks[i].CreatedAt.Equal(tasks[j].CreatedAt) {
+			return tasks[i].CreatedAt.Before(tasks[j].CreatedAt)
+		}
+		if tasks[i].Priority != tasks[j].Priority {
+			return tasks[i].Priority > tasks[j].Priority
+		}
+		return tasks[i].ID < tasks[j].ID
+	})
+	lines := []string{base, "", "任务清单："}
+	for i, task := range tasks {
+		_, name := friendlyAgentName(task.AssignedAgentID)
+		title := strings.TrimSpace(task.Title)
+		if title == "" {
+			title = "子任务"
+		}
+		if name == "" || name == "Orchestrator" {
+			name = strings.TrimSpace(task.ProviderName)
+		}
+		if name == "" {
+			name = "Agent"
+		}
+		lines = append(lines, fmt.Sprintf("%d. %s：%s", i+1, name, title))
+	}
+	return strings.Join(lines, "\n")
+}
+
+// agentOutputBody extracts visible provider output from an agent_output event.
+// It intentionally skips init/turn/tool noise and Claude thinking blocks: the
+// room timeline should show user-visible agent text, not process logs.
+func agentOutputBody(payload map[string]any) string {
+	content, _ := payload["content"].(string)
+	content = strings.TrimSpace(content)
+	if content == "" {
+		return ""
+	}
+	rawType, _ := payload["raw_type"].(string)
+	switch strings.ToLower(strings.TrimSpace(rawType)) {
+	case "", "text", "result", "error":
+		return content
+	default:
+		return ""
+	}
+}
+
 // taskOutputBody extracts human-readable text from a task_succeeded event payload.
 // Providers store their full text in output.raw_output and a short summary in
 // output.summary (see providers.ClaudeCodeProvider.Execute).
@@ -232,6 +328,10 @@ func taskOutputBody(payload map[string]any) string {
 		return summary
 	}
 	return ""
+}
+
+func normalizeProjectedOutput(s string) string {
+	return strings.Join(strings.Fields(s), " ")
 }
 
 // payloadString coerces an event payload value to a string, tolerating both the

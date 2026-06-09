@@ -80,8 +80,8 @@ func (*ClaudeCodeProvider) Capabilities() []string {
 
 // Execute starts the Claude Code subprocess to fulfill a task.
 func (p *ClaudeCodeProvider) Execute(ctx context.Context, req orchestrator.ExecuteTaskRequest) (orchestrator.ExecuteTaskResult, error) {
-	if p.config.APIKey == "" {
-		return orchestrator.ExecuteTaskResult{Retryable: false}, fmt.Errorf("%w: ANTHROPIC_API_KEY is not set", ErrAPIKeyMissing)
+	if p.config.APIKey == "" && p.config.AuthToken == "" {
+		return orchestrator.ExecuteTaskResult{Retryable: false}, fmt.Errorf("%w: Claude Code provider needs credentials; set ANTHROPIC_API_KEY, ANTHROPIC_AUTH_TOKEN, DEEPSEEK_API_KEY, or configure the bot's claudecode credentials", ErrAPIKeyMissing)
 	}
 
 	workDir, err := p.wsInfo.ResolveWorkDir(ctx, req)

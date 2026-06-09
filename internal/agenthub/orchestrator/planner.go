@@ -2,6 +2,8 @@ package orchestrator
 
 import (
 	"context"
+	"fmt"
+	"sort"
 	"strings"
 	"time"
 )
@@ -17,7 +19,7 @@ type RulePlanner struct {
 }
 
 func NewRulePlanner() *RulePlanner {
-	return &RulePlanner{DefaultTimeout: 10 * time.Minute, DefaultMaxRetries: 1}
+	return &RulePlanner{DefaultTimeout: 90 * time.Second, DefaultMaxRetries: 0}
 }
 
 func (p *RulePlanner) Plan(_ context.Context, input PlanInput) (Plan, error) {
@@ -32,6 +34,10 @@ func (p *RulePlanner) Plan(_ context.Context, input PlanInput) (Plan, error) {
 	maxRetries := p.DefaultMaxRetries
 	if maxRetries < 0 {
 		maxRetries = 0
+	}
+
+	if direct := p.directMentionPlan(objective, input.Agents, timeout, maxRetries); len(direct.Tasks) > 0 {
+		return direct, nil
 	}
 
 	analysis := p.pickAgent(input.Agents, "plan", "analysis", "orchestrate")
@@ -105,6 +111,124 @@ func (p *RulePlanner) Plan(_ context.Context, input PlanInput) (Plan, error) {
 		},
 	}
 	return Plan{PlannerVersion: RulePlannerVersion, Tasks: drafts}, nil
+}
+
+func (*RulePlanner) directMentionPlan(objective string, agents []AgentDescriptor, timeout time.Duration, maxRetries int) Plan {
+	if len(agents) == 0 {
+		return Plan{}
+	}
+	type mentionedAgent struct {
+		agent AgentDescriptor
+		at    int
+	}
+	mentioned := make([]mentionedAgent, 0, len(agents))
+	lowerObjective := strings.ToLower(objective)
+	for _, agent := range agents {
+		if idx := firstMentionIndex(lowerObjective, agent); idx >= 0 {
+			mentioned = append(mentioned, mentionedAgent{agent: agent, at: idx})
+		}
+	}
+	if len(mentioned) == 0 && len(agents) == 1 {
+		mentioned = append(mentioned, mentionedAgent{agent: agents[0], at: 0})
+	}
+	if len(mentioned) == 0 {
+		return Plan{}
+	}
+	sort.SliceStable(mentioned, func(i, j int) bool {
+		return mentioned[i].at < mentioned[j].at
+	})
+	drafts := make([]TaskDraft, 0, len(mentioned))
+	for i, item := range mentioned {
+		name := firstNonEmpty(strings.TrimSpace(item.agent.Name), strings.TrimSpace(item.agent.ProviderName), strings.TrimSpace(item.agent.ID))
+		title := "执行用户指定任务"
+		if len(mentioned) > 1 {
+			title = fmt.Sprintf("%s 执行分配任务", name)
+		}
+		draft := TaskDraft{
+			ClientKey:       fmt.Sprintf("direct-%d", i+1),
+			Title:           title,
+			Description:     objective,
+			AssignedAgentID: item.agent.ID,
+			ProviderName:    item.agent.ProviderName,
+			Priority:        100 - i,
+			Timeout:         timeout,
+			MaxRetries:      maxRetries,
+			Metadata:        map[string]any{"phase": "direct"},
+		}
+		if i > 0 {
+			draft.DependsOn = []string{fmt.Sprintf("direct-%d", i)}
+		}
+		drafts = append(drafts, draft)
+	}
+	return Plan{PlannerVersion: RulePlannerVersion, Tasks: drafts}
+}
+
+func firstMentionIndex(lowerObjective string, agent AgentDescriptor) int {
+	best := -1
+	for _, alias := range agentMentionAliases(agent) {
+		needle := "@" + strings.ToLower(alias)
+		start := 0
+		for {
+			idx := strings.Index(lowerObjective[start:], needle)
+			if idx < 0 {
+				break
+			}
+			idx += start
+			end := idx + len(needle)
+			if end >= len(lowerObjective) || !isMentionChar(rune(lowerObjective[end])) {
+				if best == -1 || idx < best {
+					best = idx
+				}
+				break
+			}
+			start = end
+		}
+	}
+	return best
+}
+
+func isMentionChar(r rune) bool {
+	return r == '-' || r == '_' || r == '.' || r == ':' || r == '/' || r == '@' ||
+		(r >= 'a' && r <= 'z') || (r >= '0' && r <= '9')
+}
+
+func agentMentionAliases(agent AgentDescriptor) []string {
+	seen := map[string]struct{}{}
+	aliases := make([]string, 0, 6)
+	add := func(value string) {
+		value = strings.TrimSpace(value)
+		if value == "" {
+			return
+		}
+		lower := strings.ToLower(value)
+		if _, ok := seen[lower]; ok {
+			return
+		}
+		seen[lower] = struct{}{}
+		aliases = append(aliases, value)
+	}
+	name := strings.TrimSpace(agent.Name)
+	add(name)
+	add(strings.TrimPrefix(agent.ID, "bot:"))
+	add(agent.ID)
+	add(agent.ProviderName)
+	switch strings.ToLower(strings.TrimSpace(agent.ProviderName)) {
+	case "memoh":
+		if name == "" {
+			add("ds")
+		}
+	case "claudecode":
+		if name == "" {
+			add("cc")
+			add("claude")
+			add("claude code")
+		}
+	case "codex":
+		if name == "" {
+			add("cx")
+		}
+	}
+	return aliases
 }
 
 func (*RulePlanner) pickAgent(agents []AgentDescriptor, keywords ...string) AgentDescriptor {

@@ -108,7 +108,7 @@ func NewOrchestratorService(
 	orchestrator := orch.NewService(store, buildPlanner(provCfg.ClaudeCode, log), registry, log, orch.Config{
 		MaxParallelPerRun:   3,
 		MaxParallelPerAgent: 1,
-		DispatchAsync:       false,
+		DispatchAsync:       true,
 	})
 	return &OrchestratorService{
 		rooms:   roomService,

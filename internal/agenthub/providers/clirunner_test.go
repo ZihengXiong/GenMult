@@ -126,12 +126,12 @@ func TestCLIRunner_Run_Timeout(t *testing.T) {
 func TestCLIRunner_Run_LargeLine(t *testing.T) {
 	// Create a line that is ~130KB.
 	largeText := strings.Repeat("A", 130*1024)
-	script := fmt.Sprintf("echo '{\"type\":\"text\",\"content\":\"%s\"}'", largeText)
+	input := fmt.Sprintf("{\"type\":\"text\",\"content\":\"%s\"}\n", largeText)
 
 	cfg := CLIRunnerConfig{
-		BinaryName: "bash",
+		BinaryName: "cat",
 		BuildArgs: func(prompt string) []string {
-			return []string{"-c", prompt}
+			return nil
 		},
 		ParseEvent: func(line []byte) (CLIEvent, error) {
 			var m map[string]any
@@ -144,6 +144,7 @@ func TestCLIRunner_Run_LargeLine(t *testing.T) {
 				Raw:     line,
 			}, nil
 		},
+		Stdin: input,
 	}
 
 	runner := NewCLIRunner(cfg, slog.Default())
@@ -151,7 +152,7 @@ func TestCLIRunner_Run_LargeLine(t *testing.T) {
 	workDir, err := os.Getwd()
 	require.NoError(t, err)
 
-	output, err := runner.Run(ctx, script, workDir, nil, nil)
+	output, err := runner.Run(ctx, "", workDir, nil, nil)
 	require.NoError(t, err)
 	assert.Equal(t, largeText, output)
 }

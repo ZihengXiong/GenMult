@@ -302,6 +302,13 @@ func (s *SQLStore) UpdateRunStatus(ctx context.Context, runID string, status Run
 		affected, _ = res.RowsAffected()
 	}
 	if affected == 0 {
+		latest, latestErr := s.GetRun(ctx, run.ID)
+		if latestErr != nil {
+			return Run{}, latestErr
+		}
+		if latest.Status == status || isTerminalRunStatus(latest.Status) {
+			return latest, nil
+		}
 		return Run{}, ErrInvalidTransition
 	}
 	return s.GetRun(ctx, run.ID)
@@ -530,6 +537,13 @@ func (s *SQLStore) UpdateTaskStatus(ctx context.Context, taskID string, status T
 		affected, _ = res.RowsAffected()
 	}
 	if affected == 0 {
+		latest, latestErr := s.getTask(ctx, task.ID)
+		if latestErr != nil {
+			return Task{}, latestErr
+		}
+		if latest.Status == status || isTerminalTaskStatus(latest.Status) {
+			return latest, nil
+		}
 		return Task{}, ErrInvalidTransition
 	}
 	return s.getTask(ctx, task.ID)
