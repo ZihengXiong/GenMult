@@ -112,3 +112,11 @@ WHERE m.room_id = sqlc.arg(room_id)
   AND r.owner_user_id = sqlc.arg(owner_user_id)
 ORDER BY m.created_at ASC, m.id ASC
 LIMIT sqlc.arg(limit_count);
+
+-- name: DeleteAgentHubRoomMessage :exec
+DELETE FROM agent_hub_room_messages
+WHERE agent_hub_room_messages.id = sqlc.arg(id)
+  AND agent_hub_room_messages.room_id = sqlc.arg(room_id)
+  AND agent_hub_room_messages.room_id IN (
+    SELECT agent_hub_rooms.id FROM agent_hub_rooms WHERE agent_hub_rooms.owner_user_id = sqlc.arg(owner_user_id)
+  );

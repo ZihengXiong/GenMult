@@ -81,16 +81,32 @@
           <p class="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
             {{ activeActivityLabel }}
           </p>
-          <Button
+          <div
             v-if="activeActivity === 'rooms'"
-            variant="ghost"
-            size="icon"
-            class="size-6 text-muted-foreground"
-            title="新建群聊"
-            @click="startCreateRoom"
+            class="flex gap-1"
           >
-            <Plus class="size-3.5" />
-          </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              class="size-6 text-muted-foreground"
+              :title="showArchivedRooms ? '隐藏归档' : '显示归档'"
+              @click="showArchivedRooms = !showArchivedRooms"
+            >
+              <component
+                :is="showArchivedRooms ? ArchiveRestore : Archive"
+                class="size-3.5"
+              />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              class="size-6 text-muted-foreground"
+              title="新建群聊"
+              @click="startCreateRoom"
+            >
+              <Plus class="size-3.5" />
+            </Button>
+          </div>
           <Button
             v-else
             variant="ghost"
@@ -173,7 +189,13 @@
                   {{ room.shortName }}
                 </span>
                 <span class="min-w-0 flex-1">
-                  <span class="block truncate text-xs font-semibold text-foreground">{{ room.name }}</span>
+                  <span class="flex items-center gap-1 truncate text-xs font-semibold text-foreground">
+                    {{ room.name }}
+                    <Pin
+                      v-if="room.metadata?.pinned"
+                      class="size-2.5 shrink-0 text-muted-foreground"
+                    />
+                  </span>
                   <span class="block truncate text-[11px] text-muted-foreground">{{ room.subtitle }}</span>
                 </span>
                 <span
@@ -182,6 +204,37 @@
                 >
                   {{ room.attention }}
                 </span>
+                <DropdownMenu @click.stop>
+                  <DropdownMenuTrigger as-child>
+                    <button
+                      type="button"
+                      class="inline-flex size-5 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
+                      title="选项"
+                      @click.stop
+                    >
+                      <MoreHorizontal class="size-3.5" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    align="end"
+                    @click.stop
+                  >
+                    <DropdownMenuItem @select="toggleRoomMetadataMutation({ room, key: 'pinned', value: !room.metadata?.pinned })">
+                      <component
+                        :is="room.metadata?.pinned ? PinOff : Pin"
+                        class="mr-2 size-3.5"
+                      />
+                      {{ room.metadata?.pinned ? '取消置顶' : '置顶群聊' }}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem @select="toggleRoomMetadataMutation({ room, key: 'archived', value: !room.metadata?.archived })">
+                      <component
+                        :is="room.metadata?.archived ? ArchiveRestore : Archive"
+                        class="mr-2 size-3.5"
+                      />
+                      {{ room.metadata?.archived ? '取消归档' : '归档群聊' }}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
               <div class="mt-2 flex items-center gap-1.5 text-[11px] text-muted-foreground">
                 <Users class="size-3" />
@@ -428,85 +481,16 @@
           </section>
 
           <div class="flex flex-1 flex-col gap-3">
-            <article
+            <TimelineEventItem
               v-for="event in timeline"
               :key="event.id"
-              class="group flex gap-3"
-            >
-              <span
-                class="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md border"
-                :class="event.tone"
-              >
-                <component
-                  :is="event.icon"
-                  class="size-4"
-                />
-              </span>
-              <div class="min-w-0 flex-1 rounded-md border border-border bg-card p-3 shadow-sm">
-                <div class="flex flex-wrap items-center gap-2">
-                  <p class="text-sm font-semibold">
-                    {{ event.title }}
-                  </p>
-                  <span class="text-[11px] text-muted-foreground">{{ event.time }}</span>
-                  <span class="rounded-sm bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-                    {{ event.kind }}
-                  </span>
-                </div>
-                <p class="mt-1 text-sm leading-6 text-muted-foreground">
-                  {{ event.body }}
-                </p>
-
-                <!-- thinking: stored in metadata.thinking, not in body/history context -->
-                <details
-                  v-if="event.thinking"
-                  class="mt-2"
-                >
-                  <summary class="cursor-pointer select-none text-xs text-muted-foreground hover:text-foreground">
-                    查看思考过程
-                  </summary>
-                  <p class="mt-1 whitespace-pre-wrap text-xs leading-5 text-muted-foreground/70">
-                    {{ event.thinking }}
-                  </p>
-                </details>
-
-                <!-- tools: stored in metadata.tools, not in body/history context -->
-                <details
-                  v-if="event.tools?.length"
-                  class="mt-2"
-                >
-                  <summary class="cursor-pointer select-none text-xs text-muted-foreground hover:text-foreground">
-                    工具调用 ({{ event.tools.length }})
-                  </summary>
-                  <div class="mt-1 space-y-1">
-                    <details
-                      v-for="(tool, i) in event.tools"
-                      :key="i"
-                      class="rounded border border-border bg-muted/30 px-2 py-1"
-                    >
-                      <summary class="cursor-pointer select-none text-xs font-mono text-muted-foreground hover:text-foreground">
-                        {{ tool.name }}
-                      </summary>
-                      <pre class="mt-1 overflow-x-auto whitespace-pre-wrap text-[11px] leading-4 text-muted-foreground/70">Input: {{ JSON.stringify(tool.input, null, 2) }}{{ tool.output !== undefined ? `\nOutput: ${JSON.stringify(tool.output, null, 2)}` : '' }}</pre>
-                    </details>
-                  </div>
-                </details>
-
-                <div
-                  v-if="event.actions?.length"
-                  class="mt-3 flex flex-wrap gap-2"
-                >
-                  <Button
-                    v-for="action in event.actions"
-                    :key="action"
-                    variant="outline"
-                    size="sm"
-                    class="h-7 text-xs"
-                  >
-                    {{ action }}
-                  </Button>
-                </div>
-              </div>
-            </article>
+              :event="event"
+              :agent="eventAgent(event)"
+              :can-regenerate="event.id === lastAgentEventId"
+              @reply="startReply"
+              @quote="quoteEvent"
+              @regenerate="regenerateEvent"
+            />
 
             <!-- thinking indicator -->
             <article
@@ -524,6 +508,31 @@
 
           <section class="sticky bottom-0 mt-5 bg-background/95 pb-4 pt-2 backdrop-blur">
             <div class="rounded-lg border border-border bg-card p-2 shadow-sm">
+              <div
+                v-if="replyTarget"
+                class="mb-2 flex items-start gap-2 rounded-md border border-border bg-muted/40 px-2 py-1.5"
+              >
+                <Reply class="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
+                <div class="min-w-0 flex-1">
+                  <div class="truncate text-[11px] font-semibold text-primary">
+                    回复 {{ replyTarget.sender }}
+                  </div>
+                  <div
+                    v-if="replyTarget.preview"
+                    class="truncate text-[11px] text-muted-foreground"
+                  >
+                    {{ replyTarget.preview }}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  class="shrink-0 text-muted-foreground hover:text-foreground"
+                  title="取消回复"
+                  @click="replyTarget = null"
+                >
+                  <X class="size-3.5" />
+                </button>
+              </div>
               <div class="flex flex-wrap gap-1.5 border-b border-border px-1 pb-2">
                 <button
                   v-for="chip in composerChips"
@@ -535,16 +544,79 @@
                   {{ chip }}
                 </button>
               </div>
+              <div
+                v-if="pendingFiles.length"
+                class="flex flex-wrap gap-1.5 px-1 pb-2 pt-1"
+              >
+                <div
+                  v-for="(file, i) in pendingFiles"
+                  :key="`${file.name}-${i}`"
+                  class="flex items-center gap-1.5 rounded-md border border-border bg-muted/40 px-2 py-1 text-[11px]"
+                >
+                  <Paperclip class="size-3 text-muted-foreground" />
+                  <span class="max-w-32 truncate">{{ file.name }}</span>
+                  <button
+                    type="button"
+                    class="text-muted-foreground hover:text-foreground"
+                    :aria-label="`移除 ${file.name}`"
+                    @click="removePendingFile(i)"
+                  >
+                    <X class="size-3" />
+                  </button>
+                </div>
+              </div>
+              <input
+                ref="fileInput"
+                type="file"
+                multiple
+                class="hidden"
+                @change="handleFileInputChange"
+              >
               <textarea
                 v-model="composerText"
                 class="min-h-20 w-full resize-none bg-transparent px-2 py-2 text-sm leading-6 outline-none placeholder:text-muted-foreground"
                 placeholder="@主 Agent 拆任务，或 @Codex / @Claude Code 进入并行执行"
                 @keydown.enter.exact.prevent="sendRoomMessage"
+                @paste="handleComposerPaste"
               />
               <div class="flex items-center justify-between gap-3 px-1 pb-1">
-                <div class="flex items-center gap-1 text-[11px] text-muted-foreground">
-                  <AtSign class="size-3.5" />
-                  <span>@ 文件、@@ Agent、@@ all(config)</span>
+                <div class="flex items-center gap-2 text-[11px] text-muted-foreground">
+                  <button
+                    type="button"
+                    class="flex size-7 items-center justify-center rounded-md transition-colors hover:bg-accent hover:text-foreground"
+                    title="添加文件 / 图片"
+                    @click="triggerFileSelect"
+                  >
+                    <Paperclip class="size-3.5" />
+                  </button>
+                  <div class="flex items-center gap-1 rounded-md border border-border p-0.5">
+                    <button
+                      type="button"
+                      class="rounded px-1.5 py-0.5 transition-colors disabled:opacity-40"
+                      :class="uploadMode === 'once' && !composerMainIsCLI ? 'bg-accent text-foreground' : 'hover:text-foreground'"
+                      :disabled="composerMainIsCLI"
+                      :title="composerMainIsCLI ? 'Claude Code / Codex 不支持单次附件，请用 workspace' : '仅本次发送，不落盘（图片对支持视觉的 Memoh 模型有效）'"
+                      @click="uploadMode = 'once'"
+                    >
+                      单次
+                    </button>
+                    <button
+                      type="button"
+                      class="flex items-center gap-1 rounded px-1.5 py-0.5 transition-colors"
+                      :class="(uploadMode === 'workspace' || composerMainIsCLI) ? 'bg-accent text-foreground' : 'hover:text-foreground'"
+                      title="上传到 Agent 工作区容器，Agent 按路径读取"
+                      @click="uploadMode = 'workspace'"
+                    >
+                      <HardDrive class="size-3" />
+                      workspace
+                    </button>
+                  </div>
+                  <span
+                    v-if="composerMainIsCLI"
+                    class="text-[10px] text-muted-foreground/70"
+                  >
+                    Claude/Codex 仅 workspace
+                  </span>
                 </div>
                 <Button
                   size="sm"
@@ -940,6 +1012,7 @@ import {
   type HandlersSupermarketSkillEntry,
 } from '@memohai/sdk'
 import { client } from '@memohai/sdk/client'
+import { sdkApiUrl } from '@/lib/api-client'
 import {
   Button,
   Dialog,
@@ -948,6 +1021,10 @@ import {
   DialogHeader,
   DialogTitle,
   Spinner,
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
 } from '@memohai/ui'
 import { toast } from 'vue-sonner'
 import { resolveApiErrorMessage } from '@/utils/api-error'
@@ -955,14 +1032,16 @@ import SkillCard from '@/pages/supermarket/components/skill-card.vue'
 import McpCard from '@/pages/supermarket/components/mcp-card.vue'
 import InstallSkillDialog from '@/pages/supermarket/components/install-skill-dialog.vue'
 import InstallMcpDialog from '@/pages/supermarket/components/install-mcp-dialog.vue'
-import { connectWebSocket, createSession, type UIMessage, type UIStreamEvent, type UIToolMessage } from '@/composables/api/useChat'
+import { connectWebSocket, createSession, type UIMessage, type UIStreamEvent, type UIToolMessage, type ChatAttachment } from '@/composables/api/useChat'
 import { useChatSelectionStore } from '@/store/chat-selection'
 import { useWorkspaceTabsStore } from '@/store/workspace-tabs'
 import { visibleBots } from '@/utils/bots'
 import BotHostAccess from '@/pages/bots/components/bot-host-access.vue'
+import TimelineEventItem from './components/timeline-event-item.vue'
+import type { AgentItem, StoredTool, TimelineEvent } from './types'
+import type { AttachmentBlock as AttachmentBlockType } from '@/store/chat-list'
 import {
   AlertCircle,
-  AtSign,
   Bot,
   Boxes,
   BrainCircuit,
@@ -989,7 +1068,15 @@ import {
   Wrench,
   X,
   Crown,
+  Reply,
+  Paperclip,
+  HardDrive,
   Zap,
+  MoreHorizontal,
+  Pin,
+  PinOff,
+  Archive,
+  ArchiveRestore,
 } from 'lucide-vue-next'
 
 type ActivityId = 'rooms' | 'agents' | 'tasks' | 'skills' | 'mcp'
@@ -1098,36 +1185,10 @@ interface CreateAgentHubMessagePayload {
   metadata?: Record<string, unknown>
 }
 
-interface AgentItem {
-  id: string
-  name: string
-  kind: string
-  status: 'online' | 'busy' | 'draft'
-  icon: Component
-  tone: string
-  capabilities: string[]
-  botId?: string
-  framework?: string
-}
-
-interface StoredTool {
-  name: string
-  input: unknown
-  output?: unknown
-}
-
-interface TimelineEvent {
-  id: string
-  time: string
-  kind: string
-  title: string
-  body: string
-  thinking?: string
-  tools?: StoredTool[]
-  icon: Component
-  tone: string
-  actions?: string[]
-}
+// AgentItem, StoredTool and TimelineEvent now live in ./types (shared with
+// timeline-event-item.vue). TimelineEvent additionally carries senderId /
+// senderType / replyTo / attachments for the reply + regenerate + attachment
+// rendering paths.
 
 interface ConnectorItem {
   id: 'memoh-bot' | 'codex-bridge' | 'claude-bridge' | 'custom-agent'
@@ -1159,10 +1220,20 @@ const selectedAgentId = ref('orchestrator')
 const hostAccessDialogOpen = ref(false)
 const searchQuery = ref('')
 const isCreatingRoom = ref(false)
+const showArchivedRooms = ref(false)
 const newRoomName = ref('')
 const newRoomSummary = ref('')
 const newRoomOrchestratorAgentId = ref('')
 const composerText = ref('')
+// Active reply target: when set, the composer shows a reply preview bar and the
+// next sent message carries metadata.reply_to. Cleared after send or on cancel.
+const replyTarget = ref<{ id: string, sender: string, preview: string } | null>(null)
+// Composer file uploads. 'once' = base64 attachment sent inline to the agent for
+// this turn only; 'workspace' = uploaded into the bot's container via fs/upload
+// and referenced by path.
+const pendingFiles = ref<File[]>([])
+const uploadMode = ref<'once' | 'workspace'>('once')
+const fileInput = ref<HTMLInputElement | null>(null)
 const ROOM_STORAGE_KEY = 'memoh.agenthub.rooms.v1'
 const ROOM_MIGRATION_KEY = 'memoh.agenthub.rooms.migrated.v1'
 const AGENT_HUB_ROOMS_KEY = ['agent-hub', 'rooms']
@@ -1316,6 +1387,17 @@ const { mutateAsync: removeAgentMutation } = useMutation({
   },
 })
 
+const { mutateAsync: toggleRoomMetadataMutation } = useMutation({
+  mutation: async ({ room, key, value }: { room: RoomItem, key: 'pinned' | 'archived', value: boolean }) => {
+    const updatedMetadata = { ...(room.metadata || {}), [key]: value }
+    const updatedRoom = { ...room, metadata: updatedMetadata }
+    return await updateAgentHubRoom(updatedRoom)
+  },
+  onSettled: () => {
+    queryCache.invalidateQueries({ key: AGENT_HUB_ROOMS_KEY })
+  },
+})
+
 watch(
   roomData,
   (data) => {
@@ -1394,8 +1476,12 @@ const selectedRoom = computed(() =>
   rooms.value.find((room) => room.id === selectedRoomId.value) ?? rooms.value[0],
 )
 const canSendRoomMessage = computed(() =>
-  Boolean(composerText.value.trim() && isPersistedRoomId(selectedRoom.value?.id) && !isAgentReplying.value),
+  Boolean((composerText.value.trim() || pendingFiles.value.length) && isPersistedRoomId(selectedRoom.value?.id) && !isAgentReplying.value),
 )
+
+// When the room's main agent is a CLI runtime (claudecode/codex), inline (单次)
+// uploads can't reach it — surface that in the composer and steer to workspace.
+const composerMainIsCLI = computed(() => isCLIAgent(mainAgent.value))
 
 const { data: messageData } = useQuery({
   key: () => ['agent-hub', 'messages', selectedRoom.value?.id ?? 'none'],
@@ -1469,11 +1555,26 @@ const activeActivityLabel = computed(() =>
 const normalizedSearch = computed(() => searchQuery.value.trim().toLowerCase())
 
 const filteredRooms = computed(() => {
+  let result = rooms.value
+
+  if (showArchivedRooms.value) {
+    result = result.filter(room => room.metadata?.archived)
+  } else {
+    result = result.filter(room => !room.metadata?.archived)
+  }
+
   const q = normalizedSearch.value
-  if (!q) return rooms.value
-  return rooms.value.filter((room) =>
-    `${room.name} ${room.subtitle} ${room.privacy}`.toLowerCase().includes(q),
-  )
+  if (q) {
+    result = result.filter((room) =>
+      `${room.name} ${room.subtitle} ${room.privacy}`.toLowerCase().includes(q),
+    )
+  }
+
+  return result.sort((a, b) => {
+    const aPinned = a.metadata?.pinned ? 1 : 0
+    const bPinned = b.metadata?.pinned ? 1 : 0
+    return bPinned - aPinned
+  })
 })
 
 const filteredAgents = computed(() => {
@@ -1580,6 +1681,166 @@ function insertChip(chip: string) {
   const needsSpace = current.length > 0 && !current.endsWith(' ')
   composerText.value = current + (needsSpace ? ' ' : '') + chip + ' '
 }
+
+// eventAgent resolves the timeline event's sender back to a room agent (matched
+// by agent id, which is what requestAgentReply writes as sender_id). Used to
+// target the apply-edit bot and to pick the agent for regenerate.
+function eventAgent(event: TimelineEvent): AgentItem | undefined {
+  if (!event.senderId) return undefined
+  return agents.value.find((agent) => agent.id === event.senderId)
+}
+
+// startReply arms the composer's reply bar; the next send carries reply_to.
+function startReply(event: TimelineEvent) {
+  replyTarget.value = {
+    id: event.id,
+    sender: event.title || event.senderId || '消息',
+    preview: event.body.slice(0, 80),
+  }
+}
+
+// buildPromptWithReply prepends the FULL replied-to message body (looked up by
+// id, not the 80-char preview) so the agent actually has the context it's
+// replying to. Falls back to the preview if the original isn't in the list.
+function buildPromptWithReply(body: string, reply: { id: string, sender: string, preview: string } | null): string {
+  if (!reply) return body
+  const original = (messageData.value?.items ?? []).find((m) => m.id === reply.id)
+  const quoted = (original?.body ?? reply.preview ?? '').trim()
+  if (!quoted) return body
+  return `[回复 ${reply.sender}]：${quoted}\n\n${body}`
+}
+
+// ---- Composer file uploads (R2-D) ----
+
+// CLI-runtime agents (claudecode/codex) don't ingest inline attachments — they
+// read uploaded files from their container workspace via their own Read tool.
+function isCLIAgent(agent: AgentItem | undefined): boolean {
+  const fw = (agent?.framework ?? '').toLowerCase()
+  return fw === 'codex' || fw === 'claudecode'
+}
+
+const MAX_UPLOAD_BYTES = 10 * 1024 * 1024 // 10MB
+
+// addPendingFile enforces the 10MB cap (base64 单次上传 bloats message metadata,
+// and large files risk a 413 on post) before queuing a file for send.
+function addPendingFile(file: File) {
+  if (file.size > MAX_UPLOAD_BYTES) {
+    toast.error(`「${file.name}」超过 10MB 上传上限`)
+    return
+  }
+  pendingFiles.value.push(file)
+}
+
+function triggerFileSelect() {
+  fileInput.value?.click()
+}
+
+function handleFileInputChange(e: Event) {
+  const input = e.target as HTMLInputElement
+  if (input.files) {
+    for (const file of Array.from(input.files)) addPendingFile(file)
+  }
+  input.value = ''
+}
+
+function handleComposerPaste(e: ClipboardEvent) {
+  const items = e.clipboardData?.items
+  if (!items) return
+  for (const item of Array.from(items)) {
+    if (item.kind === 'file') {
+      const file = item.getAsFile()
+      if (file) addPendingFile(file)
+    }
+  }
+}
+
+function removePendingFile(i: number) {
+  pendingFiles.value.splice(i, 1)
+}
+
+// fileToAttachment reads a File into a base64 data-URL ChatAttachment (mirrors
+// home chat-pane). Used by 单次上传 (sent inline over the WS for this turn).
+function fileToAttachment(file: File): Promise<ChatAttachment> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve({
+      type: file.type.startsWith('image/') ? 'image' : 'file',
+      base64: reader.result as string,
+      mime: file.type || 'application/octet-stream',
+      name: file.name,
+    })
+    reader.onerror = () => reject(new Error('读取文件失败'))
+    reader.readAsDataURL(file)
+  })
+}
+
+// fsUploadFile pushes a file into the bot's container workspace via the existing
+// multipart fs/upload endpoint and returns the resolved container path. Raw
+// fetch (not the SDK client) so the JSON body serializer doesn't mangle the
+// FormData; the Bearer token is added manually to match the client interceptor.
+async function fsUploadFile(botId: string, destPath: string, file: File): Promise<string> {
+  const url = sdkApiUrl({ url: '/bots/{bot_id}/fs/upload', path: { bot_id: botId } })
+  const form = new FormData()
+  form.append('path', destPath)
+  form.append('file', file)
+  const token = typeof localStorage !== 'undefined' ? localStorage.getItem('token') : null
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    body: form,
+  })
+  if (!res.ok) throw new Error(`上传失败：${res.status}`)
+  const data = await res.json() as { path: string, size: number }
+  return data.path
+}
+
+// quoteEvent prepends the event body as a markdown blockquote into the composer
+// (mirrors home chat-pane handleQuote).
+function quoteEvent(event: TimelineEvent) {
+  const text = event.body.trim()
+  if (!text) return
+  const quoted = text.split('\n').map((line) => `> ${line}`).join('\n')
+  const current = composerText.value.trim()
+  composerText.value = current ? `${quoted}\n\n${current}` : `${quoted}\n\n`
+}
+
+const REGENERATE_INSTRUCTIONS: Record<'detailed' | 'imaginative', string> = {
+  detailed: '请把你上一条回复写得更详细、更深入，补充细节和例子。',
+  imaginative: '请更有想象力、更有创意地重写你上一条回复。',
+}
+
+// regenerateEvent re-runs the sending agent with a meta-instruction (更细节 /
+// 更有想象力). The bot session still holds the prior reply, so it rewrites it.
+// 先生成后删: only after the fresh reply lands do we delete the stale one, so a
+// failed/timed-out regenerate never loses the original.
+async function regenerateEvent(event: TimelineEvent, mode: 'detailed' | 'imaginative') {
+  const room = selectedRoom.value
+  if (!room || !isPersistedRoomId(room.id) || isAgentReplying.value || isStartingRun.value) return
+  const agent = eventAgent(event)
+  if (!agent?.botId) return
+
+  const ok = await requestAgentReply(room, agent, REGENERATE_INSTRUCTIONS[mode])
+  if (!ok) return
+
+  try {
+    await deleteAgentHubRoomMessage(room.id, event.id)
+    queryCache.invalidateQueries({ key: ['agent-hub', 'messages', room.id] })
+  }
+  catch (error) {
+    // Non-fatal: the new reply already landed; leaving the old one is just clutter.
+    console.error('Failed to delete regenerated message:', error)
+  }
+}
+
+// lastAgentEventId marks the latest agent reply in the timeline — the only
+// message that offers regenerate this round.
+const lastAgentEventId = computed(() => {
+  const items = messageData.value?.items ?? []
+  for (let i = items.length - 1; i >= 0; i--) {
+    if (items[i].sender_type === 'agent') return items[i].id
+  }
+  return ''
+})
 
 const supermarketSkills = ref<HandlersSupermarketSkillEntry[]>([])
 const supermarketMcps = ref<HandlersSupermarketMcpEntry[]>([])
@@ -1756,6 +2017,15 @@ async function createAgentHubRoomMessage(
   return data
 }
 
+async function deleteAgentHubRoomMessage(roomId: string, messageId: string): Promise<void> {
+  await client.request<{ 204: void }, unknown, true>({
+    method: 'DELETE',
+    url: '/agent-hub/rooms/{room_id}/messages/{message_id}',
+    path: { room_id: roomId, message_id: messageId },
+    throwOnError: true,
+  })
+}
+
 async function addAgentHubRoomAgent(roomId: string, agentId: string): Promise<AgentHubRoom> {
   const { data } = await client.request<{ 200: AgentHubRoom }, unknown, true>({
     method: 'POST',
@@ -1885,7 +2155,30 @@ function messageToTimelineEvent(message: AgentHubMessage): TimelineEvent {
     tools,
     icon,
     tone: messageTone(message),
+    senderId: message.sender_id,
+    senderType: message.sender_type,
+    replyTo: parseReplyTo(message.metadata?.reply_to),
+    attachments: parseAttachments(message.metadata?.attachments),
   }
+}
+
+// parseReplyTo reads the free-form metadata.reply_to written on send into the
+// strict { sender, preview } the bubble renders. Missing/!object → undefined.
+function parseReplyTo(raw: unknown): TimelineEvent['replyTo'] {
+  if (!raw || typeof raw !== 'object') return undefined
+  const r = raw as Record<string, unknown>
+  const sender = typeof r.sender === 'string' ? r.sender : ''
+  const preview = typeof r.preview === 'string' ? r.preview : ''
+  if (!sender && !preview) return undefined
+  return { sender, preview }
+}
+
+// parseAttachments wraps a metadata.attachments array into the AttachmentBlock
+// shape home's AttachmentBlock component renders. Partial Memoh demo: only
+// fires when a message actually carries that metadata.
+function parseAttachments(raw: unknown): TimelineEvent['attachments'] {
+  if (!Array.isArray(raw) || raw.length === 0) return undefined
+  return { id: -1, type: 'attachments', attachments: raw as AttachmentBlockType['attachments'] }
 }
 
 function messageIcon(message: AgentHubMessage): Component {
@@ -2336,10 +2629,54 @@ function wantsOrchestration(body: string): boolean {
 async function sendRoomMessage() {
   const room = selectedRoom.value
   const body = composerText.value.trim()
-  if (!room || !body || !isPersistedRoomId(room.id) || isAgentReplying.value || isStartingRun.value || isSendingRoomMessage.value) return
+  const files = [...pendingFiles.value]
+  if (!room || (!body && !files.length) || !isPersistedRoomId(room.id) || isAgentReplying.value || isStartingRun.value || isSendingRoomMessage.value) return
 
   isSendingRoomMessage.value = true
+  const reply = replyTarget.value
   try {
+    // Resolve the target agent up front: it picks the single-agent reply path
+    // and the bot whose container receives workspace uploads.
+    const mentioned = mentionedRoomAgents(body)
+    const replyAgent = mentioned.length === 1 ? mentioned[0] : mainAgent.value
+    // Workspace uploads land in the *reply agent's own* container (any
+    // framework) so that agent can read the file by path — not main's.
+    const uploadBot = replyAgent?.botId || mainAgent.value?.botId || ''
+    // Claude Code / Codex CLI runtimes don't ingest inline (单次) attachments at
+    // all — they only see files via their own Read tool in their workspace. So
+    // force workspace mode for them regardless of the toggle.
+    const effectiveMode = (files.length && isCLIAgent(replyAgent)) ? 'workspace' : uploadMode.value
+
+    // Process attachments before posting so a failed upload aborts without
+    // losing the pending files (we only clear them on success).
+    const displayAttachments: Record<string, unknown>[] = []
+    let sendAttachments: ChatAttachment[] | undefined
+    let pathNote = ''
+    if (files.length) {
+      if (effectiveMode === 'workspace') {
+        if (!uploadBot) {
+          toast.error('该 Agent 没有可用的容器，无法上传到 workspace')
+          return
+        }
+        if (isCLIAgent(replyAgent) && uploadMode.value === 'once') {
+          toast.info('Claude Code / Codex 仅支持上传到 workspace，已自动切换')
+        }
+        const paths: string[] = []
+        for (const file of files) {
+          const path = await fsUploadFile(uploadBot, `/uploads/${file.name}`, file)
+          paths.push(path)
+          displayAttachments.push({ type: file.type.startsWith('image/') ? 'image' : 'file', name: file.name, path })
+        }
+        pathNote = `\n\n（已上传文件，可在工作区读取：${paths.join('、')}）`
+      }
+      else {
+        sendAttachments = await Promise.all(files.map(fileToAttachment))
+        for (const att of sendAttachments) {
+          displayAttachments.push({ type: att.type, name: att.name, mime: att.mime, base64: att.base64 })
+        }
+      }
+    }
+
     await createMessageMutation({
       roomId: room.id,
       payload: {
@@ -2347,25 +2684,35 @@ async function sendRoomMessage() {
         sender_name: '我',
         kind: 'message',
         title: '我',
-        body,
+        body: body || '(发送了附件)',
+        metadata: {
+          ...(reply ? { reply_to: { id: reply.id, sender: reply.sender, preview: reply.preview } } : {}),
+          ...(displayAttachments.length ? { attachments: displayAttachments } : {}),
+        },
       },
     })
     composerText.value = ''
+    replyTarget.value = null
+    pendingFiles.value = []
+
+    // Thread the replied-to message's FULL body into the prompt the agent sees
+    // (the posted message stays clean; reply_to metadata drives the bubble).
+    // Without this the agent has no idea what it's replying to.
+    const promptBody = buildPromptWithReply(body, reply) + pathNote
 
     // @主/@orchestrator or @multiple agents → Orchestrator decomposes & dispatches.
     if (wantsOrchestration(body)) {
-      await runRoomObjective(room, body, false)
+      await runRoomObjective(room, promptBody, false)
       return
     }
 
     // Otherwise a single agent replies: the one @-mentioned, else the main agent.
     await ensureMainAgentInSelectedRoom()
-    const mentioned = mentionedRoomAgents(body)
-    const replyAgent = mentioned.length === 1 ? mentioned[0] : mainAgent.value
-    void requestAgentReply(room, replyAgent, body)
+    void requestAgentReply(room, replyAgent, promptBody, sendAttachments)
   }
   catch (error) {
     console.error('Failed to create AgentHub room message:', error)
+    toast.error(resolveApiErrorMessage(error, '发送失败'))
   }
   finally {
     isSendingRoomMessage.value = false
@@ -2404,7 +2751,10 @@ async function persistAgentSessionId(room: RoomItem, agentId: string, sessionId:
   }
 }
 
-async function requestAgentReply(room: RoomItem, agent: AgentItem | undefined, prompt: string) {
+// Returns true once a reply message was successfully persisted, false on the
+// no-agent or error paths. Regenerate relies on this to delete the stale reply
+// only after a fresh one lands (生成成功才删旧的).
+async function requestAgentReply(room: RoomItem, agent: AgentItem | undefined, prompt: string, attachments?: ChatAttachment[]): Promise<boolean> {
   const roomId = room.id
   if (!agent?.botId) {
     await createMessageMutation({
@@ -2417,12 +2767,12 @@ async function requestAgentReply(room: RoomItem, agent: AgentItem | undefined, p
         body: '还没有找到可以执行回复的 Agent。请先创建或接入一个机器人，或 @ 主 Agent 发起协作任务。',
       },
     })
-    return
+    return false
   }
 
   isAgentReplying.value = true
   try {
-    const { reply, thinking, tools } = await collectMainAgentReply(agent, room, prompt)
+    const { reply, thinking, tools } = await collectMainAgentReply(agent, room, prompt, attachments)
     await createMessageMutation({
       roomId,
       payload: {
@@ -2439,6 +2789,7 @@ async function requestAgentReply(room: RoomItem, agent: AgentItem | undefined, p
       },
     })
     queryCache.invalidateQueries({ key: ['agent-hub', 'messages', roomId] })
+    return true
   }
   catch (error) {
     const message = error instanceof Error ? error.message : '主 Agent 回复失败'
@@ -2453,13 +2804,14 @@ async function requestAgentReply(room: RoomItem, agent: AgentItem | undefined, p
         body: message,
       },
     })
+    return false
   }
   finally {
     isAgentReplying.value = false
   }
 }
 
-async function collectMainAgentReply(agent: AgentItem, room: RoomItem, prompt: string): Promise<{ reply: string; thinking: string; tools: StoredTool[] }> {
+async function collectMainAgentReply(agent: AgentItem, room: RoomItem, prompt: string, attachments?: ChatAttachment[]): Promise<{ reply: string; thinking: string; tools: StoredTool[] }> {
   if (!agent.botId) throw new Error('主 Agent 没有关联的 bot')
 
   // Reuse this room+agent's existing session so the bot keeps multi-turn
@@ -2518,7 +2870,7 @@ async function collectMainAgentReply(agent: AgentItem, room: RoomItem, prompt: s
         finish()
       }
     })
-    ws.send({ type: 'message', text: requestText, session_id: sessionId })
+    ws.send({ type: 'message', text: requestText, session_id: sessionId, attachments: attachments?.length ? attachments : undefined })
   })
 }
 

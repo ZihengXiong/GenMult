@@ -66,7 +66,7 @@
             <button
               type="button"
               class="inline-flex items-center justify-center size-5 rounded-md text-muted-foreground hover:bg-muted/60 hover:text-foreground transition-colors ml-1 shrink-0"
-              :class="menuOpen ? 'flex' : 'hidden group-hover:inline-flex'"
+              :class="menuOpen ? 'flex' : ''"
               :aria-label="t('chat.sessionActions')"
               @click.stop
               @keydown.enter.stop

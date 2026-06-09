@@ -334,6 +334,7 @@ import type {
 } from '@/store/chat-list'
 
 import { resolveUrl } from '../composables/useMediaGallery'
+import { extractArtifactUrls } from '@/utils/artifact-urls'
 import { useElementVisibility } from '@vueuse/core'
 
 
@@ -435,30 +436,6 @@ function cleanUserText(content?: string): string {
     .filter((line) => !/^\[attachment:\w+\]\s/.test(line.trim()))
     .join('\n')
     .trim()
-}
-
-const URL_PATTERN = /https?:\/\/[^\s)<>\]"'`]+/g
-const PREVIEWABLE_EXTENSIONS = /\.(html?|htm)$/i
-
-function extractArtifactUrls(text?: string): string[] {
-  if (!text) return []
-  const matches = text.match(URL_PATTERN)
-  if (!matches) return []
-  const seen = new Set<string>()
-  return matches.filter((url) => {
-    if (seen.has(url)) return false
-    seen.add(url)
-    try {
-      const u = new URL(url)
-      return PREVIEWABLE_EXTENSIONS.test(u.pathname)
-        || u.hostname === 'localhost'
-        || u.hostname.endsWith('.vercel.app')
-        || u.hostname.endsWith('.netlify.app')
-        || u.hostname.endsWith('.github.io')
-    } catch {
-      return false
-    }
-  })
 }
 
 const isSpecialUserMessage = computed(() =>

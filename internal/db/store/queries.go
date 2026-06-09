@@ -62,6 +62,7 @@ type Queries interface {
 	DeleteBotByID(ctx context.Context, id pgtype.UUID) error
 	DeleteAgentHubRoom(ctx context.Context, arg dbsqlc.DeleteAgentHubRoomParams) error
 	DeleteAgentHubRoomAgent(ctx context.Context, arg dbsqlc.DeleteAgentHubRoomAgentParams) error
+	DeleteAgentHubRoomMessage(ctx context.Context, arg dbsqlc.DeleteAgentHubRoomMessageParams) error
 	DeleteBotChannelConfig(ctx context.Context, arg dbsqlc.DeleteBotChannelConfigParams) error
 	DeleteBotEmailBinding(ctx context.Context, id pgtype.UUID) error
 	DeleteChat(ctx context.Context, chatID pgtype.UUID) error

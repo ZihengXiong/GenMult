@@ -204,6 +204,26 @@ func (q *Queries) DeleteAgentHubRoomAgent(ctx context.Context, arg DeleteAgentHu
 	return err
 }
 
+const deleteAgentHubRoomMessage = `-- name: DeleteAgentHubRoomMessage :exec
+DELETE FROM agent_hub_room_messages
+WHERE agent_hub_room_messages.id = $1
+  AND agent_hub_room_messages.room_id = $2
+  AND agent_hub_room_messages.room_id IN (
+    SELECT agent_hub_rooms.id FROM agent_hub_rooms WHERE agent_hub_rooms.owner_user_id = $3
+  )
+`
+
+type DeleteAgentHubRoomMessageParams struct {
+	ID          pgtype.UUID `json:"id"`
+	RoomID      pgtype.UUID `json:"room_id"`
+	OwnerUserID pgtype.UUID `json:"owner_user_id"`
+}
+
+func (q *Queries) DeleteAgentHubRoomMessage(ctx context.Context, arg DeleteAgentHubRoomMessageParams) error {
+	_, err := q.db.Exec(ctx, deleteAgentHubRoomMessage, arg.ID, arg.RoomID, arg.OwnerUserID)
+	return err
+}
+
 const getAgentHubRoom = `-- name: GetAgentHubRoom :one
 SELECT id, owner_user_id, name, short_name, subtitle, summary, privacy, live, accent, status_class, attention, metadata, orchestrator_agent_id, created_at, updated_at
 FROM agent_hub_rooms

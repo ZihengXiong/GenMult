@@ -359,6 +359,27 @@ func (s *Service) createMessage(ctx context.Context, roomUUID pgtype.UUID, req C
 	return messageFromRow(row), nil
 }
 
+// DeleteMessage removes a single timeline message, scoped to the room and its
+// owner. Used by regenerate (delete the stale reply after a fresh one lands).
+func (s *Service) DeleteMessage(ctx context.Context, ownerUserID, roomID, messageID string) error {
+	ownerID, roomUUID, err := parseOwnerAndRoom(ownerUserID, roomID)
+	if err != nil {
+		return err
+	}
+	msgUUID, err := dbpkg.ParseUUID(messageID)
+	if err != nil {
+		return ErrInvalidRoomID
+	}
+	if _, err := s.Get(ctx, ownerUserID, roomID); err != nil {
+		return err
+	}
+	return s.queries.DeleteAgentHubRoomMessage(ctx, dbsqlc.DeleteAgentHubRoomMessageParams{
+		ID:          msgUUID,
+		RoomID:      roomUUID,
+		OwnerUserID: ownerID,
+	})
+}
+
 func (s *Service) agentIDsByRoom(ctx context.Context, ownerID pgtype.UUID) (map[string][]string, error) {
 	rows, err := s.queries.ListAgentHubRoomAgentsByOwner(ctx, ownerID)
 	if err != nil {
