@@ -17,9 +17,10 @@ import (
 )
 
 var (
-	ErrNotFound      = errors.New("agent hub room not found")
-	ErrInvalidRoomID = errors.New("invalid room id")
-	ErrInvalidOwner  = errors.New("invalid owner user id")
+	ErrNotFound         = errors.New("agent hub room not found")
+	ErrInvalidRoomID    = errors.New("invalid room id")
+	ErrInvalidOwner     = errors.New("invalid owner user id")
+	ErrInvalidMessageID = errors.New("invalid message id")
 )
 
 type Service struct {
@@ -368,7 +369,7 @@ func (s *Service) DeleteMessage(ctx context.Context, ownerUserID, roomID, messag
 	}
 	msgUUID, err := dbpkg.ParseUUID(messageID)
 	if err != nil {
-		return ErrInvalidRoomID
+		return ErrInvalidMessageID
 	}
 	if _, err := s.Get(ctx, ownerUserID, roomID); err != nil {
 		return err

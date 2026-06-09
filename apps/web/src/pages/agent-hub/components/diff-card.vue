@@ -70,7 +70,6 @@ const shiki = useShikiHighlighter()
 // Provided by timeline-event-item: the sending agent's botId, but only for
 // Memoh bots (empty for codex/claude). Undo writes to this bot's container.
 const botIdRef = inject<Ref<string>>('botId', ref(''))
-const canUndo = computed(() => Boolean(botIdRef.value))
 
 const undoing = ref(false)
 const undone = ref(false)
@@ -91,6 +90,10 @@ const newText = computed(() => {
 })
 
 const hasChanges = computed(() => Boolean(oldText.value || newText.value))
+// Undo only when new_text is non-empty. A deletion edit (new_text="") would
+// reverse-apply with old_text="" → the backend's empty-old_text branch
+// overwrites the WHOLE file with old_text. So deletion edits stay read-only.
+const canUndo = computed(() => Boolean(botIdRef.value) && newText.value.length > 0)
 const addCount = computed(() => lineCount(newText.value))
 const removeCount = computed(() => lineCount(oldText.value))
 

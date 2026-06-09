@@ -1482,6 +1482,12 @@ const canSendRoomMessage = computed(() =>
 // When the room's main agent is a CLI runtime (claudecode/codex), inline (单次)
 // uploads can't reach it — surface that in the composer and steer to workspace.
 const composerMainIsCLI = computed(() => isCLIAgent(mainAgent.value))
+// Keep the mode ref in sync with the disabled-单次 UI: when main is CLI the 单次
+// button is disabled, so force the ref to 'workspace' too — otherwise a Memoh
+// agent reached via @-mention would silently use 单次 while the UI shows workspace.
+watch(composerMainIsCLI, (isCLI) => {
+  if (isCLI) uploadMode.value = 'workspace'
+}, { immediate: true })
 
 const { data: messageData } = useQuery({
   key: () => ['agent-hub', 'messages', selectedRoom.value?.id ?? 'none'],
@@ -2662,8 +2668,11 @@ async function sendRoomMessage() {
           toast.info('Claude Code / Codex 仅支持上传到 workspace，已自动切换')
         }
         const paths: string[] = []
-        for (const file of files) {
-          const path = await fsUploadFile(uploadBot, `/uploads/${file.name}`, file)
+        // Unique prefix avoids clobbering same-named files (or re-sends).
+        const stamp = Date.now()
+        for (let i = 0; i < files.length; i++) {
+          const file = files[i]
+          const path = await fsUploadFile(uploadBot, `/uploads/${stamp}-${i}-${file.name}`, file)
           paths.push(path)
           displayAttachments.push({ type: file.type.startsWith('image/') ? 'image' : 'file', name: file.name, path })
         }
@@ -2671,8 +2680,12 @@ async function sendRoomMessage() {
       }
       else {
         sendAttachments = await Promise.all(files.map(fileToAttachment))
+        // 单次 = ephemeral: the base64 goes to the agent over the WS this turn,
+        // but is NOT persisted in message metadata (a multi-MB data URL would be
+        // re-shipped on every listMessages and risk a 413). The timeline shows a
+        // lightweight name chip instead.
         for (const att of sendAttachments) {
-          displayAttachments.push({ type: att.type, name: att.name, mime: att.mime, base64: att.base64 })
+          displayAttachments.push({ type: att.type, name: att.name, mime: att.mime })
         }
       }
     }

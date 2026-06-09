@@ -314,7 +314,7 @@ func (h *AgentHubHandler) DeleteMessage(c echo.Context) error {
 
 func (h *AgentHubHandler) httpError(err error) error {
 	switch {
-	case errors.Is(err, agenthub.ErrInvalidOwner), errors.Is(err, agenthub.ErrInvalidRoomID):
+	case errors.Is(err, agenthub.ErrInvalidOwner), errors.Is(err, agenthub.ErrInvalidRoomID), errors.Is(err, agenthub.ErrInvalidMessageID):
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	case errors.Is(err, agenthub.ErrNotFound):
 		return echo.NewHTTPError(http.StatusNotFound, err.Error())
