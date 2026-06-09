@@ -487,9 +487,11 @@
               :event="event"
               :agent="eventAgent(event)"
               :can-regenerate="event.id === lastAgentEventId"
+              :pinned="isPinnedMessage(event.id)"
               @reply="startReply"
               @quote="quoteEvent"
               @regenerate="regenerateEvent"
+              @pin="togglePinMessage"
             />
 
             <!-- thinking indicator -->
@@ -1391,6 +1393,33 @@ const { mutateAsync: toggleRoomMetadataMutation } = useMutation({
   mutation: async ({ room, key, value }: { room: RoomItem, key: 'pinned' | 'archived', value: boolean }) => {
     const updatedMetadata = { ...(room.metadata || {}), [key]: value }
     const updatedRoom = { ...room, metadata: updatedMetadata }
+    return await updateAgentHubRoom(updatedRoom)
+  },
+  onSettled: () => {
+    queryCache.invalidateQueries({ key: AGENT_HUB_ROOMS_KEY })
+  },
+})
+
+// Pinned messages are stored as an id list on the room's metadata
+// (pinned_message_ids), mirroring how 飞书/微信 model 群置顶消息 as a chat-level
+// property. The backend reads this list at run start and injects the pinned
+// messages as long-term context for the agents (上下文管理 · 手动 pin).
+const pinnedMessageIds = computed<string[]>(() => {
+  const raw = selectedRoom.value?.metadata?.pinned_message_ids
+  return Array.isArray(raw) ? raw.filter((x): x is string => typeof x === 'string') : []
+})
+function isPinnedMessage(id: string): boolean {
+  return pinnedMessageIds.value.includes(id)
+}
+const { mutateAsync: togglePinMessage } = useMutation({
+  mutation: async (event: TimelineEvent) => {
+    const room = selectedRoom.value
+    if (!room || !isPersistedRoomId(room.id)) return
+    const current = pinnedMessageIds.value
+    const next = current.includes(event.id)
+      ? current.filter(id => id !== event.id)
+      : [...current, event.id]
+    const updatedRoom = { ...room, metadata: { ...(room.metadata || {}), pinned_message_ids: next } }
     return await updateAgentHubRoom(updatedRoom)
   },
   onSettled: () => {
@@ -2523,6 +2552,7 @@ function agentProviderName(agent: AgentItem): string {
   const fw = (agent.framework ?? '').toLowerCase()
   if (fw === 'claudecode') return 'claudecode'
   if (fw === 'codex') return 'codex'
+  if (fw === 'memoh') return 'memoh'
   const id = agent.id.toLowerCase()
   if (id.includes('claude')) return 'claudecode'
   if (id.includes('codex')) return 'codex'

@@ -417,6 +417,53 @@ func provideChatResolver(log *slog.Logger, a *agentpkg.Agent, modelsService *mod
 	return resolver
 }
 
+// memohRunnerAdapter implements agenthubproviders.MemohRunner by driving the
+// existing chat resolver headlessly. It lives at the composition root (this
+// package already imports flow) so the agenthub packages never import flow,
+// avoiding the flow -> botruntime -> agenthub/providers import cycle.
+type memohRunnerAdapter struct {
+	resolver *flow.Resolver
+}
+
+// RunTurn runs one memoh bot turn via resolver.Chat and returns the final
+// assistant text. It only *calls* the chat subsystem (read-only reuse); it does
+// not modify chat behaviour. The per-run SessionID keeps orchestrator output out
+// of the user's direct chat session.
+func (a *memohRunnerAdapter) RunTurn(ctx context.Context, in agenthubproviders.RunTurnInput) (agenthubproviders.RunTurnResult, error) {
+	if a == nil || a.resolver == nil {
+		return agenthubproviders.RunTurnResult{}, agenthubproviders.ErrMemohRunnerMissing
+	}
+	resp, err := a.resolver.Chat(ctx, conversation.ChatRequest{
+		BotID:     in.BotID,
+		ChatID:    in.BotID,
+		SessionID: in.SessionID,
+		UserID:    in.UserID,
+		Query:     in.Prompt,
+	})
+	if err != nil {
+		return agenthubproviders.RunTurnResult{}, err
+	}
+	var b strings.Builder
+	for _, m := range resp.Messages {
+		if m.Role != "assistant" {
+			continue
+		}
+		if text := strings.TrimSpace(m.TextContent()); text != "" {
+			if b.Len() > 0 {
+				b.WriteString("\n\n")
+			}
+			b.WriteString(text)
+		}
+	}
+	return agenthubproviders.RunTurnResult{Text: strings.TrimSpace(b.String())}, nil
+}
+
+// provideMemohRunner exposes the chat resolver to the AgentHub orchestrator as a
+// MemohRunner, letting memoh (built-in) bots execute orchestrator tasks.
+func provideMemohRunner(resolver *flow.Resolver) agenthubproviders.MemohRunner {
+	return &memohRunnerAdapter{resolver: resolver}
+}
+
 // buildCLIBotRuntimes constructs the CLI-backed bot runtimes (claudecode,
 // codex). Provider config is sourced from environment defaults; the work dir is
 // resolved per-bot from the workspace manager.
