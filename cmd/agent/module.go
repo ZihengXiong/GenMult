@@ -97,6 +97,7 @@ func options() fx.Option {
 			provideChannelLifecycleService,
 			provideAgent,
 			provideChatResolver,
+			provideMemohRunner,
 			provideScheduleTriggerer,
 			provideHeartbeatSessionCreator,
 			provideScheduleSessionCreator,

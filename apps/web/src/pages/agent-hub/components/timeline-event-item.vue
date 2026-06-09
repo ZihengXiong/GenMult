@@ -18,6 +18,13 @@
         <span class="rounded-sm bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
           {{ event.kind }}
         </span>
+        <span
+          v-if="pinned"
+          class="inline-flex items-center gap-0.5 rounded-sm bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-400"
+          title="已置顶为长期上下文"
+        >
+          <Pin class="size-3" />置顶
+        </span>
       </div>
 
       <!-- Reply reference -->
@@ -135,6 +142,19 @@
           <Quote class="size-3" />
         </button>
         <button
+          v-if="event.body"
+          type="button"
+          class="inline-flex items-center gap-1 rounded-md border border-border bg-card px-1.5 py-0.5 text-[10px] shadow-sm transition-colors hover:bg-muted/60"
+          :class="pinned ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground hover:text-foreground'"
+          :title="pinned ? '取消置顶' : '置顶为长期上下文'"
+          @click="$emit('pin', event)"
+        >
+          <component
+            :is="pinned ? PinOff : Pin"
+            class="size-3"
+          />
+        </button>
+        <button
           type="button"
           class="inline-flex items-center gap-1 rounded-md border border-border bg-card px-1.5 py-0.5 text-[10px] text-muted-foreground shadow-sm transition-colors hover:bg-muted/60 hover:text-foreground"
           title="回复"
@@ -171,7 +191,7 @@
 
 <script setup lang="ts">
 import { computed, provide, ref } from 'vue'
-import { Check, Copy, Quote, Reply, RefreshCw } from 'lucide-vue-next'
+import { Check, Copy, Quote, Reply, RefreshCw, Pin, PinOff } from 'lucide-vue-next'
 import { Button, DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@memohai/ui'
 import MarkdownRender, { enableKatex, enableMermaid } from 'markstream-vue'
 import { useSettingsStore } from '@/store/settings'
@@ -198,12 +218,15 @@ const props = defineProps<{
   agent?: AgentItem
   // Only the last agent message offers regenerate (this round's scope).
   canRegenerate?: boolean
+  // Whether this message is pinned as long-term context for the room's agents.
+  pinned?: boolean
 }>()
 
 defineEmits<{
   reply: [event: TimelineEvent]
   quote: [event: TimelineEvent]
   regenerate: [event: TimelineEvent, mode: 'detailed' | 'imaginative']
+  pin: [event: TimelineEvent]
 }>()
 
 const settingsStore = useSettingsStore()

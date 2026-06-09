@@ -12,6 +12,7 @@ import (
 
 	orch "github.com/ZihengXiong/GenMult/internal/agenthub/orchestrator"
 	"github.com/ZihengXiong/GenMult/internal/agenthub/providers"
+	"github.com/ZihengXiong/GenMult/internal/bots"
 	"github.com/ZihengXiong/GenMult/internal/config"
 	"github.com/ZihengXiong/GenMult/internal/db"
 	postgresstore "github.com/ZihengXiong/GenMult/internal/db/postgres/store"
@@ -23,6 +24,7 @@ import (
 type OrchestratorService struct {
 	rooms *Service
 	orch  *orch.Service
+	bots  *bots.Service
 	log   *slog.Logger
 
 	// projSeq tracks the last orchestrator event seq projected to each room as a
@@ -60,6 +62,8 @@ func NewOrchestratorService(
 	sqliteStore *sqlitestore.Store,
 	roomService *Service,
 	wsManager *workspace.Manager,
+	memohRunner providers.MemohRunner,
+	botService *bots.Service,
 ) (*OrchestratorService, error) {
 	if log == nil {
 		log = slog.Default()
@@ -92,10 +96,12 @@ func NewOrchestratorService(
 
 	claudeProvider := providers.NewClaudeCodeProvider(provCfg.ClaudeCode, resolver, store, nil, log)
 	codexProvider := providers.NewCodexProvider(provCfg.Codex, resolver, store, nil, log)
+	memohProvider := providers.NewMemohProvider(memohRunner, store, log)
 
 	registry := orch.NewProviderRegistry(
 		claudeProvider,
 		codexProvider,
+		memohProvider,
 		orch.NoopProvider{},
 	)
 
@@ -107,6 +113,7 @@ func NewOrchestratorService(
 	return &OrchestratorService{
 		rooms:   roomService,
 		orch:    orchestrator,
+		bots:    botService,
 		log:     log.With(slog.String("service", "agenthub_orchestrator")),
 		projSeq: make(map[string]int64),
 	}, nil
@@ -127,7 +134,7 @@ func (s *OrchestratorService) StartRun(ctx context.Context, ownerUserID, roomID 
 	}
 	agents := req.Agents
 	if len(agents) == 0 {
-		agents = agentsFromRoom(room)
+		agents = s.agentsFromRoom(ctx, room)
 	}
 	autoDispatch := true
 	if req.AutoDispatch != nil {
@@ -140,8 +147,13 @@ func (s *OrchestratorService) StartRun(ctx context.Context, ownerUserID, roomID 
 		metadata[k] = v
 	}
 	if _, exists := metadata["room_history"]; !exists {
-		if hist := s.recentRoomHistory(ctx, ownerUserID, roomID, 20); hist != "" {
-			metadata["room_history"] = hist
+		// Pinned messages are surfaced as long-term context ahead of the rolling
+		// recent-history window, so user-curated key facts persist across runs even
+		// once they scroll out of the recent window ("手动 pin 关键消息作为长期上下文").
+		pinned := s.pinnedRoomContext(ctx, ownerUserID, roomID, room)
+		hist := s.recentRoomHistory(ctx, ownerUserID, roomID, 20)
+		if combined := joinContextBlocks(pinned, hist); combined != "" {
+			metadata["room_history"] = combined
 		}
 	}
 	snapshot, err := s.orch.StartRun(ctx, orch.StartRunInput{
@@ -270,6 +282,84 @@ func (s *OrchestratorService) recentRoomHistory(ctx context.Context, ownerUserID
 	return strings.TrimSpace(b.String())
 }
 
+// pinnedRoomContext renders the room's user-pinned messages (room.metadata
+// .pinned_message_ids) as a labelled long-term-context block. Best-effort:
+// returns "" when there are no pins or on any lookup error.
+func (s *OrchestratorService) pinnedRoomContext(ctx context.Context, ownerUserID, roomID string, room Room) string {
+	ids := pinnedMessageIDs(room.Metadata)
+	if len(ids) == 0 {
+		return ""
+	}
+	want := make(map[string]struct{}, len(ids))
+	for _, id := range ids {
+		want[id] = struct{}{}
+	}
+	// Pull a wide window so pins that scrolled out of the recent window are still
+	// found; pins are few so the linear scan is cheap.
+	resp, err := s.rooms.ListMessages(ctx, ownerUserID, roomID, 500)
+	if err != nil || len(resp.Items) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	for _, m := range resp.Items {
+		if _, ok := want[m.ID]; !ok {
+			continue
+		}
+		body := strings.TrimSpace(m.Body)
+		if body == "" {
+			continue
+		}
+		name := strings.TrimSpace(m.SenderName)
+		if name == "" {
+			name = strings.TrimSpace(m.SenderType)
+		}
+		b.WriteString("📌 ")
+		b.WriteString(name)
+		b.WriteString("：")
+		b.WriteString(body)
+		b.WriteString("\n")
+	}
+	pinned := strings.TrimSpace(b.String())
+	if pinned == "" {
+		return ""
+	}
+	return "用户置顶的关键信息（长期上下文，务必优先考虑）：\n" + pinned
+}
+
+// pinnedMessageIDs extracts the pinned_message_ids string slice from room
+// metadata, tolerating the []any shape JSON unmarshals into.
+func pinnedMessageIDs(metadata map[string]any) []string {
+	raw, ok := metadata["pinned_message_ids"]
+	if !ok {
+		return nil
+	}
+	switch v := raw.(type) {
+	case []string:
+		return v
+	case []any:
+		out := make([]string, 0, len(v))
+		for _, item := range v {
+			if s, ok := item.(string); ok && strings.TrimSpace(s) != "" {
+				out = append(out, s)
+			}
+		}
+		return out
+	default:
+		return nil
+	}
+}
+
+// joinContextBlocks joins non-empty context blocks with a blank line separator.
+func joinContextBlocks(blocks ...string) string {
+	parts := make([]string, 0, len(blocks))
+	for _, b := range blocks {
+		if s := strings.TrimSpace(b); s != "" {
+			parts = append(parts, s)
+		}
+	}
+	return strings.Join(parts, "\n\n")
+}
+
 func buildPlanner(cfg providers.ClaudeCodeConfig, log *slog.Logger) orch.Planner {
 	if log == nil {
 		log = slog.Default()
@@ -304,7 +394,7 @@ func buildPlannerModel(cfg providers.ClaudeCodeConfig) *sdk.Model {
 	})
 }
 
-func agentsFromRoom(room Room) []orch.AgentDescriptor {
+func (s *OrchestratorService) agentsFromRoom(ctx context.Context, room Room) []orch.AgentDescriptor {
 	defaultCaps := []string{"plan", "code", "test", "review"}
 	if len(room.AgentIDs) == 0 {
 		return []orch.AgentDescriptor{{ID: "orchestrator", ProviderName: "noop", Name: "Orchestrator", Capabilities: defaultCaps}}
@@ -315,10 +405,13 @@ func agentsFromRoom(room Room) []orch.AgentDescriptor {
 		if id == "" {
 			continue
 		}
-		provider, name := friendlyAgentName(id)
+		provider, name := s.resolveAgentProvider(ctx, id)
 		caps := defaultCaps
-		if provider == "claudecode" || provider == "codex" {
+		switch provider {
+		case "claudecode", "codex":
 			caps = []string{"plan", "code", "test", "review", "edit", "exec"}
+		case "memoh":
+			caps = []string{"plan", "analysis", "review", "chat"}
 		}
 		out = append(out, orch.AgentDescriptor{
 			ID:           id,
@@ -332,6 +425,34 @@ func agentsFromRoom(room Room) []orch.AgentDescriptor {
 		return []orch.AgentDescriptor{{ID: "orchestrator", ProviderName: "noop", Name: "Orchestrator", Capabilities: defaultCaps}}
 	}
 	return out
+}
+
+// resolveAgentProvider maps a room agent id to its orchestrator provider name
+// and display name. A "bot:UUID" id is resolved against the bot store by the
+// bot's framework (claudecode/codex/memoh) so backend-derived runs (those that
+// don't carry an explicit Agents list, e.g. reconcile) dispatch to the real
+// provider instead of falling through to noop. Non-bot ids and lookup failures
+// fall back to the id-heuristic friendlyAgentName.
+func (s *OrchestratorService) resolveAgentProvider(ctx context.Context, agentID string) (provider string, name string) {
+	id := strings.TrimSpace(agentID)
+	if strings.HasPrefix(id, "bot:") && s.bots != nil {
+		botID := strings.TrimPrefix(id, "bot:")
+		if bot, err := s.bots.Get(ctx, botID); err == nil {
+			display := strings.TrimSpace(bot.DisplayName)
+			if display == "" {
+				display = botID
+			}
+			switch strings.TrimSpace(bot.Framework) {
+			case bots.FrameworkClaudeCode:
+				return "claudecode", display
+			case bots.FrameworkCodex:
+				return "codex", display
+			case bots.FrameworkMemoh:
+				return "memoh", display
+			}
+		}
+	}
+	return friendlyAgentName(id)
 }
 
 func firstNonEmpty(values ...string) string {
