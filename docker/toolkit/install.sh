@@ -485,10 +485,26 @@ if [ -f "$OUTDIR/node-glibc/bin/npm" ] || [ -f "$OUTDIR/node-musl/bin/npm" ]; th
   if [ -n "$NPMBIN" ]; then
     mkdir -p "$OUTDIR/codex-cli"
     echo "{}" > "$OUTDIR/codex-cli/package.json"
-    HOME=/tmp "$NPMBIN" install \
-      --prefix "$OUTDIR/codex-cli" \
-      --no-save --force \
-      @openai/codex 2>/dev/null || true
+    # codex has NO standalone @openai/codex-<plat> packages; its platform binaries
+    # ship as npm aliases (npm:@openai/codex@<ver>-<plat>). Install them by alias
+    # name + --force so the Linux binaries land regardless of host npm version.
+    # (--os/--cpu would need npm>=10 and can't keep both arches in one prefix.)
+    CODEX_VER="$("$NPMBIN" view @openai/codex version 2>/dev/null)"
+    if [ -n "$CODEX_VER" ]; then
+      HOME=/tmp "$NPMBIN" install \
+        --prefix "$OUTDIR/codex-cli" \
+        --no-save --force \
+        @openai/codex \
+        "@openai/codex-linux-arm64@npm:@openai/codex@${CODEX_VER}-linux-arm64" \
+        "@openai/codex-linux-x64@npm:@openai/codex@${CODEX_VER}-linux-x64" || true
+      # fail loud: a silent 404 must not leave the container without the binary
+      if [ ! -d "$OUTDIR/codex-cli/node_modules/@openai/codex-linux-x64" ] \
+        || [ ! -d "$OUTDIR/codex-cli/node_modules/@openai/codex-linux-arm64" ]; then
+        echo "WARN: codex linux binaries not fully installed; codex may fail in the container." >&2
+      fi
+    else
+      echo "WARN: could not resolve @openai/codex version; skipping codex toolkit install." >&2
+    fi
   fi
 fi
 

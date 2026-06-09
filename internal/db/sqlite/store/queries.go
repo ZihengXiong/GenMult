@@ -89,6 +89,18 @@ func (q *Queries) DeleteAgentHubRoom(ctx context.Context, arg pgsqlc.DeleteAgent
 	return mapQueryErr(err)
 }
 
+func (q *Queries) DeleteAgentHubRoomMessage(ctx context.Context, arg pgsqlc.DeleteAgentHubRoomMessageParams) error {
+	if q == nil || q.store == nil || q.store.queries == nil {
+		return errSQLiteQueriesNotConfigured
+	}
+	var sqliteArg sqlitesqlc.DeleteAgentHubRoomMessageParams
+	if err := convertValue(arg, &sqliteArg); err != nil {
+		return err
+	}
+	err := q.store.queries.DeleteAgentHubRoomMessage(ctx, sqliteArg)
+	return mapQueryErr(err)
+}
+
 func (q *Queries) DeleteAgentHubRoomAgent(ctx context.Context, arg pgsqlc.DeleteAgentHubRoomAgentParams) error {
 	if q == nil || q.store == nil || q.store.queries == nil {
 		return errSQLiteQueriesNotConfigured

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 
@@ -39,6 +40,7 @@ func (h *AgentHubHandler) Register(e *echo.Echo) {
 	group.DELETE("/rooms/:room_id/agents/:agent_id", h.RemoveAgent)
 	group.GET("/rooms/:room_id/messages", h.ListMessages)
 	group.POST("/rooms/:room_id/messages", h.CreateMessage)
+	group.DELETE("/rooms/:room_id/messages/:message_id", h.DeleteMessage)
 }
 
 // ListRooms godoc
@@ -213,7 +215,11 @@ func (h *AgentHubHandler) RemoveAgent(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	room, err := h.service.RemoveAgent(c.Request().Context(), ownerID, c.Param("room_id"), c.Param("agent_id"))
+	agentID, err := url.PathUnescape(c.Param("agent_id"))
+	if err != nil {
+		agentID = c.Param("agent_id")
+	}
+	room, err := h.service.RemoveAgent(c.Request().Context(), ownerID, c.Param("room_id"), agentID)
 	if err != nil {
 		return h.httpError(err)
 	}
@@ -283,9 +289,32 @@ func (h *AgentHubHandler) CreateMessage(c echo.Context) error {
 	return c.JSON(http.StatusCreated, msg)
 }
 
+// DeleteMessage godoc
+// @Summary Delete AgentHub room message
+// @Description Delete a single message from an AgentHub group room timeline.
+// @Tags agent-hub
+// @Param room_id path string true "Room ID"
+// @Param message_id path string true "Message ID"
+// @Success 204 "No Content"
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /agent-hub/rooms/{room_id}/messages/{message_id} [delete].
+func (h *AgentHubHandler) DeleteMessage(c echo.Context) error {
+	ownerID, err := auth.UserIDFromContext(c)
+	if err != nil {
+		return err
+	}
+	if err := h.service.DeleteMessage(c.Request().Context(), ownerID, c.Param("room_id"), c.Param("message_id")); err != nil {
+		return h.httpError(err)
+	}
+	return c.NoContent(http.StatusNoContent)
+}
+
 func (h *AgentHubHandler) httpError(err error) error {
 	switch {
-	case errors.Is(err, agenthub.ErrInvalidOwner), errors.Is(err, agenthub.ErrInvalidRoomID):
+	case errors.Is(err, agenthub.ErrInvalidOwner), errors.Is(err, agenthub.ErrInvalidRoomID), errors.Is(err, agenthub.ErrInvalidMessageID):
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	case errors.Is(err, agenthub.ErrNotFound):
 		return echo.NewHTTPError(http.StatusNotFound, err.Error())
