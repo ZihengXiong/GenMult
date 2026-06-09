@@ -17,7 +17,9 @@ import (
 	"github.com/ZihengXiong/GenMult/internal/db"
 	postgresstore "github.com/ZihengXiong/GenMult/internal/db/postgres/store"
 	sqlitestore "github.com/ZihengXiong/GenMult/internal/db/sqlite/store"
+	dbstore "github.com/ZihengXiong/GenMult/internal/db/store"
 	"github.com/ZihengXiong/GenMult/internal/models"
+	globalproviders "github.com/ZihengXiong/GenMult/internal/providers"
 	"github.com/ZihengXiong/GenMult/internal/workspace"
 )
 
@@ -64,6 +66,7 @@ func NewOrchestratorService(
 	wsManager *workspace.Manager,
 	memohRunner providers.MemohRunner,
 	botService *bots.Service,
+	queries dbstore.Queries,
 ) (*OrchestratorService, error) {
 	if log == nil {
 		log = slog.Default()
@@ -94,7 +97,21 @@ func NewOrchestratorService(
 	var provCfg providers.ProviderConfigs
 	provCfg.FromEnvWithDefaults()
 
-	claudeProvider := providers.NewClaudeCodeProvider(provCfg.ClaudeCode, resolver, store, nil, log)
+	// Reuse the same DB credential source as single-chat (the 通用设置
+	// DeepSeek/Anthropic-compatible provider) so claudecode tasks don't require
+	// ANTHROPIC_API_KEY in the environment.
+	claudeCredResolver := func(ctx context.Context) (apiKey, baseURL string) {
+		if queries == nil {
+			return "", ""
+		}
+		creds, err := globalproviders.ResolveCredentialsForFramework(ctx, queries, "claudecode")
+		if err != nil {
+			return "", ""
+		}
+		return creds.APIKey, creds.BaseURL
+	}
+
+	claudeProvider := providers.NewClaudeCodeProvider(provCfg.ClaudeCode, resolver, store, nil, claudeCredResolver, log)
 	codexProvider := providers.NewCodexProvider(provCfg.Codex, resolver, store, nil, log)
 	memohProvider := providers.NewMemohProvider(memohRunner, store, log)
 

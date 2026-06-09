@@ -51,20 +51,28 @@ type ClaudeCodeProvider struct {
 	wsInfo   WorkspaceResolver
 	store    orchestrator.Store
 	executor CommandExecutor
-	logger   *slog.Logger
+	// resolveCreds optionally resolves {apiKey, baseURL} at execute time from the
+	// configured provider store (the "通用设置" DeepSeek/Anthropic provider), so the
+	// orchestrator reuses the same credential source as single-chat instead of
+	// requiring ANTHROPIC_API_KEY in the environment. May be nil. Mirrors
+	// botruntime/cli.go's resolveCreds callback.
+	resolveCreds func(ctx context.Context) (apiKey, baseURL string)
+	logger       *slog.Logger
 }
 
-// NewClaudeCodeProvider creates a new ClaudeCodeProvider.
-func NewClaudeCodeProvider(config ClaudeCodeConfig, wsInfo WorkspaceResolver, store orchestrator.Store, executor CommandExecutor, logger *slog.Logger) *ClaudeCodeProvider {
+// NewClaudeCodeProvider creates a new ClaudeCodeProvider. resolveCreds may be nil
+// (then only the static config / env credentials are used).
+func NewClaudeCodeProvider(config ClaudeCodeConfig, wsInfo WorkspaceResolver, store orchestrator.Store, executor CommandExecutor, resolveCreds func(ctx context.Context) (apiKey, baseURL string), logger *slog.Logger) *ClaudeCodeProvider {
 	if logger == nil {
 		logger = slog.Default()
 	}
 	return &ClaudeCodeProvider{
-		config:   config,
-		wsInfo:   wsInfo,
-		store:    store,
-		executor: executor,
-		logger:   logger.With(slog.String("component", "claude_code_provider")),
+		config:       config,
+		wsInfo:       wsInfo,
+		store:        store,
+		executor:     executor,
+		resolveCreds: resolveCreds,
+		logger:       logger.With(slog.String("component", "claude_code_provider")),
 	}
 }
 
@@ -80,8 +88,23 @@ func (*ClaudeCodeProvider) Capabilities() []string {
 
 // Execute starts the Claude Code subprocess to fulfill a task.
 func (p *ClaudeCodeProvider) Execute(ctx context.Context, req orchestrator.ExecuteTaskRequest) (orchestrator.ExecuteTaskResult, error) {
-	if p.config.APIKey == "" && p.config.AuthToken == "" {
-		return orchestrator.ExecuteTaskResult{Retryable: false}, fmt.Errorf("%w: Claude Code provider needs credentials; set ANTHROPIC_API_KEY, ANTHROPIC_AUTH_TOKEN, DEEPSEEK_API_KEY, or configure the bot's claudecode credentials", ErrAPIKeyMissing)
+	// Resolve credentials the same way single-chat does: prefer the static config,
+	// then fall back to the configured provider store (DeepSeek/Anthropic-compatible
+	// base_url + key set in 通用设置). Only fill what the local config left empty.
+	cfg := p.config
+	if p.resolveCreds != nil {
+		if apiKey, baseURL := p.resolveCreds(ctx); apiKey != "" || baseURL != "" {
+			if apiKey != "" && cfg.APIKey == "" && cfg.AuthToken == "" {
+				cfg.APIKey = apiKey
+			}
+			if baseURL != "" && cfg.BaseURL == "" {
+				cfg.BaseURL = baseURL
+			}
+		}
+	}
+	// A Bearer AuthToken (third-party) is as valid as an x-api-key, so accept either.
+	if cfg.APIKey == "" && cfg.AuthToken == "" {
+		return orchestrator.ExecuteTaskResult{Retryable: false}, fmt.Errorf("%w: 请在通用设置中配置 Anthropic/DeepSeek 兼容 provider（base_url + token），或设置 ANTHROPIC_API_KEY / ANTHROPIC_AUTH_TOKEN", ErrAPIKeyMissing)
 	}
 
 	workDir, err := p.wsInfo.ResolveWorkDir(ctx, req)
@@ -95,11 +118,11 @@ func (p *ClaudeCodeProvider) Execute(ctx context.Context, req orchestrator.Execu
 		slog.String("work_dir", workDir),
 	)
 
-	// Set up custom environment containing the API key.
-	env := ClaudeEnv(p.config)
+	// Set up custom environment containing the resolved credentials.
+	env := ClaudeEnv(cfg)
 
 	buildArgs := func(prompt string) []string {
-		return ClaudeBuildArgs(p.config, prompt)
+		return ClaudeBuildArgs(cfg, prompt)
 	}
 
 	parseEvent := ClaudeParseEvent

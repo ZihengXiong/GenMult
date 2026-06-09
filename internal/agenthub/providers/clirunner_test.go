@@ -130,7 +130,7 @@ func TestCLIRunner_Run_LargeLine(t *testing.T) {
 
 	cfg := CLIRunnerConfig{
 		BinaryName: "cat",
-		BuildArgs: func(prompt string) []string {
+		BuildArgs: func(_ string) []string {
 			return nil
 		},
 		ParseEvent: func(line []byte) (CLIEvent, error) {
