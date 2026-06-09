@@ -1785,7 +1785,7 @@ function fileToAttachment(file: File): Promise<ChatAttachment> {
 // fetch (not the SDK client) so the JSON body serializer doesn't mangle the
 // FormData; the Bearer token is added manually to match the client interceptor.
 async function fsUploadFile(botId: string, destPath: string, file: File): Promise<string> {
-  const url = sdkApiUrl({ url: '/bots/{bot_id}/fs/upload', path: { bot_id: botId } })
+  const url = sdkApiUrl({ url: '/bots/{bot_id}/container/fs/upload', path: { bot_id: botId } })
   const form = new FormData()
   form.append('path', destPath)
   form.append('file', file)
