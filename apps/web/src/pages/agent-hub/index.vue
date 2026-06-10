@@ -430,6 +430,7 @@
             size="icon"
             class="size-7"
             title="打开终端"
+            @click="openWorkspace('terminal')"
           >
             <TerminalSquare class="size-3.5" />
           </Button>
@@ -438,6 +439,7 @@
             size="icon"
             class="size-7"
             title="文件"
+            @click="openWorkspace('files')"
           >
             <FolderOpen class="size-3.5" />
           </Button>
@@ -836,6 +838,120 @@
         </DialogContent>
       </Dialog>
 
+      <!-- Shared workspace viewer (R8): files browser + terminal over the room's host workdir -->
+      <Dialog v-model:open="workspaceDialogOpen">
+        <DialogContent class="sm:max-w-4xl max-h-[calc(100dvh-2rem)] overflow-hidden p-0">
+          <DialogHeader class="border-b border-border px-6 py-4">
+            <DialogTitle>群聊工作区</DialogTitle>
+            <DialogDescription class="truncate font-mono text-[11px]">
+              {{ workspaceRoot || '本群所有 CLI Agent 共享的工作目录' }}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div class="flex items-center gap-1 border-b border-border px-4 py-2">
+            <button
+              type="button"
+              class="rounded-md px-3 py-1 text-xs transition-colors"
+              :class="workspaceTab === 'files' ? 'bg-accent text-foreground' : 'text-muted-foreground hover:text-foreground'"
+              @click="workspaceTab = 'files'; refreshWorkspaceFiles()"
+            >
+              <FolderOpen class="mr-1 inline size-3.5" />文件
+            </button>
+            <button
+              type="button"
+              class="rounded-md px-3 py-1 text-xs transition-colors"
+              :class="workspaceTab === 'terminal' ? 'bg-accent text-foreground' : 'text-muted-foreground hover:text-foreground'"
+              @click="workspaceTab = 'terminal'"
+            >
+              <TerminalSquare class="mr-1 inline size-3.5" />终端
+            </button>
+            <button
+              v-if="workspaceTab === 'files'"
+              type="button"
+              class="ml-auto rounded-md px-2 py-1 text-[11px] text-muted-foreground hover:text-foreground"
+              @click="refreshWorkspaceFiles()"
+            >
+              刷新
+            </button>
+          </div>
+
+          <!-- Files tab -->
+          <div
+            v-if="workspaceTab === 'files'"
+            class="flex h-[60vh]"
+          >
+            <div class="w-64 shrink-0 overflow-y-auto border-r border-border p-2">
+              <div
+                v-if="workspaceLoading"
+                class="flex items-center gap-2 px-2 py-3 text-xs text-muted-foreground"
+              >
+                <Spinner class="size-3.5" />加载中…
+              </div>
+              <p
+                v-else-if="workspaceFiles.length === 0"
+                class="px-2 py-3 text-xs text-muted-foreground"
+              >
+                工作区还没有文件。Agent 写入的文件会出现在这里。
+              </p>
+              <button
+                v-for="f in workspaceFiles"
+                :key="f.path"
+                type="button"
+                class="block w-full truncate rounded-md px-2 py-1 text-left font-mono text-[11px] transition-colors"
+                :class="selectedWsPath === f.path ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground'"
+                :title="f.path"
+                @click="openWorkspaceFile(f.path)"
+              >
+                {{ f.path }}
+              </button>
+            </div>
+            <div class="min-w-0 flex-1 overflow-auto p-3">
+              <pre
+                v-if="selectedWsPath"
+                class="whitespace-pre-wrap break-words font-mono text-xs leading-5"
+              >{{ selectedWsContent }}</pre>
+              <p
+                v-else
+                class="text-xs text-muted-foreground"
+              >
+                选择左侧文件查看内容。
+              </p>
+            </div>
+          </div>
+
+          <!-- Terminal tab -->
+          <div
+            v-else
+            class="flex h-[60vh] flex-col p-3"
+          >
+            <pre class="min-h-0 flex-1 overflow-auto rounded-md bg-zinc-950 p-3 font-mono text-xs leading-5 text-zinc-100">{{ terminalOutput || '在下方输入命令，将在本群共享工作目录中执行（cwd = 上方路径，30s 超时）。' }}</pre>
+            <div class="mt-2 flex items-center gap-2">
+              <span class="font-mono text-xs text-muted-foreground">$</span>
+              <input
+                v-model="terminalCommand"
+                type="text"
+                placeholder="例如：ls -la 或 python hello.py"
+                class="h-8 flex-1 rounded-md border border-border bg-background px-2 font-mono text-xs outline-none focus:border-primary"
+                :disabled="terminalRunning"
+                @keydown.enter="runTerminalCommand()"
+              >
+              <Button
+                size="sm"
+                class="h-8 text-xs"
+                :disabled="terminalRunning || !terminalCommand.trim()"
+                @click="runTerminalCommand()"
+              >
+                <Spinner
+                  v-if="terminalRunning"
+                  class="mr-1 size-3.5"
+                />
+                运行
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <section class="min-h-0 flex-1 overflow-y-auto p-4">
         <div class="mb-5 rounded-md border border-border bg-card p-3">
           <div class="mb-3 flex items-center justify-between">
@@ -1228,6 +1344,78 @@ const openSpecialTabs = ref(new Set<'skills' | 'mcp'>())
 const selectedRoomId = ref('payment')
 const selectedAgentId = ref('orchestrator')
 const hostAccessDialogOpen = ref(false)
+// Room shared-workspace viewer (R8): the 文件 / 终端 header buttons open this.
+const workspaceDialogOpen = ref(false)
+const workspaceTab = ref<'files' | 'terminal'>('files')
+const workspaceFiles = ref<WorkspaceFile[]>([])
+const workspaceRoot = ref('')
+const workspaceLoading = ref(false)
+const selectedWsPath = ref('')
+const selectedWsContent = ref('')
+const terminalCommand = ref('')
+const terminalOutput = ref('')
+const terminalRunning = ref(false)
+
+async function openWorkspace(tab: 'files' | 'terminal') {
+  const room = selectedRoom.value
+  if (!room || !isPersistedRoomId(room.id)) {
+    toast.error('请先选择一个已保存的群聊')
+    return
+  }
+  workspaceTab.value = tab
+  workspaceDialogOpen.value = true
+  if (tab === 'files') await refreshWorkspaceFiles()
+}
+
+async function refreshWorkspaceFiles() {
+  const room = selectedRoom.value
+  if (!room) return
+  workspaceLoading.value = true
+  try {
+    const r = await listWorkspaceFiles(room.id)
+    workspaceFiles.value = r.items.filter(f => !f.is_dir)
+    workspaceRoot.value = r.root
+  }
+  catch {
+    toast.error('读取工作区文件失败')
+  }
+  finally {
+    workspaceLoading.value = false
+  }
+}
+
+async function openWorkspaceFile(path: string) {
+  const room = selectedRoom.value
+  if (!room) return
+  selectedWsPath.value = path
+  selectedWsContent.value = '加载中…'
+  try {
+    const r = await readWorkspaceFile(room.id, path)
+    selectedWsContent.value = r.content + (r.truncated ? '\n…（已截断）' : '')
+  }
+  catch {
+    selectedWsContent.value = '（读取失败）'
+  }
+}
+
+async function runTerminalCommand() {
+  const room = selectedRoom.value
+  const cmd = terminalCommand.value.trim()
+  if (!room || !cmd || terminalRunning.value) return
+  terminalRunning.value = true
+  try {
+    const r = await execWorkspaceCommand(room.id, cmd)
+    terminalOutput.value += `$ ${cmd}\n${r.output}${r.output.endsWith('\n') ? '' : '\n'}`
+    terminalCommand.value = ''
+  }
+  catch {
+    terminalOutput.value += `$ ${cmd}\n（命令执行失败）\n`
+  }
+  finally {
+    terminalRunning.value = false
+  }
+}
+
 const searchQuery = ref('')
 const isCreatingRoom = ref(false)
 const showArchivedRooms = ref(false)
@@ -2135,6 +2323,44 @@ async function createAgentHubRoomRun(roomId: string, payload: CreateAgentHubRunP
     url: '/agent-hub/rooms/{room_id}/runs',
     path: { room_id: roomId },
     body: payload,
+    headers: { 'Content-Type': 'application/json' },
+    throwOnError: true,
+  })
+  return data
+}
+
+interface WorkspaceFile { path: string, is_dir: boolean, size: number }
+interface WorkspaceFileList { root: string, items: WorkspaceFile[] }
+interface WorkspaceFileContent { path: string, content: string, truncated: boolean }
+interface WorkspaceExecResult { output: string, exit_code: number, truncated: boolean }
+
+async function listWorkspaceFiles(roomId: string): Promise<WorkspaceFileList> {
+  const { data } = await client.request<{ 200: WorkspaceFileList }, unknown, true>({
+    method: 'GET',
+    url: '/agent-hub/rooms/{room_id}/files',
+    path: { room_id: roomId },
+    throwOnError: true,
+  })
+  return data
+}
+
+async function readWorkspaceFile(roomId: string, path: string): Promise<WorkspaceFileContent> {
+  const { data } = await client.request<{ 200: WorkspaceFileContent }, unknown, true>({
+    method: 'GET',
+    url: '/agent-hub/rooms/{room_id}/files/content',
+    path: { room_id: roomId },
+    query: { path },
+    throwOnError: true,
+  })
+  return data
+}
+
+async function execWorkspaceCommand(roomId: string, command: string): Promise<WorkspaceExecResult> {
+  const { data } = await client.request<{ 200: WorkspaceExecResult }, unknown, true>({
+    method: 'POST',
+    url: '/agent-hub/rooms/{room_id}/exec',
+    path: { room_id: roomId },
+    body: { command },
     headers: { 'Content-Type': 'application/json' },
     throwOnError: true,
   })

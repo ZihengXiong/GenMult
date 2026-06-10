@@ -41,6 +41,10 @@ func (h *AgentHubHandler) Register(e *echo.Echo) {
 	group.GET("/rooms/:room_id/messages", h.ListMessages)
 	group.POST("/rooms/:room_id/messages", h.CreateMessage)
 	group.DELETE("/rooms/:room_id/messages/:message_id", h.DeleteMessage)
+	// Shared room workspace (the host dir CLI agents collaborate in).
+	group.GET("/rooms/:room_id/files", h.ListWorkspaceFiles)
+	group.GET("/rooms/:room_id/files/content", h.ReadWorkspaceFile)
+	group.POST("/rooms/:room_id/exec", h.ExecWorkspaceCommand)
 }
 
 // ListRooms godoc
