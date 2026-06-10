@@ -23,3 +23,14 @@ func PromptWithContext(req orchestrator.ExecuteTaskRequest) string {
 	}
 	return prompt
 }
+
+// WithWorkdirNote prepends a note telling the agent its working directory, which
+// is shared by every CLI agent in the room — so it can read files other agents
+// wrote and leave its output there for them ("挂载目录贡献给全群 agent，并在 prompt 注明").
+func WithWorkdirNote(prompt, workDir string) string {
+	workDir = strings.TrimSpace(workDir)
+	if workDir == "" {
+		return prompt
+	}
+	return "你的工作目录是 " + workDir + "（本群所有 agent 共享同一目录：你可以读取其他 agent 在此写下的文件，也请把你的产出写到这里）。\n\n" + prompt
+}

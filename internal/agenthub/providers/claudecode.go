@@ -154,7 +154,7 @@ func (p *ClaudeCodeProvider) Execute(ctx context.Context, req orchestrator.Execu
 		OnEvent:    onEvent,
 	}, p.logger)
 
-	prompt := PromptWithContext(req)
+	prompt := WithWorkdirNote(PromptWithContext(req), workDir)
 
 	output, err := runner.Run(ctx, prompt, workDir, p.executor, env)
 	if err != nil {
