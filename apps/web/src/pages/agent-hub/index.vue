@@ -233,6 +233,14 @@
                       />
                       {{ room.metadata?.archived ? '取消归档' : '归档群聊' }}
                     </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      class="text-destructive focus:text-destructive"
+                      @select="deleteRoom(room)"
+                    >
+                      <Trash2 class="mr-2 size-3.5" />
+                      删除群聊
+                    </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
@@ -246,6 +254,25 @@
                 <span>{{ room.privacy }}</span>
               </div>
             </button>
+
+            <div
+              v-if="!filteredRooms.length && !isCreatingRoom"
+              class="rounded-md border border-dashed border-border px-3 py-8 text-center"
+            >
+              <p class="text-xs leading-5 text-muted-foreground">
+                {{ emptyRoomsHint }}
+              </p>
+              <Button
+                v-if="!normalizedSearch && !showArchivedRooms"
+                size="sm"
+                variant="outline"
+                class="mt-3 h-7 text-xs"
+                @click="startCreateRoom"
+              >
+                <Plus class="mr-1 size-3.5" />
+                创建群聊
+              </Button>
+            </div>
           </div>
         </template>
 
@@ -255,7 +282,7 @@
               v-for="agent in filteredAgents"
               :key="agent.id"
               type="button"
-              class="flex w-full items-center gap-2 rounded-md border border-transparent px-2.5 py-2 text-left transition-colors hover:border-border hover:bg-background"
+              class="flex w-full items-start gap-2 rounded-md border border-transparent px-2.5 py-2 text-left transition-colors hover:border-border hover:bg-background"
               :class="selectedAgentId === agent.id ? 'border-border bg-background shadow-sm' : ''"
               @click="selectedAgentId = agent.id"
             >
@@ -271,9 +298,21 @@
               <span class="min-w-0 flex-1">
                 <span class="block truncate text-xs font-semibold">{{ agent.name }}</span>
                 <span class="block truncate text-[11px] text-muted-foreground">{{ agent.kind }}</span>
+                <span
+                  v-if="agent.capabilities.length"
+                  class="mt-1 flex flex-wrap gap-1"
+                >
+                  <span
+                    v-for="capability in agent.capabilities"
+                    :key="capability"
+                    class="rounded-sm border border-border bg-background px-1 py-0.5 text-[10px] leading-none text-muted-foreground"
+                  >
+                    {{ capability }}
+                  </span>
+                </span>
               </span>
               <span
-                class="size-1.5 shrink-0 rounded-full"
+                class="mt-1 size-1.5 shrink-0 rounded-full"
                 :class="statusDotClass(agent.status)"
               />
             </button>
@@ -1159,6 +1198,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
 } from '@memohai/ui'
 import { toast } from 'vue-sonner'
 import { resolveApiErrorMessage } from '@/utils/api-error'
@@ -1211,6 +1251,7 @@ import {
   PinOff,
   Archive,
   ArchiveRestore,
+  Trash2,
 } from 'lucide-vue-next'
 
 type ActivityId = 'rooms' | 'agents' | 'tasks' | 'skills' | 'mcp'
@@ -1349,7 +1390,7 @@ const workspaceTabsStore = useWorkspaceTabsStore()
 const activeActivity = ref<ActivityId>('rooms')
 const activeMainPanel = ref<'room' | 'skills' | 'mcp'>('room')
 const openSpecialTabs = ref(new Set<'skills' | 'mcp'>())
-const selectedRoomId = ref('payment')
+const selectedRoomId = ref('')
 const selectedAgentId = ref('orchestrator')
 const hostAccessDialogOpen = ref(false)
 // Room shared-workspace viewer (R8): the 文件 / 终端 header buttons open this.
@@ -1453,62 +1494,10 @@ const activityItems: Array<{ id: ActivityId; label: string; icon: Component; bad
   { id: 'mcp', label: 'MCP 库', icon: Plug },
 ]
 
-const defaultRooms: RoomItem[] = [
-  {
-    id: 'payment',
-    name: '电商支付模块',
-    shortName: '支',
-    subtitle: '后端、前端、测试并行推进',
-    summary: '这是一个混合团队群：PM、开发、测试和多个 Agent 在同一个任务上下文里协作，任务卡、代码审查、记忆召回都会留在群内。',
-    members: 7,
-    attention: 4,
-    privacy: '项目群',
-    live: 'Codex 执行中',
-    accent: 'bg-emerald-600',
-    statusClass: 'bg-emerald-500',
-    agentIds: ['orchestrator'],
-  },
-  {
-    id: 'mobile',
-    name: '移动端体验',
-    shortName: '移',
-    subtitle: '通知、生物认证、移动适配',
-    summary: '面向手机端的 Agent 交互，重点是关键通知、移动端可读性和跨设备继续处理。',
-    members: 5,
-    attention: 0,
-    privacy: '私有群',
-    live: '等待输入',
-    accent: 'bg-blue-600',
-    statusClass: 'bg-blue-500',
-    agentIds: ['orchestrator'],
-  },
-  {
-    id: 'ops',
-    name: '上线与运维',
-    shortName: '运',
-    subtitle: 'CI/CD、远程终端、发布检查',
-    summary: '部署 Agent、Codex 和人工 reviewer 共同处理上线队列，所有高风险操作需要显式审批。',
-    members: 6,
-    attention: 2,
-    privacy: '受控群',
-    live: '审查中',
-    accent: 'bg-amber-600',
-    statusClass: 'bg-amber-500',
-    agentIds: ['orchestrator'],
-  },
-]
-
-const baseAgents: AgentItem[] = [
-  {
-    id: 'orchestrator',
-    name: '主 Agent',
-    kind: 'Orchestrator',
-    status: 'online',
-    icon: Workflow,
-    tone: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
-    capabilities: ['任务拆解', '群聊调度', '记忆召回'],
-  },
-]
+// No hard-coded demo rooms — rooms come from the backend (roomData watch) or the
+// user's own creations. loadRooms() falls back to an empty list, so a fresh
+// install shows the empty-room state instead of three seeded placeholders.
+const defaultRooms: RoomItem[] = []
 
 function cloneDefaultRooms(): RoomItem[] {
   return defaultRooms.map((room) => ({
@@ -1601,6 +1590,11 @@ const { mutateAsync: removeAgentMutation } = useMutation({
   },
 })
 
+const { mutateAsync: deleteRoomMutation } = useMutation({
+  mutation: (roomId: string) => deleteAgentHubRoom(roomId),
+  onSettled: () => queryCache.invalidateQueries({ key: AGENT_HUB_ROOMS_KEY }),
+})
+
 const { mutateAsync: toggleRoomMetadataMutation } = useMutation({
   mutation: async ({ room, key, value }: { room: RoomItem, key: 'pinned' | 'archived', value: boolean }) => {
     const updatedMetadata = { ...(room.metadata || {}), [key]: value }
@@ -1675,12 +1669,29 @@ const rawMemohAgents = computed<AgentItem[]>(() =>
         tone: isPeppaAgentName(name)
           ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
           : 'border-slate-500/30 bg-slate-500/10 text-slate-700 dark:text-slate-300',
-        capabilities: ['本地聊天', '容器工具', '长期记忆'],
+        // The backend returns the bot's configured capabilities (plan/code/test/…),
+        // but the generated SDK type omits the field, so read it off a cast. Claude
+        // Code / Codex have no capability picker in the create form, so fall back to
+        // their built-in CLI toolchain defaults instead of showing nothing.
+        capabilities: capabilitiesFor(bot),
         botId: bot.id,
         framework: bot.framework,
       }
     }),
 )
+
+// Built-in capability defaults for the CLI coding agents (no capability picker in
+// the create form). Uses the same vocabulary as the memoh capability picker.
+const CLI_DEFAULT_CAPABILITIES: Record<string, string[]> = {
+  claudecode: ['plan', 'code', 'edit', 'exec', 'test', 'review', 'search'],
+  codex: ['code', 'edit', 'exec', 'test', 'search'],
+}
+
+function capabilitiesFor(bot: BotsBot): string[] {
+  const configured = (bot as { capabilities?: string[] }).capabilities ?? []
+  if (configured.length) return configured
+  return CLI_DEFAULT_CAPABILITIES[bot.framework ?? ''] ?? []
+}
 
 function agentDisplayName(bot: BotsBot): string {
   const displayName = bot.display_name?.trim()
@@ -1707,7 +1718,7 @@ const memohAgents = computed<AgentItem[]>(() =>
 // own botId + framework), so the hard-coded CLI placeholders and the bridge that
 // grafted a real botId onto them were removed — they only duplicated the real
 // bot and could mis-trigger orchestration via mentionedRoomAgents().length>=2.
-const agents = computed(() => [...baseAgents, ...memohAgents.value])
+const agents = computed(() => memohAgents.value)
 
 // Orchestrator selection (ours) layered onto the bridge agents (theirs): prefer
 // the room's chosen orchestrator agent, then the peppa/main agent, then first.
@@ -1719,7 +1730,6 @@ const mainAgent = computed(() => {
   }
   return memohAgents.value.find((agent) => isPeppaAgentName(agent.name))
     ?? memohAgents.value[0]
-    ?? baseAgents[0]
 })
 
 const selectedRoom = computed(() =>
@@ -1831,6 +1841,15 @@ const filteredRooms = computed(() => {
     const bPinned = b.metadata?.pinned ? 1 : 0
     return bPinned - aPinned
   })
+})
+
+// Empty-room copy depends on *why* the list is empty: a search miss / archived
+// view shouldn't read as "no rooms yet" (and shouldn't offer 创建). Only the
+// genuine no-rooms case prompts the user to create one.
+const emptyRoomsHint = computed(() => {
+  if (normalizedSearch.value) return '没有匹配的群聊'
+  if (showArchivedRooms.value) return '还没有归档的群聊'
+  return '现在还没有群,创建一下试试吧'
 })
 
 const filteredAgents = computed(() => {
@@ -2580,6 +2599,18 @@ async function removeAgentHubRoomAgent(roomId: string, agentId: string): Promise
   return data
 }
 
+// DELETE /agent-hub/rooms/{room_id} → 204 No Content (owner-scoped). Removes the
+// whole room from the backend; the demo rooms seeded by an earlier migration are
+// only removable this way (they live server-side, not in localStorage).
+async function deleteAgentHubRoom(roomId: string): Promise<void> {
+  await client.request<{ 204: unknown }, unknown, true>({
+    method: 'DELETE',
+    url: '/agent-hub/rooms/{room_id}',
+    path: { room_id: roomId },
+    throwOnError: true,
+  })
+}
+
 async function migrateLocalRooms() {
   if (isMigratingRooms.value) return
   isMigratingRooms.value = true
@@ -3046,6 +3077,30 @@ async function removeAgentFromSelectedRoom(agentId: string) {
   }
 }
 
+// Delete the whole room. Persisted rooms go through the backend DELETE; either
+// way we drop it from the local list and re-pick a selection. Confirm first —
+// this also throws away the room's messages.
+async function deleteRoom(room: RoomItem) {
+  if (typeof window !== 'undefined'
+    && !window.confirm(`删除群聊「${room.name}」?该群的消息记录也会一并删除,且无法恢复。`)) {
+    return
+  }
+  try {
+    if (isPersistedRoomId(room.id)) {
+      await deleteRoomMutation(room.id)
+    }
+    rooms.value = rooms.value.filter((r) => r.id !== room.id)
+    if (selectedRoomId.value === room.id) {
+      ensureSelectedRoom()
+    }
+    toast.success(`已删除群聊「${room.name}」`)
+  }
+  catch (error) {
+    console.error('Failed to delete AgentHub room:', error)
+    toast.error(resolveApiErrorMessage(error, '删除群聊失败'))
+  }
+}
+
 // agentProviderName resolves a room agent to its orchestrator provider by the
 // bot's framework (falling back to id heuristics), so claudecode/codex bots run
 // on their real provider instead of the noop placeholder.
@@ -3462,9 +3517,17 @@ function renderCollectedReply(textById: Map<number, string>) {
 function handleConnectorClick(connector: ConnectorItem) {
   if (!connector.enabled) return
 
+  // "自建 Agent 模板": jump to the create-bot page rather than wiring an existing bot.
+  if (connector.id === 'custom-agent') {
+    void router.push({ name: 'bot-new' })
+    return
+  }
+
   activeActivity.value = 'agents'
   if (connector.id === 'memoh-bot') {
-    selectedAgentId.value = mainAgent.value.id
+    const id = mainAgent.value?.id
+    if (!id) return
+    selectedAgentId.value = id
     void addAgentToSelectedRoom()
     return
   }

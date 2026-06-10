@@ -1,205 +1,65 @@
-# GenMult
+# AgentHub — Multi-Agent Collaboration Platform
 
-GenMult is a self-hosted multi-agent workspace for building, running, and coordinating AI assistants across web, desktop, and external chat channels.
+> AI Full-Stack Challenge entry · Team **启灵 (Qiling)** — 齐紫瀚, 熊子恒, 张桐铖
+>
+> 中文版:[README_CN.md](README_CN.md)
 
-It started from the idea of giving every agent its own long-running context, tools, files, memory, and delivery channels. The current project has grown into a full-stack system with a Go backend, a Vue web client, an Electron desktop app, containerized agent workspaces, AgentHub collaboration rooms, and channel adapters such as WhatsApp.
+AgentHub makes "driving a team of AI agents" feel as natural as a group chat: agents are room members; @-mention the lead agent to auto-decompose and dispatch work, or @ a specific member to assign it directly. Artifacts land in a shared room workspace, and the whole collaboration is visible in the chat stream in real time. The platform plugs in multiple agents through one adapter layer — **memoh** (built-in framework agent in this repo), **Claude Code**, and **Codex** (CLI-backed) — coordinated by an Orchestrator DAG engine.
 
-## What GenMult Does
+This repository is built on the memoh full-stack platform (Go backend + Vue web + Electron desktop + containerized agent workspaces). AgentHub is its multi-agent collaboration capability; memoh is one of the agents that run inside it.
 
-- Run multiple AI agents with separate identities, models, settings, memory, and permissions.
-- Chat with agents from the web UI, desktop shell, local sessions, and connected channels.
-- Use AgentHub rooms to coordinate humans and agents in the same workspace.
-- Give agents isolated containers for file operations, command execution, MCP tools, and longer-running work.
-- Keep conversation history, memory, scheduled tasks, and channel routes in a database.
-- Configure providers, models, channels, storage, containers, and tools from a graphical interface.
-- Connect external channels including Telegram, Discord, Feishu/Lark, DingTalk, WeChat-family adapters, Matrix, Email, and WhatsApp.
+---
 
-## Main Components
+## 📦 Deliverables (3 documents)
 
-| Component | Stack | Default Port | Purpose |
-| --- | --- | --- | --- |
-| Server | Go, Echo, Twilight AI SDK | 8080 | REST API, auth, database, agents, channels, containers |
-| Web | Vue 3, Vite, Pinia, Tailwind CSS | 8082 | Browser-based control panel and chat workspace |
-| Desktop | Electron, electron-vite | local app | Desktop shell that reuses the web client and local server |
-| Database | PostgreSQL or SQLite | varies | Users, bots, rooms, messages, memory, providers, settings |
-| Vector / Search | Qdrant, sparse search | optional | Long-term memory retrieval and hybrid search |
-| Containers | Docker, containerd, Kubernetes, Apple Virtualization | varies | Isolated workspaces for agent tools and files |
+The three final documents live in [`deliverables/`](deliverables/) as PDFs:
 
-## Features
+| Document | File | Contents |
+|---|---|---|
+| Product Design | [`agenthub-product-design.pdf`](deliverables/agenthub-product-design.pdf) | Positioning, the group-chat mental model, multi-agent failure modes & mitigations, target users & scenarios, core UX decisions, feature matrix, roadmap |
+| Technical Design | [`agenthub-technical-design.pdf`](deliverables/agenthub-technical-design.pdf) | Layered architecture, data model (full DDL), orchestration state machine & scheduling, two-tier Planner, unified adapter layer, credential chain, event projection, three core sequence flows, HTTP API, test gates |
+| AI Collaboration Record | [`agenthub-ai-collaboration.pdf`](deliverables/agenthub-ai-collaboration.pdf) | Human–AI turn-based model, Rules / Spec / Plan / Skill conventions, three deep collaboration cases, real session archive (19 sessions / 277 user turns / 2582 tool calls) |
 
-### Agent Workspace
+---
 
-- Multi-agent and multi-user chat.
-- Three agent frameworks: Memoh (built-in), Claude Code, and Codex (CLI-backed runtimes).
-- Custom agent creation with user-defined system prompts and capability tags.
-- Guided wizard for conversational agent setup (name → framework → prompt → capabilities).
-- Per-agent model, provider, memory, channel, and permission settings.
-- AgentHub rooms for shared collaboration, mentions, room messages, and agent membership.
-- Orchestrator DAG engine with LLM-powered task planning, dependency resolution, and parallel dispatch.
-- Long-term memory providers with history compaction and retrieval hooks.
-- Scheduled tasks, heartbeat sessions, discuss mode, and subagent workflows.
+## 🎬 Demo video (3 minutes)
 
-### Artifact Preview and Editing
+Quark drive: **<https://pan.quark.cn/s/4e9ebc5c07b7>** ("启灵-agent")
 
-- Inline web preview cards (sandboxed iframe) for URLs detected in agent output.
-- Diff cards with one-click apply — review file edits and write them to the workspace container directly from the chat.
-- Full-screen Monaco code viewer for inspecting agent-produced code artifacts.
-- Media gallery lightbox for image attachments.
+---
 
-### Channels
+## ▶️ Run the demo (local)
 
-- Built-in web and local chat.
-- WhatsApp support with QR login, media handling, group routing, and bot mention behavior.
-- Channel adapters for Telegram, Discord, Feishu/Lark, DingTalk, QQ, Matrix, Misskey, WeCom, WeChat, WeChat Official Account, and Email.
-- Source-aware access control for deciding who can trigger which agent.
-
-### Tools And Runtime
-
-- MCP support for external tool servers.
-- Container-backed command execution and file editing.
-- File manager, attachments, media assets, and browser-facing workspace views.
-- Provider configuration for OpenAI-compatible APIs, Anthropic, Google, GitHub Copilot, Codex-style clients, TTS, and search providers.
-
-### Apps
-
-- Web dashboard for agent management, chat, settings, channels, and AgentHub.
-- Electron desktop app for a local client experience.
-- Docker Compose deployment for server, web, database, migrations, and optional memory services.
-
-## Quick Start
-
-Requirements:
-
-- Docker and Docker Compose
-- Git
-
-Clone the repository:
+Prerequisites: **Docker / Docker Compose** and **[mise](https://mise.jdx.dev/)** (manages tasks plus Go / Node / pnpm / sqlc tool versions).
 
 ```bash
-git clone https://github.com/ZihengXiong/GenMult.git
-cd GenMult
+# 1. Install dependencies and toolchain
+mise run setup
+
+# 2. Start the dev environment (docker compose, SQLite, auto-build)
+mise run dev
 ```
 
-Create a local config file:
-
-```bash
-cp conf/app.docker.toml config.toml
-```
-
-Edit `config.toml` for your admin account, database, model providers, container runtime, and channel settings.
-
-Start the stack:
-
-```bash
-docker compose up -d
-```
-
-Open the web client:
+Then open the web console:
 
 ```text
-http://localhost:8082
+http://localhost:19082
 ```
 
-The backend API listens on:
+> The web port can be overridden via `MEMOH_SQLITE_DEV_WEB_PORT` (default 19082).
+> Stop with `mise run dev:down:sqlite`; list all tasks (including `dev:postgres`) with `mise tasks`.
 
-```text
-http://localhost:8080
-```
+The demo walkthrough (single-chat token streaming, live process bubbles during group-chat orchestration, pinned long-term context, and the shared workspace file browser + in-browser terminal) is described in the Product / Technical documents.
 
-## Desktop Development
+---
 
-Install frontend dependencies:
+## Project overview
 
-```bash
-corepack enable
-pnpm install
-```
+- **Backend** Go (Echo) · **Frontend** Vue 3 + Vite · **Desktop** Electron · **Storage** SQLite / PostgreSQL · **Retrieval** Qdrant
+- **Agent integration**: memoh (built-in framework agent) / Claude Code / Codex (CLI-backed), one adapter layer + Orchestrator DAG engine, LLM + rule-based two-tier Planner
+- **Collaboration**: AgentHub rooms, @-mentions, shared workspace, pinned long-term context, event sourcing, live in-progress process bubbles, failure degradation, and crash self-healing
 
-Run the desktop app in development mode:
-
-```bash
-pnpm --filter @memohai/desktop dev
-```
-
-Build desktop packages:
-
-```bash
-pnpm --filter @memohai/desktop build
-```
-
-The desktop package still reuses the web renderer internally, so web UI changes are shared by both browser and desktop builds.
-
-## Web Development
-
-Run the web client:
-
-```bash
-pnpm --filter @memohai/web dev
-```
-
-Build the web client:
-
-```bash
-pnpm --filter @memohai/web build
-```
-
-## Backend Development
-
-Run the Go server locally:
-
-```bash
-go run ./cmd/agent
-```
-
-Regenerate database code after SQL changes:
-
-```bash
-mise run sqlc-generate
-```
-
-Generate OpenAPI and TypeScript SDK artifacts after API changes:
-
-```bash
-mise run swagger-generate
-mise run sdk-generate
-```
-
-## Repository Layout
-
-```text
-cmd/                 Go entry points for server, bridge, MCP, and CLI
-internal/            Backend domain modules
-apps/web/            Vue web client
-apps/desktop/        Electron desktop shell
-packages/            Shared UI, SDK, icons, and config packages
-db/                  PostgreSQL and SQLite migrations and queries
-conf/                Example configuration and provider templates
-docker/              Production Dockerfiles and nginx config
-docs/                Documentation site (VitePress)
-  docs/zh/           Chinese documentation (product design, architecture, AI collaboration, demo script)
-deploy/              Kubernetes deployment examples
-.agents/skills/      Reusable agent skill definitions
-```
-
-## Documentation
-
-Project documentation lives under `docs/docs/` and is built with VitePress.
-
-- **[Product Design](docs/docs/zh/product-design.md)** — Problem definition, user personas, page flow, feature checklist, and innovation highlights.
-- **[Architecture](docs/docs/zh/architecture.md)** — System architecture, Rooms vs Sessions data model, dual adapter layer design, Orchestrator DAG engine, and sequence diagrams.
-- **[AI Collaboration](docs/docs/zh/ai-collaboration.md)** — How Claude Code and Codex were used to build this project, AGENTS.md rule constraints, prompt–review iteration workflow, and contribution statistics.
-- **[Demo Script](docs/docs/zh/demo-script.md)** — 3-minute demo storyboard and recording checklist.
-
-## Security Notes
-
-- Do not commit `.env`, `config.toml`, keys, local database files, generated backups, or deployment secrets.
-- Channel credentials and model provider API keys should stay in local config, environment variables, or a secret manager.
-- Each agent workspace should be treated as an execution boundary. Review container privileges before exposing a deployment publicly.
-- For production deployments, change the default admin password, enable HTTPS at the reverse proxy, and restrict inbound ports.
-
-## Current Status
-
-GenMult is under active development. The project is built collaboratively with Claude Code and Codex — see [AI Collaboration](docs/docs/zh/ai-collaboration.md) for details on the development workflow. Some internal package names and historical paths may still use the original module naming while the product identity moves toward GenMult.
+Full architecture, data model, and core sequence flows are in [`deliverables/agenthub-technical-design.pdf`](deliverables/agenthub-technical-design.pdf).
 
 ## License
 

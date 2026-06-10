@@ -179,6 +179,16 @@ func (r *CLIRunner) Run(ctx context.Context, prompt string, workDir string, exec
 				continue
 			}
 
+			// CLI backends (notably codex) sometimes emit an error event with no
+			// message while the real cause — e.g. an HTTP 401 — is written to
+			// stderr. Enrich the event with that detail before forwarding, so the
+			// caller surfaces the actual reason instead of a generic placeholder.
+			if event.Type == "error" {
+				if detail := errorDetailFromStderr(stderrBuilder.String()); detail != "" {
+					event.Content = mergeErrorDetail(event.Content, detail)
+				}
+			}
+
 			if r.config.OnEvent != nil {
 				r.config.OnEvent(event)
 			}
@@ -228,4 +238,40 @@ func (r *CLIRunner) Run(ctx context.Context, prompt string, workDir string, exec
 	r.logger.Info("CLI execution finished", slog.Int("exit_code", exitCode), slog.String("stderr", stderrStr))
 
 	return outputBuilder.String(), nil
+}
+
+// errorDetailFromStderr extracts the most relevant line from accumulated
+// subprocess stderr to attach to an error event. Prefer the last line that
+// looks like an error (e.g. an HTTP 401), falling back to the last non-empty
+// line. Returns "" when stderr carries nothing useful.
+func errorDetailFromStderr(stderr string) string {
+	var lastNonEmpty, lastErr string
+	for _, ln := range strings.Split(stderr, "\n") {
+		ln = strings.TrimSpace(ln)
+		if ln == "" {
+			continue
+		}
+		lastNonEmpty = ln
+		low := strings.ToLower(ln)
+		if strings.Contains(low, "error") || strings.Contains(low, "unauthorized") || strings.Contains(low, "failed") {
+			lastErr = ln
+		}
+	}
+	if lastErr != "" {
+		return lastErr
+	}
+	return lastNonEmpty
+}
+
+// mergeErrorDetail combines an event's error content with a stderr detail line,
+// avoiding duplication when the detail is already present.
+func mergeErrorDetail(content, detail string) string {
+	content = strings.TrimSpace(content)
+	if content == "" {
+		return detail
+	}
+	if strings.Contains(content, detail) {
+		return content
+	}
+	return content + ": " + detail
 }

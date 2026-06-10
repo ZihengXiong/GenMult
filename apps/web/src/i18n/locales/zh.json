@@ -828,6 +828,30 @@
     "title": "Bots",
     "searchPlaceholder": "搜索 Bot…",
     "createBot": "新建 Bot",
+    "formMode": "表单",
+    "wizardMode": "引导",
+    "wizard": {
+      "intro": "我们来创建一个新 Agent 吧！你想给它起什么名字？",
+      "namePlaceholder": "例如：代码审查员、写作助手……",
+      "continue": "继续",
+      "skip": "跳过",
+      "nameConfirm": "好的！就叫「{name}」。它应该使用哪个框架？",
+      "promptQuestion": "想给它设置自定义的人设或指令吗？",
+      "promptPlaceholder": "你是一个乐于助人的编程助手，擅长……",
+      "capabilitiesQuestion": "这个 Agent 应该具备哪些能力？",
+      "summaryQuestion": "以下是新 Agent 的概要。准备好创建了吗？",
+      "skipped": "（已跳过）",
+      "summaryName": "名称：",
+      "summaryFramework": "框架：",
+      "summaryPrompt": "系统提示词：",
+      "summaryCapabilities": "能力：",
+      "createAgent": "创建 Agent",
+      "frameworks": {
+        "memoh": "内置 AI Agent，支持模型、记忆与工具调用",
+        "claudecode": "Anthropic CLI Agent，自带模型与工具链",
+        "codex": "OpenAI CLI Agent，自带模型与工具链"
+      }
+    },
     "createBotWaitHint": "首次创建时可能需要拉取基础镜像，提交后请耐心等待片刻。",
     "createBotSuccess": "Bot 创建成功。",
     "steps": {

@@ -832,6 +832,30 @@
     "title": "Bots",
     "searchPlaceholder": "Search bots…",
     "createBot": "New Bot",
+    "formMode": "Form",
+    "wizardMode": "Guided",
+    "wizard": {
+      "intro": "Let's create a new agent! What would you like to name it?",
+      "namePlaceholder": "e.g. Code Reviewer, Writing Assistant...",
+      "continue": "Continue",
+      "skip": "Skip",
+      "nameConfirm": "Great! \"{name}\" it is. Which framework should it use?",
+      "promptQuestion": "Would you like to give it a custom personality or instructions?",
+      "promptPlaceholder": "You are a helpful coding assistant that specializes in...",
+      "capabilitiesQuestion": "What capabilities should this agent have?",
+      "summaryQuestion": "Here's a summary of your new agent. Ready to create it?",
+      "skipped": "(skipped)",
+      "summaryName": "Name:",
+      "summaryFramework": "Framework:",
+      "summaryPrompt": "System Prompt:",
+      "summaryCapabilities": "Capabilities:",
+      "createAgent": "Create Agent",
+      "frameworks": {
+        "memoh": "Built-in AI Agent with model, memory, and tool support",
+        "claudecode": "Anthropic CLI Agent with its own model and toolchain",
+        "codex": "OpenAI CLI Agent with its own model and toolchain"
+      }
+    },
     "createBotWaitHint": "Creating a bot may need to pull the base image on first use. Please wait a moment after submission.",
     "createBotSuccess": "Bot created successfully.",
     "steps": {

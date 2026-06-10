@@ -231,6 +231,54 @@ func TestCLIRunner_ChunkBuffering(t *testing.T) {
 	assert.Equal(t, " world", events[1].Content)
 }
 
+func TestCLIRunner_ErrorEventEnrichedFromStderr(t *testing.T) {
+	// codex emits a JSON error event with no message; the real 401 is on stderr.
+	chunks := []ExecChunk{
+		{Stream: "stderr", Data: []byte("ERROR codex_api: failed to connect to websocket: HTTP error: 401 Unauthorized\n")},
+		{Stream: "stdout", Data: []byte(`{"type":"error"}` + "\n")},
+	}
+
+	mockExec := &mockCommandExecutor{chunks: chunks}
+
+	cfg := CLIRunnerConfig{
+		BinaryName: "mock-cli",
+		BuildArgs:  func(_ string) []string { return nil },
+		ParseEvent: func(line []byte) (CLIEvent, error) {
+			var m map[string]any
+			if err := json.Unmarshal(line, &m); err != nil {
+				return CLIEvent{}, err
+			}
+			if m["type"].(string) == "error" {
+				// Mirror CodexParseEvent's generic fallback.
+				return CLIEvent{Type: "error", Content: "unknown codex error", Raw: line}, nil
+			}
+			return CLIEvent{Type: m["type"].(string), Raw: line}, nil
+		},
+	}
+
+	var events []CLIEvent
+	cfg.OnEvent = func(e CLIEvent) { events = append(events, e) }
+
+	runner := NewCLIRunner(cfg, slog.Default())
+	_, err := runner.Run(context.Background(), "test", "", mockExec, nil)
+	require.NoError(t, err)
+
+	require.Len(t, events, 1)
+	assert.Equal(t, "error", events[0].Type)
+	assert.Contains(t, events[0].Content, "401 Unauthorized")
+	assert.Contains(t, events[0].Content, "unknown codex error")
+}
+
+func TestErrorDetailFromStderr(t *testing.T) {
+	assert.Empty(t, errorDetailFromStderr(""))
+	assert.Empty(t, errorDetailFromStderr("   \n  \n"))
+	// Prefers the error-looking line over a later non-error line.
+	got := errorDetailFromStderr("starting up\nERROR 401 Unauthorized\nshutting down")
+	assert.Equal(t, "ERROR 401 Unauthorized", got)
+	// Falls back to last non-empty line when nothing looks like an error.
+	assert.Equal(t, "second", errorDetailFromStderr("first\nsecond\n"))
+}
+
 func TestHostExecutor_Success(t *testing.T) {
 	executor := NewHostExecutor()
 	path, err := executor.LookPath("echo")

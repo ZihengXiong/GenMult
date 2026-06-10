@@ -117,3 +117,8 @@ _main-ref/
 # as its workdir, it writes project scratch (e.g. the LRU-cache demo from R9
 # verification) into the repo root. Keep that out of version control.
 /lru-cache/
+.deliverables/
+
+# 交付物工作材料（Markdown 源稿、截图、LaTeX 工程、样例等）仅本地保留；
+# 最终交付的三份 PDF 在 /deliverables/ 中随仓库提交。
+/deliverables_original/

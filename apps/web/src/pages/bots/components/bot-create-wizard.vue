@@ -35,7 +35,7 @@
     >
       <Input
         v-model="wizardData.display_name"
-        placeholder="e.g. Code Reviewer, Writing Assistant..."
+        :placeholder="$t('bots.wizard.namePlaceholder')"
         @keydown.enter="nextStep"
       />
       <Button
@@ -43,7 +43,7 @@
         :disabled="!wizardData.display_name.trim()"
         @click="nextStep"
       >
-        Continue
+        {{ $t('bots.wizard.continue') }}
       </Button>
     </div>
 
@@ -78,7 +78,7 @@
     >
       <textarea
         v-model="wizardData.system_prompt"
-        placeholder="You are a helpful coding assistant that specializes in..."
+        :placeholder="$t('bots.wizard.promptPlaceholder')"
         rows="3"
         class="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-y"
       />
@@ -88,13 +88,13 @@
           variant="outline"
           @click="skipStep"
         >
-          Skip
+          {{ $t('bots.wizard.skip') }}
         </Button>
         <Button
           size="sm"
           @click="nextStep"
         >
-          Continue
+          {{ $t('bots.wizard.continue') }}
         </Button>
       </div>
     </div>
@@ -123,7 +123,7 @@
         size="sm"
         @click="nextStep"
       >
-        Continue
+        {{ $t('bots.wizard.continue') }}
       </Button>
     </div>
 
@@ -132,17 +132,17 @@
       class="space-y-3"
     >
       <div class="rounded-lg border p-4 space-y-2 text-sm">
-        <div><span class="text-muted-foreground">Name:</span> {{ wizardData.display_name }}</div>
-        <div><span class="text-muted-foreground">Framework:</span> {{ wizardData.framework }}</div>
+        <div><span class="text-muted-foreground">{{ $t('bots.wizard.summaryName') }}</span> {{ wizardData.display_name }}</div>
+        <div><span class="text-muted-foreground">{{ $t('bots.wizard.summaryFramework') }}</span> {{ wizardData.framework }}</div>
         <div v-if="wizardData.system_prompt">
-          <span class="text-muted-foreground">System Prompt:</span> {{ wizardData.system_prompt.slice(0, 100) }}{{ wizardData.system_prompt.length > 100 ? '...' : '' }}
+          <span class="text-muted-foreground">{{ $t('bots.wizard.summaryPrompt') }}</span> {{ wizardData.system_prompt.slice(0, 100) }}{{ wizardData.system_prompt.length > 100 ? '...' : '' }}
         </div>
         <div v-if="wizardData.capabilities.length">
-          <span class="text-muted-foreground">Capabilities:</span> {{ wizardData.capabilities.join(', ') }}
+          <span class="text-muted-foreground">{{ $t('bots.wizard.summaryCapabilities') }}</span> {{ wizardData.capabilities.join(', ') }}
         </div>
       </div>
       <Button @click="$emit('submit', wizardData)">
-        Create Agent
+        {{ $t('bots.wizard.createAgent') }}
       </Button>
     </div>
   </div>
@@ -150,16 +150,19 @@
 
 <script setup lang="ts">
 import { reactive, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { Avatar, AvatarFallback, Button, Input } from '@memohai/ui'
+
+const { t } = useI18n()
 
 defineEmits<{
   submit: [data: typeof wizardData]
 }>()
 
 const frameworkOptions = [
-  { value: 'memoh', label: 'Memoh', description: 'Built-in AI Agent with model, memory, and tool support' },
-  { value: 'claudecode', label: 'Claude Code', description: 'Anthropic CLI Agent with its own model and toolchain' },
-  { value: 'codex', label: 'Codex', description: 'OpenAI CLI Agent with its own model and toolchain' },
+  { value: 'memoh', label: 'Memoh', description: t('bots.wizard.frameworks.memoh') },
+  { value: 'claudecode', label: 'Claude Code', description: t('bots.wizard.frameworks.claudecode') },
+  { value: 'codex', label: 'Codex', description: t('bots.wizard.frameworks.codex') },
 ]
 
 const availableCaps = ['plan', 'code', 'test', 'review', 'edit', 'exec', 'search', 'memory']
@@ -176,7 +179,7 @@ const wizardData = reactive({
 })
 
 const conversation = reactive<{ role: 'assistant' | 'user'; text: string }[]>([
-  { role: 'assistant', text: 'Let\'s create a new agent! What would you like to name it?' },
+  { role: 'assistant', text: t('bots.wizard.intro') },
 ])
 
 const steps: Step[] = ['name', 'framework', 'prompt', 'capabilities', 'done']
@@ -185,21 +188,21 @@ function nextStep() {
   const idx = steps.indexOf(currentStep.value)
   if (currentStep.value === 'name') {
     conversation.push({ role: 'user', text: wizardData.display_name })
-    conversation.push({ role: 'assistant', text: `Great! "${wizardData.display_name}" it is. Which framework should it use?` })
+    conversation.push({ role: 'assistant', text: t('bots.wizard.nameConfirm', { name: wizardData.display_name }) })
   } else if (currentStep.value === 'framework') {
     const label = frameworkOptions.find(o => o.value === wizardData.framework)?.label ?? wizardData.framework
     conversation.push({ role: 'user', text: label })
-    conversation.push({ role: 'assistant', text: 'Would you like to give it a custom personality or instructions?' })
+    conversation.push({ role: 'assistant', text: t('bots.wizard.promptQuestion') })
   } else if (currentStep.value === 'prompt') {
     if (wizardData.system_prompt.trim()) {
       conversation.push({ role: 'user', text: wizardData.system_prompt.slice(0, 80) + (wizardData.system_prompt.length > 80 ? '...' : '') })
     }
-    conversation.push({ role: 'assistant', text: 'What capabilities should this agent have?' })
+    conversation.push({ role: 'assistant', text: t('bots.wizard.capabilitiesQuestion') })
   } else if (currentStep.value === 'capabilities') {
     if (wizardData.capabilities.length) {
       conversation.push({ role: 'user', text: wizardData.capabilities.join(', ') })
     }
-    conversation.push({ role: 'assistant', text: 'Here\'s a summary of your new agent. Ready to create it?' })
+    conversation.push({ role: 'assistant', text: t('bots.wizard.summaryQuestion') })
   }
   if (idx < steps.length - 1) {
     currentStep.value = steps[idx + 1]
@@ -207,7 +210,7 @@ function nextStep() {
 }
 
 function skipStep() {
-  conversation.push({ role: 'user', text: '(skipped)' })
+  conversation.push({ role: 'user', text: t('bots.wizard.skipped') })
   nextStep()
 }
 
