@@ -50,13 +50,19 @@ func (p *llmPlanner) Plan(ctx context.Context, input orch.PlanInput) (orch.Plan,
 	if p.model == nil {
 		return p.fallback.Plan(ctx, input)
 	}
-	// When the user explicitly @-mentions specific agents, they've already chosen
-	// who does what — honor that deterministically via the rule planner's
-	// directMentionPlan rather than re-deciding with the LLM.
-	if hasExplicitAgentMention(objective, input.Agents) {
-		p.log.Info("llm planner: explicit @mention present, delegating to rule planner",
-			slog.String("room_id", input.RoomID))
-		return p.fallback.Plan(ctx, input)
+	// When the user explicitly @-mentions specific agents they've chosen *who*
+	// participates, but for a big objective ("做个待办: 写前端, cc 写后端") the main
+	// agent should still split it into a tailored sub-prompt per mentioned agent
+	// rather than passing the raw objective verbatim to each. So we narrow the
+	// candidate agents to the mentioned subset and let the LLM plan over them; the
+	// rule planner's (parallel) directMentionPlan stays as the fallback below.
+	planAgents := input.Agents
+	mentionConstraint := ""
+	if mentioned := mentionedAgents(objective, input.Agents); len(mentioned) > 0 {
+		planAgents = mentioned
+		mentionConstraint = buildMentionConstraint(mentioned)
+		p.log.Info("llm planner: explicit @mention present, planning over mentioned subset",
+			slog.String("room_id", input.RoomID), slog.Int("mentioned", len(mentioned)))
 	}
 
 	cctx, cancel := context.WithTimeout(ctx, p.timeout)
@@ -64,8 +70,8 @@ func (p *llmPlanner) Plan(ctx context.Context, input orch.PlanInput) (orch.Plan,
 
 	raw, err := sdk.GenerateText(cctx,
 		sdk.WithModel(p.model),
-		sdk.WithSystem(plannerSystemPrompt),
-		sdk.WithMessages([]sdk.Message{sdk.UserMessage(buildPlannerUserPrompt(objective, input.Agents, input.Metadata))}),
+		sdk.WithSystem(plannerSystemPrompt+mentionConstraint),
+		sdk.WithMessages([]sdk.Message{sdk.UserMessage(buildPlannerUserPrompt(objective, planAgents, input.Metadata))}),
 		sdk.WithMaxTokens(2048),
 		sdk.WithTemperature(0.2),
 	)
@@ -75,7 +81,7 @@ func (p *llmPlanner) Plan(ctx context.Context, input orch.PlanInput) (orch.Plan,
 		return p.fallback.Plan(ctx, input)
 	}
 
-	plan, perr := parsePlannerOutput(raw, input.Agents)
+	plan, perr := parsePlannerOutput(raw, planAgents)
 	if perr != nil || len(plan.Tasks) == 0 {
 		p.log.Warn("llm planner output invalid; falling back to rule planner",
 			slog.String("room_id", input.RoomID), slog.Any("error", perr))
@@ -282,22 +288,48 @@ func hasDependencyCycle(drafts []orch.TaskDraft) bool {
 	return visited != len(indeg)
 }
 
-// hasExplicitAgentMention reports whether the objective @-mentions any of the
-// available agents by a recognizable alias (bare bot UUID, full id, display
-// name, or provider name). Mirrors the rule planner's mention detection so the
-// LLM planner can defer to directMentionPlan on explicit user dispatch.
-func hasExplicitAgentMention(objective string, agents []orch.AgentDescriptor) bool {
-	lower := strings.ToLower(objective)
-	if !strings.Contains(lower, "@") {
-		return false
-	}
-	for _, a := range agents {
-		for _, alias := range []string{strings.TrimPrefix(a.ID, "bot:"), a.ID, a.Name, a.ProviderName} {
-			alias = strings.ToLower(strings.TrimSpace(alias))
-			if alias != "" && strings.Contains(lower, "@"+alias) {
-				return true
-			}
+// agentIsMentioned reports whether the objective @-mentions the given agent by a
+// recognizable alias (bare bot UUID, full id, display name, or provider name).
+func agentIsMentioned(lowerObjective string, a orch.AgentDescriptor) bool {
+	for _, alias := range []string{strings.TrimPrefix(a.ID, "bot:"), a.ID, a.Name, a.ProviderName} {
+		alias = strings.ToLower(strings.TrimSpace(alias))
+		if alias != "" && strings.Contains(lowerObjective, "@"+alias) {
+			return true
 		}
 	}
 	return false
+}
+
+// mentionedAgents returns the subset of agents the objective explicitly
+// @-mentions, preserving the input order. Empty when none are mentioned, so the
+// caller can fall back to planning over all room agents.
+func mentionedAgents(objective string, agents []orch.AgentDescriptor) []orch.AgentDescriptor {
+	lower := strings.ToLower(objective)
+	if !strings.Contains(lower, "@") {
+		return nil
+	}
+	out := make([]orch.AgentDescriptor, 0, len(agents))
+	for _, a := range agents {
+		if agentIsMentioned(lower, a) {
+			out = append(out, a)
+		}
+	}
+	return out
+}
+
+// buildMentionConstraint appends an instruction to the planner system prompt so
+// the LLM only assigns work to the user-mentioned agents and writes an
+// independent, parallelizable sub-prompt for each.
+func buildMentionConstraint(mentioned []orch.AgentDescriptor) string {
+	names := make([]string, 0, len(mentioned))
+	for _, a := range mentioned {
+		name := strings.TrimSpace(a.Name)
+		if name == "" {
+			name = a.ID
+		}
+		names = append(names, fmt.Sprintf("%s(id=%s)", name, a.ID))
+	}
+	return "\n\n约束：用户已用 @ 显式点名以下 Agent，只能把任务分配给他们（agent_id 必须取自此列表）：" +
+		strings.Join(names, "、") +
+		"。为每个被点名的 Agent 写一条独立、可单独执行的子任务指令；若各自工作互不依赖（如分别负责前端/后端），则不要相互依赖，让它们并行。"
 }

@@ -109,6 +109,28 @@ func TestParsePlannerOutput_NoJSON(t *testing.T) {
 	}
 }
 
+func TestMentionedAgents_SubsetAndConstraint(t *testing.T) {
+	agents := plannerAgents()
+	// Only Claude Code is @-mentioned → subset of one, in input order.
+	got := mentionedAgents("做个待办: 写前端,@Claude Code 写后端", agents)
+	if len(got) != 1 || got[0].ID != "claude-code" {
+		t.Fatalf("expected only claude-code mentioned, got %+v", got)
+	}
+	// No '@' at all → nil so the caller plans over all room agents.
+	if got := mentionedAgents("帮我做个待办工具", agents); got != nil {
+		t.Errorf("expected nil for no mention, got %+v", got)
+	}
+	// Both mentioned → both, order preserved.
+	both := mentionedAgents("@Claude Code 写前端，@Codex 写后端", agents)
+	if len(both) != 2 || both[0].ID != "claude-code" || both[1].ID != "codex" {
+		t.Fatalf("expected both agents in order, got %+v", both)
+	}
+	c := buildMentionConstraint(both)
+	if !strings.Contains(c, "id=claude-code") || !strings.Contains(c, "id=codex") || !strings.Contains(c, "并行") {
+		t.Errorf("constraint missing mentioned ids / parallel hint: %q", c)
+	}
+}
+
 func TestLLMPlanner_NilModelFallsBack(t *testing.T) {
 	p := newLLMPlanner(nil, orch.NewRulePlanner(), nil)
 	plan, err := p.Plan(context.Background(), orch.PlanInput{

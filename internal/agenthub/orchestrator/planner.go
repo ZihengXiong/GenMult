@@ -19,7 +19,10 @@ type RulePlanner struct {
 }
 
 func NewRulePlanner() *RulePlanner {
-	return &RulePlanner{DefaultTimeout: 90 * time.Second, DefaultMaxRetries: 0}
+	// 10min/1-retry mirrors the LLM planner (llm_planner.go parsePlannerOutput):
+	// a real agent "写前端/写后端" cannot finish in 90s, and a single retry rides
+	// out transient model timeouts without cascading the whole run to failure.
+	return &RulePlanner{DefaultTimeout: 10 * time.Minute, DefaultMaxRetries: 1}
 }
 
 func (p *RulePlanner) Plan(_ context.Context, input PlanInput) (Plan, error) {
@@ -144,6 +147,10 @@ func (*RulePlanner) directMentionPlan(objective string, agents []AgentDescriptor
 		if len(mentioned) > 1 {
 			title = fmt.Sprintf("%s 执行分配任务", name)
 		}
+		// Mentioned agents run independently in parallel: "你写前端, cc 写后端" are
+		// separate jobs, so one agent failing/timing out must not block the others.
+		// (No DependsOn chain — that previously cascaded a single timeout into a
+		// whole-run failure.)
 		draft := TaskDraft{
 			ClientKey:       fmt.Sprintf("direct-%d", i+1),
 			Title:           title,
@@ -154,9 +161,6 @@ func (*RulePlanner) directMentionPlan(objective string, agents []AgentDescriptor
 			Timeout:         timeout,
 			MaxRetries:      maxRetries,
 			Metadata:        map[string]any{"phase": "direct"},
-		}
-		if i > 0 {
-			draft.DependsOn = []string{fmt.Sprintf("direct-%d", i)}
 		}
 		drafts = append(drafts, draft)
 	}

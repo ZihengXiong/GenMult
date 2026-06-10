@@ -71,11 +71,11 @@ func TestRulePlannerSingleAgentBuildsDirectTask(t *testing.T) {
 	if task.Description != "用一句话说明测试是否真实执行" {
 		t.Fatalf("direct task should preserve objective, got %q", task.Description)
 	}
-	if task.Timeout != 90*time.Second {
-		t.Fatalf("default direct task timeout = %s, want 90s", task.Timeout)
+	if task.Timeout != 10*time.Minute {
+		t.Fatalf("default direct task timeout = %s, want 10m", task.Timeout)
 	}
-	if task.MaxRetries != 0 {
-		t.Fatalf("default direct task max retries = %d, want 0", task.MaxRetries)
+	if task.MaxRetries != 1 {
+		t.Fatalf("default direct task max retries = %d, want 1", task.MaxRetries)
 	}
 }
 
@@ -102,11 +102,12 @@ func TestRulePlannerMentionedAgentsBuildDirectTasks(t *testing.T) {
 			t.Fatalf("task %d provider = %q, want %q; tasks=%#v", i, plan.Tasks[i].ProviderName, want, plan.Tasks)
 		}
 	}
-	if len(plan.Tasks[1].DependsOn) != 1 || plan.Tasks[1].DependsOn[0] != "direct-1" {
-		t.Fatalf("second task should depend on first: %#v", plan.Tasks[1])
-	}
-	if len(plan.Tasks[2].DependsOn) != 1 || plan.Tasks[2].DependsOn[0] != "direct-2" {
-		t.Fatalf("third task should depend on second: %#v", plan.Tasks[2])
+	// Mentioned agents run independently in parallel — no dependency chain — so a
+	// single agent failing/timing out can't cascade into a whole-run failure.
+	for i, task := range plan.Tasks {
+		if len(task.DependsOn) != 0 {
+			t.Fatalf("task %d should have no dependencies (parallel), got %#v", i, task.DependsOn)
+		}
 	}
 }
 

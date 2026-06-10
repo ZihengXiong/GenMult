@@ -425,21 +425,27 @@ type memohRunnerAdapter struct {
 	resolver *flow.Resolver
 }
 
-// RunTurn runs one memoh bot turn via resolver.Chat and returns the final
-// assistant text. It only *calls* the chat subsystem (read-only reuse); it does
-// not modify chat behaviour. The per-run SessionID keeps orchestrator output out
-// of the user's direct chat session.
+// RunTurn runs one memoh bot turn and returns the final assistant text. It only
+// *calls* the chat subsystem (read-only reuse); it does not modify chat
+// behaviour. The per-run SessionID keeps orchestrator output out of the user's
+// direct chat session. When in.OnEvent is set it drives resolver.StreamChat and
+// forwards intermediate thinking / tool-call signals; otherwise it uses the
+// non-streaming resolver.Chat.
 func (a *memohRunnerAdapter) RunTurn(ctx context.Context, in agenthubproviders.RunTurnInput) (agenthubproviders.RunTurnResult, error) {
 	if a == nil || a.resolver == nil {
 		return agenthubproviders.RunTurnResult{}, agenthubproviders.ErrMemohRunnerMissing
 	}
-	resp, err := a.resolver.Chat(ctx, conversation.ChatRequest{
+	req := conversation.ChatRequest{
 		BotID:     in.BotID,
 		ChatID:    in.BotID,
 		SessionID: in.SessionID,
 		UserID:    in.UserID,
 		Query:     in.Prompt,
-	})
+	}
+	if in.OnEvent != nil {
+		return a.streamTurn(ctx, req, in.OnEvent)
+	}
+	resp, err := a.resolver.Chat(ctx, req)
 	if err != nil {
 		return agenthubproviders.RunTurnResult{}, err
 	}
@@ -456,6 +462,61 @@ func (a *memohRunnerAdapter) RunTurn(ctx context.Context, in agenthubproviders.R
 		}
 	}
 	return agenthubproviders.RunTurnResult{Text: strings.TrimSpace(b.String())}, nil
+}
+
+// streamTurn consumes resolver.StreamChat and folds the agent's stream events
+// into (a) live progress signals (thinking snapshots + tool-call names) sent via
+// onEvent, and (b) the accumulated final assistant text returned to the caller.
+// Progress is coalesced (emitted on reasoning/tool boundaries and once the
+// snapshot grows past a small threshold) so the orchestrator never writes a run
+// event per token.
+func (a *memohRunnerAdapter) streamTurn(
+	ctx context.Context,
+	req conversation.ChatRequest,
+	onEvent func(agenthubproviders.MemohStreamEvent),
+) (agenthubproviders.RunTurnResult, error) {
+	chunkCh, errCh := a.resolver.StreamChat(ctx, req)
+
+	var textB, reasoningB strings.Builder
+	lastEmit := 0
+	emitProgress := func(force bool) {
+		// Prefer reasoning as the "thinking" snapshot; fall back to the forming
+		// answer so non-reasoning models still show live "doing work" output.
+		snap := strings.TrimSpace(reasoningB.String())
+		if snap == "" {
+			snap = strings.TrimSpace(textB.String())
+		}
+		if snap == "" || (!force && len(snap)-lastEmit < 80) {
+			return
+		}
+		lastEmit = len(snap)
+		onEvent(agenthubproviders.MemohStreamEvent{Kind: "thinking", Content: snap})
+	}
+
+	for chunk := range chunkCh {
+		var ev agentpkg.StreamEvent
+		if err := json.Unmarshal(chunk, &ev); err != nil {
+			continue
+		}
+		switch ev.Type {
+		case agentpkg.EventReasoningDelta:
+			reasoningB.WriteString(ev.Delta)
+			emitProgress(false)
+		case agentpkg.EventReasoningEnd:
+			emitProgress(true)
+		case agentpkg.EventTextDelta:
+			textB.WriteString(ev.Delta)
+			emitProgress(false)
+		case agentpkg.EventToolCallStart:
+			if name := strings.TrimSpace(ev.ToolName); name != "" {
+				onEvent(agenthubproviders.MemohStreamEvent{Kind: "tool", Content: name})
+			}
+		}
+	}
+	if err := <-errCh; err != nil {
+		return agenthubproviders.RunTurnResult{}, err
+	}
+	return agenthubproviders.RunTurnResult{Text: strings.TrimSpace(textB.String())}, nil
 }
 
 // provideMemohRunner exposes the chat resolver to the AgentHub orchestrator as a

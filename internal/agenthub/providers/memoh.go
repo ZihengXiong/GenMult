@@ -34,6 +34,18 @@ type RunTurnInput struct {
 	UserID    string // owner user id, for model-credential / settings resolution
 	SessionID string // isolates orchestrator output from the user's direct chat
 	Prompt    string // the task prompt (already includes room history context)
+	// OnEvent, when non-nil, receives intermediate stream events (thinking /
+	// tool calls) as the turn runs, so the orchestrator can surface live
+	// progress instead of going silent until the final text. nil keeps the
+	// legacy non-streaming behaviour (only the final RunTurnResult.Text).
+	OnEvent func(MemohStreamEvent)
+}
+
+// MemohStreamEvent is one intermediate signal from a streaming memoh turn.
+type MemohStreamEvent struct {
+	// Kind is "thinking" (cumulative reasoning text) or "tool" (a tool name).
+	Kind    string
+	Content string
 }
 
 // RunTurnResult carries the final assistant text of a memoh turn.
@@ -101,11 +113,38 @@ func (p *MemohProvider) Execute(ctx context.Context, req orchestrator.ExecuteTas
 		slog.String("bot_id", botID),
 	)
 
+	// Surface intermediate thinking / tool-call signals as run events while the
+	// turn runs, so the room shows live progress (the frontend's live bubbles
+	// consume agent_output[raw_type=thinking] and agent_tool_call) instead of
+	// staying silent until the final text lands.
+	onEvent := func(ev MemohStreamEvent) {
+		eventType := orchestrator.EventAgentOutput
+		rawType := ev.Kind
+		if ev.Kind == "tool" {
+			eventType = orchestrator.EventAgentToolCall
+		}
+		content := strings.TrimSpace(ev.Content)
+		if content == "" {
+			return
+		}
+		if _, err := p.store.AppendEvent(ctx, orchestrator.RunEvent{
+			ID:        uuid.NewString(),
+			RunID:     req.Run.ID,
+			TaskID:    req.Task.ID,
+			Type:      eventType,
+			Payload:   map[string]any{"content": content, "raw_type": rawType},
+			CreatedAt: time.Now().UTC(),
+		}); err != nil {
+			p.logger.Warn("failed to append memoh live event", slog.String("error", err.Error()))
+		}
+	}
+
 	result, err := p.runner.RunTurn(ctx, RunTurnInput{
 		BotID:     botID,
 		UserID:    strings.TrimSpace(req.Run.CreatedBy),
 		SessionID: sessionID,
 		Prompt:    prompt,
+		OnEvent:   onEvent,
 	})
 	if err != nil {
 		p.logger.Error("memoh execution failed",
