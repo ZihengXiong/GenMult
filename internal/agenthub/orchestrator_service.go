@@ -2,6 +2,7 @@ package agenthub
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"log/slog"
 	"strconv"
@@ -20,6 +21,7 @@ import (
 	dbstore "github.com/ZihengXiong/GenMult/internal/db/store"
 	"github.com/ZihengXiong/GenMult/internal/models"
 	globalproviders "github.com/ZihengXiong/GenMult/internal/providers"
+	"github.com/ZihengXiong/GenMult/internal/settings"
 	"github.com/ZihengXiong/GenMult/internal/workspace"
 )
 
@@ -67,6 +69,7 @@ func NewOrchestratorService(
 	memohRunner providers.MemohRunner,
 	botService *bots.Service,
 	queries dbstore.Queries,
+	settingsService *settings.Service,
 ) (*OrchestratorService, error) {
 	if log == nil {
 		log = slog.Default()
@@ -97,21 +100,35 @@ func NewOrchestratorService(
 	var provCfg providers.ProviderConfigs
 	provCfg.FromEnvWithDefaults()
 
-	// Reuse the same DB credential source as single-chat (the 通用设置
-	// DeepSeek/Anthropic-compatible provider) so claudecode tasks don't require
-	// ANTHROPIC_API_KEY in the environment.
-	claudeCredResolver := func(ctx context.Context) (apiKey, baseURL string) {
-		if queries == nil {
-			return "", ""
+	// Resolve each claudecode task's config the same way single-chat does: overlay
+	// the assigned bot's provider_ext.claudecode (api_key/auth_token/base_url AND
+	// model), falling back to the 通用设置 anthropic provider. Carrying the bot's
+	// model is what makes Claude Code actually produce output against DeepSeek.
+	claudeBotConfigResolver := func(ctx context.Context, agentID string) providers.ClaudeCodeConfig {
+		var out providers.ClaudeCodeConfig
+		botID := strings.TrimPrefix(strings.TrimSpace(agentID), "bot:")
+		if settingsService != nil && botID != "" {
+			if st, err := settingsService.GetBot(ctx, botID); err == nil {
+				if ext, ok := st.ProviderExt["claudecode"]; ok {
+					if b, mErr := json.Marshal(ext); mErr == nil {
+						_ = json.Unmarshal(b, &out)
+					}
+				}
+			}
 		}
-		creds, err := globalproviders.ResolveCredentialsForFramework(ctx, queries, "claudecode")
-		if err != nil {
-			return "", ""
+		// Fallback: 通用设置 anthropic provider credentials (no model).
+		if out.APIKey == "" && out.AuthToken == "" && queries != nil {
+			if creds, err := globalproviders.ResolveCredentialsForFramework(ctx, queries, "claudecode"); err == nil {
+				out.APIKey = creds.APIKey
+				if out.BaseURL == "" {
+					out.BaseURL = creds.BaseURL
+				}
+			}
 		}
-		return creds.APIKey, creds.BaseURL
+		return out
 	}
 
-	claudeProvider := providers.NewClaudeCodeProvider(provCfg.ClaudeCode, resolver, store, nil, claudeCredResolver, log)
+	claudeProvider := providers.NewClaudeCodeProvider(provCfg.ClaudeCode, resolver, store, nil, claudeBotConfigResolver, log)
 	codexProvider := providers.NewCodexProvider(provCfg.Codex, resolver, store, nil, log)
 	memohProvider := providers.NewMemohProvider(memohRunner, store, log)
 

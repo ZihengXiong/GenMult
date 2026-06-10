@@ -51,28 +51,31 @@ type ClaudeCodeProvider struct {
 	wsInfo   WorkspaceResolver
 	store    orchestrator.Store
 	executor CommandExecutor
-	// resolveCreds optionally resolves {apiKey, baseURL} at execute time from the
-	// configured provider store (the "通用设置" DeepSeek/Anthropic provider), so the
-	// orchestrator reuses the same credential source as single-chat instead of
-	// requiring ANTHROPIC_API_KEY in the environment. May be nil. Mirrors
-	// botruntime/cli.go's resolveCreds callback.
-	resolveCreds func(ctx context.Context) (apiKey, baseURL string)
-	logger       *slog.Logger
+	// resolveBotConfig optionally resolves the assigned bot's claudecode config
+	// overlay (api_key/auth_token/base_url/model from its provider_ext, with a
+	// global-provider credential fallback) at execute time, keyed by the task's
+	// assigned agent id. This mirrors single-chat's mergeClaudeCodeConfig so the
+	// orchestrator runs Claude Code against the SAME credentials AND model
+	// (e.g. a DeepSeek model) the bot uses in 1:1 chat — without it the CLI
+	// defaults to a Claude model the DeepSeek endpoint won't serve, yielding
+	// empty (system-only) output. May be nil.
+	resolveBotConfig func(ctx context.Context, agentID string) ClaudeCodeConfig
+	logger           *slog.Logger
 }
 
-// NewClaudeCodeProvider creates a new ClaudeCodeProvider. resolveCreds may be nil
-// (then only the static config / env credentials are used).
-func NewClaudeCodeProvider(config ClaudeCodeConfig, wsInfo WorkspaceResolver, store orchestrator.Store, executor CommandExecutor, resolveCreds func(ctx context.Context) (apiKey, baseURL string), logger *slog.Logger) *ClaudeCodeProvider {
+// NewClaudeCodeProvider creates a new ClaudeCodeProvider. resolveBotConfig may be
+// nil (then only the static config / env credentials are used).
+func NewClaudeCodeProvider(config ClaudeCodeConfig, wsInfo WorkspaceResolver, store orchestrator.Store, executor CommandExecutor, resolveBotConfig func(ctx context.Context, agentID string) ClaudeCodeConfig, logger *slog.Logger) *ClaudeCodeProvider {
 	if logger == nil {
 		logger = slog.Default()
 	}
 	return &ClaudeCodeProvider{
-		config:       config,
-		wsInfo:       wsInfo,
-		store:        store,
-		executor:     executor,
-		resolveCreds: resolveCreds,
-		logger:       logger.With(slog.String("component", "claude_code_provider")),
+		config:           config,
+		wsInfo:           wsInfo,
+		store:            store,
+		executor:         executor,
+		resolveBotConfig: resolveBotConfig,
+		logger:           logger.With(slog.String("component", "claude_code_provider")),
 	}
 }
 
@@ -88,23 +91,33 @@ func (*ClaudeCodeProvider) Capabilities() []string {
 
 // Execute starts the Claude Code subprocess to fulfill a task.
 func (p *ClaudeCodeProvider) Execute(ctx context.Context, req orchestrator.ExecuteTaskRequest) (orchestrator.ExecuteTaskResult, error) {
-	// Resolve credentials the same way single-chat does: prefer the static config,
-	// then fall back to the configured provider store (DeepSeek/Anthropic-compatible
-	// base_url + key set in 通用设置). Only fill what the local config left empty.
+	// Resolve config the same way single-chat does (mergeClaudeCodeConfig): start
+	// from the static config, then overlay the assigned bot's claudecode settings
+	// (api_key/auth_token/base_url/model from its provider_ext, with a global
+	// provider fallback). Crucially this carries the bot's MODEL (e.g. a DeepSeek
+	// model) so the CLI doesn't default to a Claude model the endpoint can't serve.
 	cfg := p.config
-	if p.resolveCreds != nil {
-		if apiKey, baseURL := p.resolveCreds(ctx); apiKey != "" || baseURL != "" {
-			if apiKey != "" && cfg.APIKey == "" && cfg.AuthToken == "" {
-				cfg.APIKey = apiKey
-			}
-			if baseURL != "" && cfg.BaseURL == "" {
-				cfg.BaseURL = baseURL
-			}
+	if p.resolveBotConfig != nil {
+		ov := p.resolveBotConfig(ctx, req.Task.AssignedAgentID)
+		if cfg.APIKey == "" {
+			cfg.APIKey = ov.APIKey
+		}
+		if cfg.AuthToken == "" {
+			cfg.AuthToken = ov.AuthToken
+		}
+		if cfg.BaseURL == "" {
+			cfg.BaseURL = ov.BaseURL
+		}
+		if cfg.Model == "" {
+			cfg.Model = ov.Model
+		}
+		if cfg.PermissionMode == "" {
+			cfg.PermissionMode = ov.PermissionMode
 		}
 	}
 	// A Bearer AuthToken (third-party) is as valid as an x-api-key, so accept either.
 	if cfg.APIKey == "" && cfg.AuthToken == "" {
-		return orchestrator.ExecuteTaskResult{Retryable: false}, fmt.Errorf("%w: 请在通用设置中配置 Anthropic/DeepSeek 兼容 provider（base_url + token），或设置 ANTHROPIC_API_KEY / ANTHROPIC_AUTH_TOKEN", ErrAPIKeyMissing)
+		return orchestrator.ExecuteTaskResult{Retryable: false}, fmt.Errorf("%w: 请在该 Agent 的 Claude Code 设置或通用设置中配置 DeepSeek/Anthropic 兼容 provider（base_url + token + model）", ErrAPIKeyMissing)
 	}
 
 	workDir, err := p.wsInfo.ResolveWorkDir(ctx, req)
