@@ -494,9 +494,17 @@
               @pin="togglePinMessage"
             />
 
-            <!-- thinking indicator -->
+            <!-- live streaming draft of the in-progress reply (R5) -->
+            <TimelineEventItem
+              v-if="streamingEvent"
+              :key="streamingEvent.id"
+              :event="streamingEvent"
+              :agent="streamingAgent"
+            />
+
+            <!-- thinking indicator (only until the first streamed block arrives) -->
             <article
-              v-if="isAgentReplying"
+              v-if="isAgentReplying && !streamingEvent"
               class="flex gap-3 items-center text-sm text-muted-foreground animate-pulse"
             >
               <span class="flex size-8 shrink-0 items-center justify-center rounded-md border border-border bg-muted/50">
@@ -1349,6 +1357,13 @@ const hasMigratedRooms = ref(
 )
 const isMigratingRooms = ref(false)
 const isAgentReplying = ref(false)
+// Live streaming draft of the main agent's in-progress reply (R5). Updated on
+// each WS event so thinking / tool calls / text render incrementally instead of
+// only appearing once the turn ends. Cleared when the turn settles.
+const streamingReply = ref('')
+const streamingThinking = ref('')
+const streamingTools = ref<StoredTool[]>([])
+const streamingAgentId = ref('')
 const isStartingRun = ref(false)
 // Guards the whole sendRoomMessage flow (post user message → branch to run or
 // reply). Set synchronously before the first await so a double Enter/click can't
@@ -1802,6 +1817,28 @@ function eventAgent(event: TimelineEvent): AgentItem | undefined {
   if (!event.senderId) return undefined
   return agents.value.find((agent) => agent.id === event.senderId)
 }
+
+// streamingAgent / streamingEvent back the live in-progress reply bubble (R5).
+const streamingAgent = computed(() => agents.value.find(a => a.id === streamingAgentId.value))
+const streamingEvent = computed<TimelineEvent | null>(() => {
+  if (!isAgentReplying.value) return null
+  const agent = streamingAgent.value
+  const hasContent = streamingReply.value || streamingThinking.value || streamingTools.value.length > 0
+  if (!agent || !hasContent) return null
+  return {
+    id: '__streaming__',
+    time: '正在输入…',
+    kind: 'reply',
+    title: agent.name,
+    body: streamingReply.value,
+    thinking: streamingThinking.value || undefined,
+    tools: streamingTools.value.length > 0 ? streamingTools.value : undefined,
+    icon: agent.icon,
+    tone: agent.tone,
+    senderId: agent.id,
+    senderType: 'agent',
+  }
+})
 
 // startReply arms the composer's reply bar; the next send carries reply_to.
 function startReply(event: TimelineEvent) {
@@ -2907,8 +2944,16 @@ async function requestAgentReply(room: RoomItem, agent: AgentItem | undefined, p
   }
 
   isAgentReplying.value = true
+  streamingAgentId.value = agent.id
+  streamingReply.value = ''
+  streamingThinking.value = ''
+  streamingTools.value = []
   try {
-    const { reply, thinking, tools } = await collectMainAgentReply(agent, room, prompt, attachments)
+    const { reply, thinking, tools } = await collectMainAgentReply(agent, room, prompt, attachments, (p) => {
+      streamingReply.value = p.reply
+      streamingThinking.value = p.thinking
+      streamingTools.value = p.tools
+    })
     await createMessageMutation({
       roomId,
       payload: {
@@ -2944,10 +2989,14 @@ async function requestAgentReply(room: RoomItem, agent: AgentItem | undefined, p
   }
   finally {
     isAgentReplying.value = false
+    streamingAgentId.value = ''
+    streamingReply.value = ''
+    streamingThinking.value = ''
+    streamingTools.value = []
   }
 }
 
-async function collectMainAgentReply(agent: AgentItem, room: RoomItem, prompt: string, attachments?: ChatAttachment[]): Promise<{ reply: string; thinking: string; tools: StoredTool[] }> {
+async function collectMainAgentReply(agent: AgentItem, room: RoomItem, prompt: string, attachments?: ChatAttachment[], onProgress?: (p: { reply: string; thinking: string; tools: StoredTool[] }) => void): Promise<{ reply: string; thinking: string; tools: StoredTool[] }> {
   if (!agent.botId) throw new Error('主 Agent 没有关联的 bot')
 
   // Reuse this room+agent's existing session so the bot keeps multi-turn
@@ -2996,6 +3045,11 @@ async function collectMainAgentReply(agent: AgentItem, room: RoomItem, prompt: s
     ws = connectWebSocket(agent.botId!, (event: UIStreamEvent) => {
       if (event.type === 'message') {
         collectUIMessageBlocks(textById, reasoningById, toolsById, event.data)
+        onProgress?.({
+          reply: renderCollectedReply(textById),
+          thinking: renderCollectedReply(reasoningById),
+          tools: [...toolsById.values()].map(t => ({ name: t.name, input: t.input, output: t.output })),
+        })
         return
       }
       if (event.type === 'error') {
