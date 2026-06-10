@@ -20,11 +20,31 @@ The three final documents live in [`deliverables/`](deliverables/) as PDFs:
 | Technical Design | [`agenthub-technical-design.pdf`](deliverables/agenthub-technical-design.pdf) | Layered architecture, data model (full DDL), orchestration state machine & scheduling, two-tier Planner, unified adapter layer, credential chain, event projection, three core sequence flows, HTTP API, test gates |
 | AI Collaboration Record | [`agenthub-ai-collaboration.pdf`](deliverables/agenthub-ai-collaboration.pdf) | Human–AI turn-based model, Rules / Spec / Plan / Skill conventions, three deep collaboration cases, real session archive (19 sessions / 277 user turns / 2582 tool calls) |
 
+### Rubric navigation
+
+| Dimension | Weight | Where to verify |
+|---|---|---|
+| AI collaboration | 30% | [AI Collaboration Record](deliverables/agenthub-ai-collaboration.pdf) + git log (R1–R9 feature commits) |
+| Feature completeness | 25% | Run the demo below; feature matrix in the [Product Design](deliverables/agenthub-product-design.pdf) |
+| Output quality | 20% | Demo video + screenshots below |
+| Code understanding | 15% | [Technical Design](deliverables/agenthub-technical-design.pdf) (architecture / state machines / sequences) + `internal/agenthub/**` |
+| Innovation & product sense | 10% | Product doc: failure-mode mitigations, pinned long-term context, shared workspace, live process bubbles |
+
 ---
 
 ## 🎬 Demo video (3 minutes)
 
 Quark drive: **<https://pan.quark.cn/s/4e9ebc5c07b7>** ("启灵-agent")
+
+---
+
+## 🖼 Screenshots
+
+| Single chat: token streaming + thinking / tool trace | Group orchestration: task-plan card |
+|---|---|
+| ![Single-chat streaming](deliverables/screenshots/01-single-streaming.png) | ![Task plan](deliverables/screenshots/03-run-plan.png) |
+| **Live process bubble of a running task** | **Shared room workspace: in-browser terminal** |
+| ![Live bubble](deliverables/screenshots/04-run-live-bubble.png) | ![Workspace terminal](deliverables/screenshots/08-workspace-terminal.png) |
 
 ---
 

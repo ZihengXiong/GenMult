@@ -20,11 +20,31 @@ AgentHub 把「驱动一组 AI Agent 干活」做成像发微信一样自然的 
 | 技术文档 | [`agenthub-technical-design.pdf`](deliverables/agenthub-technical-design.pdf) | 分层架构、数据模型(完整 DDL)、编排状态机与调度、双层 Planner、统一适配器层、凭证解析链、事件投影、三条核心链路时序、HTTP API、测试门禁 |
 | AI 协作开发记录 | [`agenthub-ai-collaboration.pdf`](deliverables/agenthub-ai-collaboration.pdf) | 人–AI 回合制协作模型、Rules / Spec / Plan / Skill 规范、三个深度协作案例、真实会话档案(19 会话 / 277 用户回合 / 2582 工具调用) |
 
+### 评分维度对照
+
+| 考察维度 | 权重 | 在哪验证 |
+|---|---|---|
+| AI 协作能力 | 30% | [AI 协作开发记录](deliverables/agenthub-ai-collaboration.pdf) + git log(R1–R9 功能 commit) |
+| 功能完整度 | 25% | 按下方步骤运行 Demo;[产品设计文档](deliverables/agenthub-product-design.pdf) 功能矩阵 |
+| 生成效果质量 | 20% | Demo 视频 + 下方界面截图 |
+| 代码理解度 | 15% | [技术文档](deliverables/agenthub-technical-design.pdf)(架构 / 状态机 / 时序)+ `internal/agenthub/**` |
+| 创新与产品感 | 10% | 产品文档:失效模式应对、pin 长期上下文、共享工作区、实时过程气泡 |
+
 ---
 
 ## 🎬 Demo 视频(3 分钟)
 
 夸克网盘:**<https://pan.quark.cn/s/4e9ebc5c07b7>** (「启灵-agent」)
+
+---
+
+## 🖼 界面一览
+
+| 单聊:逐字流式 + 思考 / 工具过程 | 群聊编排:任务规划卡 |
+|---|---|
+| ![单聊流式](deliverables/screenshots/01-single-streaming.png) | ![任务规划](deliverables/screenshots/03-run-plan.png) |
+| **运行中任务的实时过程气泡** | **群共享工作区:浏览器终端** |
+| ![实时气泡](deliverables/screenshots/04-run-live-bubble.png) | ![浏览器终端](deliverables/screenshots/08-workspace-terminal.png) |
 
 ---
 
