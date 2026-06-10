@@ -35,3 +35,38 @@ func TestPromptWithContext(t *testing.T) {
 		t.Errorf("blank history should be ignored: got %q", got)
 	}
 }
+
+func TestPromptWithContext_InjectsUpstreamOutput(t *testing.T) {
+	// A dependent task (转述) must receive the upstream agent's produced answer,
+	// since the room_history snapshot predates the upstream's reply in this run.
+	req := orchestrator.ExecuteTaskRequest{
+		Task: orchestrator.Task{Description: "转述 qiling 的自我介绍"},
+		Upstream: []orchestrator.TaskAttempt{
+			{
+				AgentID:       "bot:qiling",
+				OutputPayload: map[string]any{"raw_output": "我是 Astra ✦，你的数字搭档"},
+			},
+			// no usable output → skipped
+			{AgentID: "bot:empty", OutputPayload: map[string]any{"raw_output": "  "}},
+		},
+	}
+	got := PromptWithContext(req)
+	if !strings.Contains(got, "我是 Astra ✦") || !strings.Contains(got, "bot:qiling") {
+		t.Errorf("upstream output not injected: %q", got)
+	}
+	if !strings.Contains(got, "转述 qiling 的自我介绍") {
+		t.Errorf("current task missing: %q", got)
+	}
+	if strings.Contains(got, "bot:empty") {
+		t.Errorf("empty upstream output should be skipped: %q", got)
+	}
+
+	// summary fallback when raw_output absent
+	sumReq := orchestrator.ExecuteTaskRequest{
+		Task:     orchestrator.Task{Description: "do"},
+		Upstream: []orchestrator.TaskAttempt{{ProviderName: "memoh", OutputPayload: map[string]any{"summary": "做完了登录"}}},
+	}
+	if got := PromptWithContext(sumReq); !strings.Contains(got, "做完了登录") {
+		t.Errorf("summary fallback not used: %q", got)
+	}
+}

@@ -331,5 +331,7 @@ func buildMentionConstraint(mentioned []orch.AgentDescriptor) string {
 	}
 	return "\n\n约束：用户已用 @ 显式点名以下 Agent，只能把任务分配给他们（agent_id 必须取自此列表）：" +
 		strings.Join(names, "、") +
-		"。为每个被点名的 Agent 写一条独立、可单独执行的子任务指令；若各自工作互不依赖（如分别负责前端/后端），则不要相互依赖，让它们并行。"
+		"。为每个被点名的 Agent 写清晰的子任务指令。依赖关系按语义判断：" +
+		"如果某个 Agent 的任务需要用到另一个 Agent 的产出（例如转述、基于、汇总、审阅其回答/代码），" +
+		"必须用 depends_on 表达这种依赖，以保证下游能拿到上游的输出；只有彼此真正独立时（如分别写前端/后端）才不加依赖、让它们并行。"
 }
