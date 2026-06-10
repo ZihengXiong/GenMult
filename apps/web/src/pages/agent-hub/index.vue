@@ -496,6 +496,14 @@
               @pin="togglePinMessage"
             />
 
+            <!-- live process bubbles for running orchestration tasks (R9) -->
+            <TimelineEventItem
+              v-for="live in liveRunEvents"
+              :key="live.event.id"
+              :event="live.event"
+              :agent="live.agent"
+            />
+
             <!-- live streaming draft of the in-progress reply (R5) -->
             <TimelineEventItem
               v-if="streamingEvent"
@@ -1858,12 +1866,89 @@ let runPollingTimer: number | undefined
 let runPollingKey = ''
 const completedPolledRunIds = new Set<string>()
 
+// ---- R9: live group-run process bubbles ---------------------------------
+// The projector (orchestrator_projector.go) only turns user-visible *text* into
+// room messages; thinking / tool-call events are intentionally dropped. During a
+// long task that leaves the room silent for tens of seconds. We poll the raw
+// event stream alongside the run reconcile and surface the dropped process
+// signal as a transient "live" bubble per running task — cleared the moment the
+// task leaves `running` (its final text message has surfaced by then).
+interface RunLiveDraft {
+  taskId: string
+  agentId: string
+  taskTitle: string
+  thinking: string
+  tools: StoredTool[]
+}
+// ref<Map> so .set/.delete are reactive (Vue 3 tracks Map mutations).
+const runLiveDrafts = ref<Map<string, RunLiveDraft>>(new Map())
+let runEventSeq = 0
+
+function resetRunLiveDrafts() {
+  runEventSeq = 0
+  if (runLiveDrafts.value.size > 0) runLiveDrafts.value.clear()
+}
+
+// pumpRunLiveEvents folds new raw events into per-task live drafts. text/result
+// blocks are skipped on purpose — the projector already posts those as real
+// messages, so echoing them here would double-render mid-run.
+async function pumpRunLiveEvents(runId: string, snapshot: AgentHubRunSnapshot) {
+  const runningTasks = new Map(
+    snapshot.tasks.filter((task) => task.status === 'running').map((task) => [task.id, task]),
+  )
+  // No task running → nothing to show; drop any stale drafts and skip the fetch.
+  if (runningTasks.size === 0) {
+    if (runLiveDrafts.value.size > 0) runLiveDrafts.value.clear()
+    return
+  }
+  const events = await listAgentHubRunEvents(runId, runEventSeq)
+  for (const event of events) {
+    if (event.seq > runEventSeq) runEventSeq = event.seq
+    const taskId = event.task_id
+    if (!taskId || !runningTasks.has(taskId)) continue
+    const rawType = (event.payload?.raw_type ?? '').toLowerCase().trim()
+    const content = (event.payload?.content ?? '').trim()
+    if (!content) continue
+    if (event.type === 'agent_output' && rawType === 'thinking') {
+      ensureRunDraft(taskId, runningTasks.get(taskId)).thinking = content
+    }
+    else if (event.type === 'agent_tool_call') {
+      const draft = ensureRunDraft(taskId, runningTasks.get(taskId))
+      for (const name of content.split(',').map((n) => n.trim()).filter(Boolean)) {
+        if (draft.tools[draft.tools.length - 1]?.name === name) continue // skip repeats
+        draft.tools.push({ name, input: undefined })
+      }
+      if (draft.tools.length > 12) draft.tools.splice(0, draft.tools.length - 12)
+    }
+  }
+  // Prune drafts whose task is no longer running.
+  for (const id of [...runLiveDrafts.value.keys()]) {
+    if (!runningTasks.has(id)) runLiveDrafts.value.delete(id)
+  }
+}
+
+function ensureRunDraft(taskId: string, task?: AgentHubRunSnapshot['tasks'][number]): RunLiveDraft {
+  let draft = runLiveDrafts.value.get(taskId)
+  if (!draft) {
+    draft = {
+      taskId,
+      agentId: task?.assigned_agent_id ?? '',
+      taskTitle: task?.title ?? '',
+      thinking: '',
+      tools: [],
+    }
+    runLiveDrafts.value.set(taskId, draft)
+  }
+  return draft
+}
+
 function stopAgentHubRunPolling(runId = '') {
   if (runPollingTimer !== undefined) {
     window.clearInterval(runPollingTimer)
     runPollingTimer = undefined
   }
   runPollingKey = ''
+  resetRunLiveDrafts()
   if (!runId || activeRunPollingId.value === runId) {
     activeRunPollingId.value = ''
   }
@@ -1875,6 +1960,7 @@ function startAgentHubRunPolling(roomId: string, runId: string) {
 
   stopAgentHubRunPolling()
   completedPolledRunIds.delete(runId)
+  resetRunLiveDrafts()
   runPollingKey = key
   activeRunPollingId.value = runId
 
@@ -1883,6 +1969,10 @@ function startAgentHubRunPolling(roomId: string, runId: string) {
       const snapshot = await reconcileAgentHubRun(runId)
       queryCache.invalidateQueries({ key: ['agent-hub', 'runs', 'latest', roomId] })
       queryCache.invalidateQueries({ key: ['agent-hub', 'messages', roomId] })
+      // R9: surface dropped process events (thinking/tools) as live bubbles.
+      await pumpRunLiveEvents(runId, snapshot).catch((error) => {
+        console.error('Failed to pump AgentHub run events:', error)
+      })
       if (isRunTerminal(snapshot.run.status)) {
         completedPolledRunIds.add(runId)
         stopAgentHubRunPolling(runId)
@@ -2026,6 +2116,35 @@ const streamingEvent = computed<TimelineEvent | null>(() => {
     senderId: agent.id,
     senderType: 'agent',
   }
+})
+
+// liveRunEvents renders one transient bubble per still-running orchestration task
+// (R9), carrying the process signal the projector drops (thinking + tool calls).
+// Returned as { event, agent } pairs to feed TimelineEventItem like streamingEvent.
+const liveRunEvents = computed<Array<{ event: TimelineEvent, agent?: AgentItem }>>(() => {
+  const out: Array<{ event: TimelineEvent, agent?: AgentItem }> = []
+  for (const draft of runLiveDrafts.value.values()) {
+    if (!draft.thinking && draft.tools.length === 0) continue // no process signal yet
+    const agent = agents.value.find((item) => item.id === draft.agentId)
+    const name = agent?.name ?? resolveTaskAgentName(draft.agentId)
+    out.push({
+      agent,
+      event: {
+        id: `__run_live__${draft.taskId}`,
+        time: '正在执行…',
+        kind: 'reply',
+        title: draft.taskTitle ? `${name} · ${draft.taskTitle}` : name,
+        body: '',
+        thinking: draft.thinking || undefined,
+        tools: draft.tools.length > 0 ? draft.tools : undefined,
+        icon: agent?.icon ?? Bot,
+        tone: agent?.tone ?? 'border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-300',
+        senderId: draft.agentId,
+        senderType: 'agent',
+      },
+    })
+  }
+  return out
 })
 
 // startReply arms the composer's reply bar; the next send carries reply_to.
@@ -2375,6 +2494,33 @@ async function reconcileAgentHubRun(runId: string): Promise<AgentHubRunSnapshot>
     throwOnError: true,
   })
   return data
+}
+
+// A raw orchestrator run event (see internal/agenthub/orchestrator.RunEvent).
+// payload carries the provider's CLI signal as { content, raw_type } (set by
+// providers.ClaudeCodeProvider.Execute onEvent).
+interface AgentHubRunEvent {
+  id: string
+  run_id: string
+  task_id?: string
+  seq: number
+  type: string
+  payload?: { content?: string, raw_type?: string }
+  created_at: string
+}
+
+// listAgentHubRunEvents pulls the run's raw event stream incrementally (R9). The
+// projector turns only user-visible text into room messages; this lets the room
+// surface the *process* signal (thinking / tool activity) live while a task runs.
+async function listAgentHubRunEvents(runId: string, afterSeq: number): Promise<AgentHubRunEvent[]> {
+  const { data } = await client.request<{ 200: AgentHubRunEvent[] }, unknown, true>({
+    method: 'GET',
+    url: '/agent-hub/runs/{run_id}/events',
+    path: { run_id: runId },
+    query: { after_seq: afterSeq, limit: 500 },
+    throwOnError: true,
+  })
+  return data ?? []
 }
 
 async function createAgentHubRoom(room: RoomItem): Promise<AgentHubRoom> {
