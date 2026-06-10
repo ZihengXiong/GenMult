@@ -122,7 +122,8 @@ func NewOrchestratorService(
 		orch.NoopProvider{},
 	)
 
-	orchestrator := orch.NewService(store, buildPlanner(provCfg.ClaudeCode, log), registry, log, orch.Config{
+	plannerModel := resolvePlannerModel(context.Background(), queries, log)
+	orchestrator := orch.NewService(store, buildPlanner(plannerModel, log), registry, log, orch.Config{
 		MaxParallelPerRun:   3,
 		MaxParallelPerAgent: 1,
 		DispatchAsync:       true,
@@ -377,38 +378,75 @@ func joinContextBlocks(blocks ...string) string {
 	return strings.Join(parts, "\n\n")
 }
 
-func buildPlanner(cfg providers.ClaudeCodeConfig, log *slog.Logger) orch.Planner {
+func buildPlanner(model *sdk.Model, log *slog.Logger) orch.Planner {
 	if log == nil {
 		log = slog.Default()
 	}
 	rule := orch.NewRulePlanner()
-	model := buildPlannerModel(cfg)
 	if model == nil {
-		log.Info("agenthub planner: using rule planner (no Anthropic credentials configured for LLM planning)")
+		log.Info("agenthub planner: using rule planner (no enabled chat model configured for LLM planning)")
 		return rule
 	}
 	log.Info("agenthub planner: using LLM planner with rule-planner fallback")
 	return newLLMPlanner(model, rule, log)
 }
 
-func buildPlannerModel(cfg providers.ClaudeCodeConfig) *sdk.Model {
-	key := strings.TrimSpace(cfg.APIKey)
-	if key == "" {
-		key = strings.TrimSpace(cfg.AuthToken)
-	}
-	if key == "" {
+// resolvePlannerModel builds the LLM planner's model from the user's first
+// enabled chat model and its provider — the same proven path the chat/ds runtime
+// uses (e.g. DeepSeek via openai-completions), instead of a hard-coded
+// anthropic-messages client. Returns nil (→ rule planner) when no chat model is
+// configured or credentials can't be resolved.
+func resolvePlannerModel(ctx context.Context, queries dbstore.Queries, log *slog.Logger) *sdk.Model {
+	if queries == nil {
 		return nil
 	}
-	modelID := strings.TrimSpace(cfg.Model)
-	if modelID == "" {
-		modelID = "claude-3-5-sonnet-latest"
+	modelsSvc := models.NewService(log, queries)
+	chatModels, err := modelsSvc.ListEnabledByType(ctx, models.ModelTypeChat)
+	if err != nil || len(chatModels) == 0 {
+		return nil
 	}
-	return models.NewSDKChatModel(models.SDKModelConfig{
-		ClientType: string(models.ClientTypeAnthropicMessages),
-		APIKey:     key,
-		BaseURL:    strings.TrimSpace(cfg.BaseURL),
-		ModelID:    modelID,
-	})
+	provSvc := globalproviders.NewService(log, queries, "")
+	// Prefer a plain chat-completions provider (e.g. DeepSeek openai-completions),
+	// then anthropic-messages. Skip openai-responses / codex, which 404 against a
+	// DeepSeek-compatible endpoint (the /responses API isn't supported there).
+	rank := map[string]int{
+		string(models.ClientTypeOpenAICompletions): 2,
+		string(models.ClientTypeAnthropicMessages): 1,
+	}
+	var best *sdk.Model
+	bestRank := 0
+	for _, cm := range chatModels {
+		provUUID, perr := db.ParseUUID(cm.ProviderID)
+		if perr != nil {
+			continue
+		}
+		provider, perr := queries.GetProviderByID(ctx, provUUID)
+		if perr != nil {
+			continue
+		}
+		r := rank[provider.ClientType]
+		if r <= bestRank {
+			continue
+		}
+		creds, cerr := provSvc.ResolveModelCredentials(ctx, provider)
+		if cerr != nil {
+			continue
+		}
+		best = models.NewSDKChatModel(models.SDKModelConfig{
+			ModelID:    cm.ModelID,
+			ClientType: provider.ClientType,
+			APIKey:     creds.APIKey,
+			BaseURL:    globalproviders.ProviderConfigString(provider, "base_url"),
+		})
+		bestRank = r
+		if r == 2 {
+			break
+		}
+	}
+	if best != nil {
+		log.Info("agenthub planner: resolved LLM model", slog.Int("provider_rank", bestRank))
+	}
+	return best
 }
 
 func (s *OrchestratorService) agentsFromRoom(ctx context.Context, room Room) []orch.AgentDescriptor {

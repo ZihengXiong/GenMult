@@ -50,6 +50,14 @@ func (p *llmPlanner) Plan(ctx context.Context, input orch.PlanInput) (orch.Plan,
 	if p.model == nil {
 		return p.fallback.Plan(ctx, input)
 	}
+	// When the user explicitly @-mentions specific agents, they've already chosen
+	// who does what — honor that deterministically via the rule planner's
+	// directMentionPlan rather than re-deciding with the LLM.
+	if hasExplicitAgentMention(objective, input.Agents) {
+		p.log.Info("llm planner: explicit @mention present, delegating to rule planner",
+			slog.String("room_id", input.RoomID))
+		return p.fallback.Plan(ctx, input)
+	}
 
 	cctx, cancel := context.WithTimeout(ctx, p.timeout)
 	defer cancel()
@@ -272,4 +280,24 @@ func hasDependencyCycle(drafts []orch.TaskDraft) bool {
 		}
 	}
 	return visited != len(indeg)
+}
+
+// hasExplicitAgentMention reports whether the objective @-mentions any of the
+// available agents by a recognizable alias (bare bot UUID, full id, display
+// name, or provider name). Mirrors the rule planner's mention detection so the
+// LLM planner can defer to directMentionPlan on explicit user dispatch.
+func hasExplicitAgentMention(objective string, agents []orch.AgentDescriptor) bool {
+	lower := strings.ToLower(objective)
+	if !strings.Contains(lower, "@") {
+		return false
+	}
+	for _, a := range agents {
+		for _, alias := range []string{strings.TrimPrefix(a.ID, "bot:"), a.ID, a.Name, a.ProviderName} {
+			alias = strings.ToLower(strings.TrimSpace(alias))
+			if alias != "" && strings.Contains(lower, "@"+alias) {
+				return true
+			}
+		}
+	}
+	return false
 }
