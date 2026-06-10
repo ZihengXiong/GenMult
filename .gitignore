@@ -112,3 +112,8 @@ _main-ref/
 .toolkit/
 .agents/
 /scripts/vendor
+
+# AgentHub orchestration scratch: when a CLI agent (cc/codex) runs with the repo
+# as its workdir, it writes project scratch (e.g. the LRU-cache demo from R9
+# verification) into the repo root. Keep that out of version control.
+/lru-cache/
