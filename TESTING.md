@@ -4,7 +4,7 @@
 **基线之后没有改动的目录不需要重复测试**；改动了哪些文件，就重跑对应套件
 （用 `scripts/test-changed.sh` 自动判断并执行）。
 
-<!-- last-verified-commit: 6016629a31a41e83815e795b3d860b0cbbb1d9d7 -->
+<!-- last-verified-commit: 90bb31a9c1ae3e7bdfbcc98fef431947eaf7fe51 -->
 
 ## 最近一次全量验证
 
