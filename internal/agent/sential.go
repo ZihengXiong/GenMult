@@ -25,6 +25,15 @@ const (
 	ToolLoopWarningKey              = "__memoh_tool_loop_warning"                                                                                                                                                                            //nolint:gosec // internal warning key, not a credential
 	ToolLoopWarningText             = "[MEMOH_TOOL_LOOP_WARNING] Repeated identical tool invocation (same tool + arguments) was detected more than 5 times. Stop looping this tool and either summarize current results or change strategy." //nolint:gosec // human-readable warning text, not a credential
 
+	// Cycle detection: beyond identical consecutive repeats, a stuck agent often
+	// alternates a short sequence of calls (Read A → Edit A → Read A → …) with no
+	// progress. A cycle of period 2..ToolLoopCycleMaxPeriod repeated
+	// ToolLoopCycleMinRepeats consecutive times triggers the same warn→abort
+	// flow as identical repeats (so an A/B livelock warns at 8 calls and aborts
+	// around 16 — comparable to the period-1 budget).
+	ToolLoopCycleMaxPeriod  = 3
+	ToolLoopCycleMinRepeats = 4
+
 	defaultNgramSize           = 10
 	defaultWindowSize          = 1000
 	defaultOverlapThreshold    = 0.75
@@ -323,11 +332,15 @@ type ToolLoopResult struct {
 	Hash        string
 	RepeatCount int
 	BreachCount int
+	// CyclePeriod is non-zero when the warn/abort was triggered by a short
+	// alternating cycle (e.g. 2 for A/B/A/B) rather than identical repeats.
+	CyclePeriod int
 	Warn        bool
 	Abort       bool
 }
 
-// ToolLoopGuard detects repeated identical tool calls.
+// ToolLoopGuard detects repeated identical tool calls and short alternating
+// call cycles (period 2..ToolLoopCycleMaxPeriod) with no progress.
 type ToolLoopGuard struct {
 	mu                  sync.Mutex
 	repeatThreshold     int
@@ -337,6 +350,8 @@ type ToolLoopGuard struct {
 	repeatCount         int
 	breachCount         int
 	breachHash          string
+	recentHashes        []string
+	cycleBreachCount    int
 }
 
 // NewToolLoopGuard creates a tool loop guard.
@@ -383,17 +398,39 @@ func (g *ToolLoopGuard) Inspect(input ToolLoopInput) ToolLoopResult {
 		g.breachCount = 0
 	}
 
+	g.recentHashes = append(g.recentHashes, hash)
+	if maxRecent := ToolLoopCycleMaxPeriod * ToolLoopCycleMinRepeats; len(g.recentHashes) > maxRecent {
+		g.recentHashes = g.recentHashes[len(g.recentHashes)-maxRecent:]
+	}
+
 	warn := false
 	abort := false
+	cyclePeriod := 0
 	if g.repeatCount > g.repeatThreshold {
 		if g.breachCount < g.warningsBeforeAbort {
 			g.breachCount++
 			warn = true
 			g.lastHash = ""
 			g.repeatCount = 0
+			g.recentHashes = g.recentHashes[:0]
 		} else {
 			g.breachCount++
 			abort = true
+		}
+	}
+	if !warn && !abort {
+		if p := g.detectCycle(); p > 0 {
+			cyclePeriod = p
+			if g.cycleBreachCount < g.warningsBeforeAbort {
+				g.cycleBreachCount++
+				warn = true
+				// Same grace semantics as identical repeats: clear the pattern
+				// history so the agent gets a fresh budget after the warning.
+				g.recentHashes = g.recentHashes[:0]
+			} else {
+				g.cycleBreachCount++
+				abort = true
+			}
 		}
 	}
 
@@ -401,9 +438,46 @@ func (g *ToolLoopGuard) Inspect(input ToolLoopInput) ToolLoopResult {
 		Hash:        hash,
 		RepeatCount: g.repeatCount,
 		BreachCount: g.breachCount,
+		CyclePeriod: cyclePeriod,
 		Warn:        warn,
 		Abort:       abort,
 	}
+}
+
+// detectCycle reports the period (2..ToolLoopCycleMaxPeriod) of a short call
+// cycle occupying the entire recent-hash tail — i.e. the same period-p sequence
+// repeated ToolLoopCycleMinRepeats times consecutively — or 0 when none.
+// Uniform blocks (all hashes equal) are excluded: those are period-1 identical
+// repeats, already handled (and budgeted) by repeatCount above.
+func (g *ToolLoopGuard) detectCycle() int {
+	for p := 2; p <= ToolLoopCycleMaxPeriod; p++ {
+		need := p * ToolLoopCycleMinRepeats
+		if len(g.recentHashes) < need {
+			continue
+		}
+		tail := g.recentHashes[len(g.recentHashes)-need:]
+		uniform := true
+		for i := 1; i < p; i++ {
+			if tail[i] != tail[0] {
+				uniform = false
+				break
+			}
+		}
+		if uniform {
+			continue
+		}
+		cyclic := true
+		for i := p; i < need; i++ {
+			if tail[i] != tail[i%p] {
+				cyclic = false
+				break
+			}
+		}
+		if cyclic {
+			return p
+		}
+	}
+	return 0
 }
 
 // Reset clears the guard state.
@@ -419,6 +493,8 @@ func (g *ToolLoopGuard) Reset() {
 	g.repeatCount = 0
 	g.breachCount = 0
 	g.breachHash = ""
+	g.recentHashes = nil
+	g.cycleBreachCount = 0
 }
 
 func normalizeKeyName(key string) string {
