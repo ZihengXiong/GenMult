@@ -260,6 +260,33 @@ func (s *Service) CancelRun(ctx context.Context, runID string) (RunSnapshot, err
 	return s.GetSnapshot(ctx, run.ID)
 }
 
+// Retry backoff bounds: a retryable failure (rate limit, transient provider
+// error, timeout) must not be redispatched the instant the task turns Ready —
+// the frontend reconcile-polls every 1.5s, which would hot-retry straight back
+// into the failure. Exponential per-attempt delay, anchored on the previous
+// attempt's FinishedAt (no schema change), released by a later reconcile pass.
+const (
+	retryBackoffBase = 5 * time.Second
+	retryBackoffMax  = 60 * time.Second
+)
+
+// retryBackoff returns how long a task must wait after its attemptCount-th
+// attempt finished before the next dispatch: 5s, 10s, 20s, … capped at 60s.
+func retryBackoff(attemptCount int) time.Duration {
+	if attemptCount <= 0 {
+		return 0
+	}
+	shift := attemptCount - 1
+	if shift > 8 { // 5s<<8 already exceeds the cap; avoid overflow
+		return retryBackoffMax
+	}
+	d := retryBackoffBase << shift
+	if d > retryBackoffMax {
+		return retryBackoffMax
+	}
+	return d
+}
+
 func (s *Service) dispatchReadyTasks(ctx context.Context, run Run) error {
 	tasks, err := s.store.ListTasks(ctx, run.ID)
 	if err != nil {
@@ -276,6 +303,28 @@ func (s *Service) dispatchReadyTasks(ctx context.Context, run Run) error {
 			runningTotal++
 			runningPerAgent[agentKey(task)]++
 		}
+	}
+
+	// Resolve each retrying task's last attempt-finish time, only when needed.
+	var lastFinished map[string]time.Time
+	for _, task := range ready {
+		if task.AttemptCount == 0 {
+			continue
+		}
+		attempts, err := s.store.ListAttempts(ctx, run.ID)
+		if err != nil {
+			return err
+		}
+		lastFinished = make(map[string]time.Time, len(attempts))
+		for _, att := range attempts {
+			if att.FinishedAt == nil {
+				continue
+			}
+			if cur, ok := lastFinished[att.TaskID]; !ok || att.FinishedAt.After(cur) {
+				lastFinished[att.TaskID] = *att.FinishedAt
+			}
+		}
+		break
 	}
 
 	s.logger.Info("dispatchReadyTasks checking ready tasks",
@@ -307,6 +356,21 @@ func (s *Service) dispatchReadyTasks(ctx context.Context, run Run) error {
 		key := agentKey(task)
 		if runningPerAgent[key] >= s.config.MaxParallelPerAgent {
 			continue
+		}
+		if task.AttemptCount > 0 {
+			if finished, ok := lastFinished[task.ID]; ok {
+				if wait := retryBackoff(task.AttemptCount); s.now().Before(finished.Add(wait)) {
+					// Not an event: reconcile passes run every 1.5s and this is
+					// expected scheduling, not state change.
+					s.logger.Debug("deferring retry until backoff elapses",
+						slog.String("run_id", run.ID),
+						slog.String("task_id", task.ID),
+						slog.Int("attempt_count", task.AttemptCount),
+						slog.Duration("backoff", wait),
+					)
+					continue
+				}
+			}
 		}
 		provider, ok := s.registry.Resolve(task.ProviderName)
 		if !ok {

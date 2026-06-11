@@ -151,6 +151,10 @@ func TestServiceCompletesRunWithNoopProvider(t *testing.T) {
 	}
 }
 
+// TestServiceRetriesRetryableFailure: a retryable failure is NOT hot-retried
+// in the same reconcile pass — the retry waits out the exponential backoff
+// (anchored on the failed attempt's FinishedAt) and a later reconcile
+// dispatches it to success.
 func TestServiceRetriesRetryableFailure(t *testing.T) {
 	store := NewMemoryStore()
 	provider := &flakyProvider{}
@@ -158,15 +162,60 @@ func TestServiceRetriesRetryableFailure(t *testing.T) {
 		{ClientKey: "one", Title: "one", Description: "first", ProviderName: "flaky", MaxRetries: 1, Timeout: time.Second},
 	}}}, NewProviderRegistry(provider), nil, Config{})
 
+	now := time.Now().UTC()
+	svc.clock = func() time.Time { return now }
+
 	snap, err := svc.StartRun(context.Background(), StartRunInput{RoomID: "room-1", Objective: "ship", AutoDispatch: true})
 	if err != nil {
 		t.Fatalf("StartRun returned error: %v", err)
 	}
+	if snap.Run.Status == RunStatusCompleted {
+		t.Fatal("retry must be deferred by backoff, not completed in the same pass")
+	}
+	if len(snap.Attempts) != 1 {
+		t.Fatalf("expected 1 attempt before backoff elapses, got %d", len(snap.Attempts))
+	}
+
+	// Still inside the backoff window: reconcile must not redispatch.
+	now = now.Add(retryBackoff(1) / 2)
+	snap, err = svc.ReconcileRun(context.Background(), snap.Run.ID)
+	if err != nil {
+		t.Fatalf("ReconcileRun returned error: %v", err)
+	}
+	if len(snap.Attempts) != 1 {
+		t.Fatalf("expected retry still deferred mid-backoff, got %d attempts", len(snap.Attempts))
+	}
+
+	// Past the backoff window: the retry dispatches and succeeds.
+	now = now.Add(retryBackoff(1))
+	snap, err = svc.ReconcileRun(context.Background(), snap.Run.ID)
+	if err != nil {
+		t.Fatalf("ReconcileRun returned error: %v", err)
+	}
 	if snap.Run.Status != RunStatusCompleted {
-		t.Fatalf("expected completed run after retry, got %s", snap.Run.Status)
+		t.Fatalf("expected completed run after backoff elapsed, got %s", snap.Run.Status)
 	}
 	if len(snap.Attempts) != 2 {
 		t.Fatalf("expected 2 attempts, got %d", len(snap.Attempts))
+	}
+}
+
+func TestRetryBackoffSchedule(t *testing.T) {
+	cases := []struct {
+		attempts int
+		want     time.Duration
+	}{
+		{attempts: 0, want: 0},
+		{attempts: 1, want: 5 * time.Second},
+		{attempts: 2, want: 10 * time.Second},
+		{attempts: 3, want: 20 * time.Second},
+		{attempts: 5, want: 60 * time.Second}, // capped
+		{attempts: 50, want: 60 * time.Second},
+	}
+	for _, tc := range cases {
+		if got := retryBackoff(tc.attempts); got != tc.want {
+			t.Fatalf("retryBackoff(%d) = %s, want %s", tc.attempts, got, tc.want)
+		}
 	}
 }
 
