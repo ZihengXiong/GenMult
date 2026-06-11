@@ -47,6 +47,13 @@ type OrchestratorService struct {
 	// safe to call at any time.
 	projMu  sync.Mutex
 	projSeq map[string]int64
+
+	// summarize performs one summary-memory model call (nil disables the
+	// feature, e.g. in tests that build the host via struct literal). See
+	// summary_memory.go.
+	summarize func(ctx context.Context, prompt string) (string, error)
+	// summaryFlight keeps at most one summary update in flight per room.
+	summaryFlight sync.Map
 }
 
 type StartRunRequest struct {
@@ -159,6 +166,22 @@ func NewOrchestratorService(
 		bots:    botService,
 		log:     log.With(slog.String("service", "agenthub_orchestrator")),
 		projSeq: make(map[string]int64),
+		// Summary memory reuses the planner's model resolution (first enabled
+		// chat model, chat-completions preferred) per call; calls are rare —
+		// only when the history window actually overflows.
+		summarize: func(ctx context.Context, prompt string) (string, error) {
+			model := resolvePlannerModel(ctx, queries, log)
+			if model == nil {
+				return "", errors.New("no enabled chat model for summary memory")
+			}
+			return sdk.GenerateText(ctx,
+				sdk.WithModel(model),
+				sdk.WithSystem(summarySystemPrompt),
+				sdk.WithMessages([]sdk.Message{sdk.UserMessage(prompt)}),
+				sdk.WithMaxTokens(512),
+				sdk.WithTemperature(0.2),
+			)
+		},
 	}, nil
 }
 
@@ -203,13 +226,20 @@ func (s *OrchestratorService) StartRun(ctx context.Context, ownerUserID, roomID 
 		}
 	}
 	if _, exists := metadata["room_history"]; !exists {
-		// Pinned messages are surfaced as long-term context ahead of the rolling
-		// recent-history window, so user-curated key facts persist across runs even
-		// once they scroll out of the recent window ("手动 pin 关键消息作为长期上下文").
+		// Context layering, long-term → short-term: pinned messages (user-curated,
+		// permanent), then the rolling summary of conversation that scrolled out
+		// of the window (summary memory, auto-generated), then the budgeted
+		// recent-history window itself.
 		pinned := s.pinnedRoomContext(ctx, ownerUserID, roomID, room)
-		hist := s.recentRoomHistory(ctx, ownerUserID, roomID, 20)
-		if combined := joinContextBlocks(pinned, hist); combined != "" {
+		summary := roomSummaryBlock(room.Metadata)
+		win := s.recentRoomHistoryWindow(ctx, ownerUserID, roomID, 20)
+		if combined := joinContextBlocks(pinned, summary, win.transcript); combined != "" {
 			metadata["room_history"] = combined
+		}
+		// Fold what the budget pushed out into the rolling summary for *future*
+		// runs — async, so run start never waits on a model call.
+		if win.truncated && summaryMemoryEnabled(room.Metadata) {
+			s.kickRoomSummary(ctx, ownerUserID, roomID, win.dropped)
 		}
 	}
 	snapshot, err := s.orch.StartRun(ctx, orch.StartRunInput{
@@ -368,19 +398,29 @@ const (
 	pinnedTotalMaxChars    = 6000
 )
 
-// recentRoomHistory renders the room's most recent messages as a plain-text
-// transcript (oldest→newest) for use as orchestrator run context. The window
-// is budgeted, not just counted: each message is clamped and the transcript
-// keeps the newest messages that fit historyTotalMaxChars, dropping the oldest
-// first. Best-effort: returns "" on any error.
-func (s *OrchestratorService) recentRoomHistory(ctx context.Context, ownerUserID, roomID string, limit int32) string {
+// historyWindow is the budgeted recent-history view of a room: the rendered
+// transcript plus what the budget pushed out (feedstock for summary memory).
+type historyWindow struct {
+	transcript string
+	truncated  bool
+	// dropped holds the fetched messages excluded from the transcript by the
+	// character budget, oldest→newest.
+	dropped []Message
+}
+
+// recentRoomHistoryWindow renders the room's most recent messages as a
+// plain-text transcript (oldest→newest) for use as orchestrator run context.
+// The window is budgeted, not just counted: each message is clamped and the
+// transcript keeps the newest messages that fit historyTotalMaxChars, dropping
+// the oldest first. Best-effort: returns a zero window on any error.
+func (s *OrchestratorService) recentRoomHistoryWindow(ctx context.Context, ownerUserID, roomID string, limit int32) historyWindow {
 	resp, err := s.rooms.ListMessages(ctx, ownerUserID, roomID, limit)
 	if err != nil || len(resp.Items) == 0 {
-		return ""
+		return historyWindow{}
 	}
+	win := historyWindow{}
 	lines := make([]string, 0, len(resp.Items))
 	total := 0
-	truncated := false
 	for i := len(resp.Items) - 1; i >= 0; i-- { // newest → oldest
 		m := resp.Items[i]
 		body := strings.TrimSpace(m.Body)
@@ -394,7 +434,9 @@ func (s *OrchestratorService) recentRoomHistory(ctx context.Context, ownerUserID
 		}
 		line := name + "：" + body
 		if total+len([]rune(line)) > historyTotalMaxChars && len(lines) > 0 {
-			truncated = true
+			win.truncated = true
+			// This message and everything older fell out of the window.
+			win.dropped = append(win.dropped, resp.Items[:i+1]...)
 			break
 		}
 		lines = append(lines, line)
@@ -402,20 +444,26 @@ func (s *OrchestratorService) recentRoomHistory(ctx context.Context, ownerUserID
 	}
 	// The fetch window itself may have cut off older messages.
 	if limit > 0 && len(resp.Items) >= int(limit) {
-		truncated = true
+		win.truncated = true
 	}
 	// Collected newest-first; emit oldest→newest.
 	var b strings.Builder
 	// Tell the agents the transcript is incomplete rather than letting them
 	// assume this is the whole conversation (pins still cover older key facts).
-	if truncated && len(lines) > 0 {
+	if win.truncated && len(lines) > 0 {
 		fmt.Fprintf(&b, "（更早的对话因长度限制未包含，以下仅为最近 %d 条消息）\n", len(lines))
 	}
 	for i := len(lines) - 1; i >= 0; i-- {
 		b.WriteString(lines[i])
 		b.WriteString("\n")
 	}
-	return strings.TrimSpace(b.String())
+	win.transcript = strings.TrimSpace(b.String())
+	return win
+}
+
+// recentRoomHistory is the transcript-only view of recentRoomHistoryWindow.
+func (s *OrchestratorService) recentRoomHistory(ctx context.Context, ownerUserID, roomID string, limit int32) string {
+	return s.recentRoomHistoryWindow(ctx, ownerUserID, roomID, limit).transcript
 }
 
 // pinnedRoomContext renders the room's user-pinned messages (room.metadata

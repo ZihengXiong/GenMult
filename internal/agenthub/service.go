@@ -250,6 +250,55 @@ func (s *Service) Update(ctx context.Context, ownerUserID, roomID string, req Up
 	return s.Get(ctx, ownerUserID, roomID)
 }
 
+// MergeRoomMetadata merges patch into the room's metadata without touching the
+// room's name, appearance, or agent membership (unlike Update, which replaces
+// everything). Read-modify-write, last-writer-wins — callers that need
+// stronger guarantees must serialize themselves (the summary-memory updater
+// does, via per-room single-flight). A nil value in patch deletes the key.
+func (s *Service) MergeRoomMetadata(ctx context.Context, ownerUserID, roomID string, patch map[string]any) (Room, error) {
+	ownerID, roomUUID, err := parseOwnerAndRoom(ownerUserID, roomID)
+	if err != nil {
+		return Room{}, err
+	}
+	current, err := s.Get(ctx, ownerUserID, roomID)
+	if err != nil {
+		return Room{}, err
+	}
+	merged := make(map[string]any, len(current.Metadata)+len(patch))
+	for k, v := range current.Metadata {
+		merged[k] = v
+	}
+	for k, v := range patch {
+		if v == nil {
+			delete(merged, k)
+			continue
+		}
+		merged[k] = v
+	}
+	_, err = s.queries.UpdateAgentHubRoom(ctx, dbsqlc.UpdateAgentHubRoomParams{
+		ID:                  roomUUID,
+		OwnerUserID:         ownerID,
+		Name:                current.Name,
+		ShortName:           current.ShortName,
+		Subtitle:            current.Subtitle,
+		Summary:             current.Summary,
+		Privacy:             current.Privacy,
+		Live:                current.Live,
+		Accent:              current.Accent,
+		StatusClass:         current.StatusClass,
+		Attention:           int32(current.Attention), //nolint:gosec // attention values are small enums
+		Metadata:            jsonBytes(merged),
+		OrchestratorAgentID: current.OrchestratorAgentID,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return Room{}, ErrNotFound
+		}
+		return Room{}, err
+	}
+	return s.Get(ctx, ownerUserID, roomID)
+}
+
 func (s *Service) Delete(ctx context.Context, ownerUserID, roomID string) error {
 	ownerID, roomUUID, err := parseOwnerAndRoom(ownerUserID, roomID)
 	if err != nil {

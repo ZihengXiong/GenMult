@@ -219,3 +219,48 @@ func TestLiveOrchestratorRunEndToEnd(t *testing.T) {
 	}
 	t.Logf("run completed: %d tasks, %d dependencies", len(snap.Tasks), len(snap.Dependencies))
 }
+
+// TestLiveSummaryMemoryFold drives the real summary-memory fold (the same
+// system prompt and generation parameters the production closure uses) against
+// the live flash model and asserts a usable rolling summary lands in room
+// metadata.
+func TestLiveSummaryMemoryFold(t *testing.T) {
+	model := liveModel(t)
+	_, rooms := newProjectionTestRooms(t)
+	room := createProjectionTestRoom(t, rooms)
+	host := &OrchestratorService{
+		rooms:   rooms,
+		log:     slog.Default(),
+		projSeq: make(map[string]int64),
+		summarize: func(ctx context.Context, prompt string) (string, error) {
+			return sdk.GenerateText(ctx,
+				sdk.WithModel(model),
+				sdk.WithSystem(summarySystemPrompt),
+				sdk.WithMessages([]sdk.Message{sdk.UserMessage(prompt)}),
+				sdk.WithMaxTokens(512),
+				sdk.WithTemperature(0.2),
+			)
+		},
+	}
+
+	base := time.Date(2030, 1, 1, 9, 0, 0, 0, time.UTC)
+	dropped := []Message{
+		{SenderName: "Alice", SenderType: "user", Body: "部署方案确定用 docker compose，数据库用 sqlite。", CreatedAt: base},
+		{SenderName: "Bob", SenderType: "user", Body: "前端用 Vue3，登录接口下周一联调。", CreatedAt: base.Add(time.Minute)},
+	}
+	if err := host.updateRoomSummary(liveCtx(t), testOwnerID, room.ID, dropped); err != nil {
+		t.Fatalf("live summary fold: %v", err)
+	}
+	got, err := rooms.Get(context.Background(), testOwnerID, room.ID)
+	if err != nil {
+		t.Fatalf("get room: %v", err)
+	}
+	summary, _ := got.Metadata[metaKeyHistorySummary].(string)
+	if strings.TrimSpace(summary) == "" {
+		t.Fatal("expected a non-empty live summary")
+	}
+	if len([]rune(summary)) > summaryMaxChars {
+		t.Fatalf("summary exceeds budget: %d runes", len([]rune(summary)))
+	}
+	t.Logf("live summary: %q", summary)
+}

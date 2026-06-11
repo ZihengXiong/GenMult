@@ -1,6 +1,8 @@
 # Plan: AgentHub 房间会话摘要记忆（Conversation Summary Memory）
 
-> 状态：Phase 0 已实现（2026-06-11）；Phase 1+ 暂缓，触发条件见「执行决策」。
+> 状态：Phase 0 已实现（2026-06-11）；Phase 1 已实现（2026-06-11，用户确认后落地，
+> 见 internal/agenthub/summary_memory.go；房间 metadata `summary_memory: false` 可关闭；
+> 验证清单全部勾掉，含 LIVE_LLM_TEST 真实折叠链路）。Phase 2 待产品需要。
 
 ## 背景与对标
 
