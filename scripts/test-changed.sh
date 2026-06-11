@@ -32,9 +32,11 @@ if [ "${1:-}" = "--update" ]; then
 fi
 
 # Changed files: committed since baseline + staged + unstaged + untracked.
+# TESTING.md is excluded: the --update stamp itself always trails the baseline
+# by one commit and would otherwise show up as "changed" forever.
 CHANGED="$( { git diff --name-only "$BASELINE"...HEAD 2>/dev/null || git diff --name-only "$BASELINE" HEAD; \
               git diff --name-only; git diff --name-only --cached; \
-              git ls-files --others --exclude-standard; } | sort -u )"
+              git ls-files --others --exclude-standard; } | sort -u | grep -vx "$RECORD" || true )"
 if [ -z "$CHANGED" ]; then
   echo "no changes since baseline ${BASELINE%????????????????????????????????} — nothing to test"
   exit 0
