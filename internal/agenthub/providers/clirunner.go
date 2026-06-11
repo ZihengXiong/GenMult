@@ -207,11 +207,14 @@ func (r *CLIRunner) Run(ctx context.Context, prompt string, workDir string, exec
 
 			r.inspectToolLoop(toolGuard, event, cancelRun)
 
-			// Accumulate text for storage. For stream-json (claudecode, Stdin set),
-			// text events are snapshots that already carry the full content —
-			// skipping "result" avoids doubling the response in bot_history_messages.
-			// For codex, "result" carries the turn summary and must be kept.
-			if event.Type == "text" || (event.Type == "result" && r.config.Stdin == "") {
+			// Accumulate text for storage. "result" restates content the text
+			// events already carried — claude's result is the final answer text
+			// in BOTH the -p text mode and the stream-json mode (live CLI run
+			// confirmed "OK"+"OK" doubling), and codex's turn summary likewise
+			// duplicates its message items. Keep "result" only as a fallback
+			// for streams that produced no text events at all (e.g. a codex
+			// turn whose output only lands in the summary).
+			if event.Type == "text" || (event.Type == "result" && outputBuilder.Len() == 0) {
 				outputBuilder.WriteString(event.Content)
 			}
 		}
@@ -226,9 +229,9 @@ func (r *CLIRunner) Run(ctx context.Context, prompt string, workDir string, exec
 				if r.config.OnEvent != nil {
 					r.config.OnEvent(event)
 				}
-				// Same accumulation rule as the main loop: in stream-json mode
-				// (Stdin set) "result" duplicates the already-captured text events.
-				if event.Type == "text" || (event.Type == "result" && r.config.Stdin == "") {
+				// Same accumulation rule as the main loop: "result" only as a
+				// fallback when no text events were captured.
+				if event.Type == "text" || (event.Type == "result" && outputBuilder.Len() == 0) {
 					outputBuilder.WriteString(event.Content)
 				}
 			}

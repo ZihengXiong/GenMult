@@ -55,6 +55,7 @@ for f in $CHANGED; do
   esac
   case "$f" in
     internal/agenthub/llm_planner*.go|internal/agenthub/orchestrator/planner.go|internal/models/sdk.go) NEED_LIVE=1 ;;
+    internal/agenthub/providers/clirunner*.go|internal/agenthub/providers/cli_helpers.go) NEED_LIVE=1 ;;
   esac
 done
 
