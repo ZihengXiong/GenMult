@@ -112,22 +112,42 @@ func TestParsePlannerOutput_NoJSON(t *testing.T) {
 func TestMentionedAgents_SubsetAndConstraint(t *testing.T) {
 	agents := plannerAgents()
 	// Only Claude Code is @-mentioned → subset of one, in input order.
-	got := mentionedAgents("做个待办: 写前端,@Claude Code 写后端", agents)
+	got := orch.MentionedAgents("做个待办: 写前端,@Claude Code 写后端", agents)
 	if len(got) != 1 || got[0].ID != "claude-code" {
 		t.Fatalf("expected only claude-code mentioned, got %+v", got)
 	}
 	// No '@' at all → nil so the caller plans over all room agents.
-	if got := mentionedAgents("帮我做个待办工具", agents); got != nil {
+	if got := orch.MentionedAgents("帮我做个待办工具", agents); got != nil {
 		t.Errorf("expected nil for no mention, got %+v", got)
 	}
 	// Both mentioned → both, order preserved.
-	both := mentionedAgents("@Claude Code 写前端，@Codex 写后端", agents)
+	both := orch.MentionedAgents("@Claude Code 写前端，@Codex 写后端", agents)
 	if len(both) != 2 || both[0].ID != "claude-code" || both[1].ID != "codex" {
 		t.Fatalf("expected both agents in order, got %+v", both)
 	}
 	c := buildMentionConstraint(both)
 	if !strings.Contains(c, "id=claude-code") || !strings.Contains(c, "id=codex") || !strings.Contains(c, "并行") {
 		t.Errorf("constraint missing mentioned ids / parallel hint: %q", c)
+	}
+}
+
+// TestMentionedAgents_PrefixCollision: an agent whose alias is a prefix of
+// another's must not be counted when only the longer alias is mentioned.
+// (Regression: the LLM planner used a bare strings.Contains, so "@ds2" also
+// "mentioned" an agent aliased "ds".)
+func TestMentionedAgents_PrefixCollision(t *testing.T) {
+	agents := []orch.AgentDescriptor{
+		{ID: "bot:ds", Name: "ds", ProviderName: "memoh"},
+		{ID: "bot:ds2", Name: "ds2", ProviderName: "memoh"},
+	}
+	got := orch.MentionedAgents("@ds2 帮我总结这份文档", agents)
+	if len(got) != 1 || got[0].ID != "bot:ds2" {
+		t.Fatalf("expected only ds2 mentioned, got %+v", got)
+	}
+	// Mentioning the short alias must still work.
+	short := orch.MentionedAgents("@ds 帮我总结这份文档", agents)
+	if len(short) != 1 || short[0].ID != "bot:ds" {
+		t.Fatalf("expected only ds mentioned, got %+v", short)
 	}
 }
 

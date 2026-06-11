@@ -167,6 +167,25 @@ func (*RulePlanner) directMentionPlan(objective string, agents []AgentDescriptor
 	return Plan{PlannerVersion: RulePlannerVersion, Tasks: drafts}
 }
 
+// MentionedAgents returns the subset of agents the objective explicitly
+// @-mentions, preserving input order; nil when the objective contains no "@" so
+// callers can plan over all room agents. It shares the rule planner's
+// word-boundary-aware alias matching (firstMentionIndex), so e.g. "@ds2" never
+// counts as a mention of an agent aliased "ds".
+func MentionedAgents(objective string, agents []AgentDescriptor) []AgentDescriptor {
+	lower := strings.ToLower(objective)
+	if !strings.Contains(lower, "@") {
+		return nil
+	}
+	out := make([]AgentDescriptor, 0, len(agents))
+	for _, agent := range agents {
+		if firstMentionIndex(lower, agent) >= 0 {
+			out = append(out, agent)
+		}
+	}
+	return out
+}
+
 func firstMentionIndex(lowerObjective string, agent AgentDescriptor) int {
 	best := -1
 	for _, alias := range agentMentionAliases(agent) {

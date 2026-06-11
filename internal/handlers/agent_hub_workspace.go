@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"errors"
+	"io"
 	"net/http"
 	"os"
 	"os/exec"
@@ -155,12 +156,17 @@ func (h *AgentHubHandler) ReadWorkspaceFile(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, "open failed")
 	}
 	defer func() { _ = f.Close() }()
-	buf := make([]byte, maxWorkspaceReadSize)
-	n, _ := f.Read(buf)
-	truncated := info.Size() > int64(n)
+	// io.ReadAll over a LimitReader, not a single f.Read: Read may return fewer
+	// bytes than requested without error, which would silently drop content and
+	// mislabel the file as truncated.
+	content, err := io.ReadAll(io.LimitReader(f, maxWorkspaceReadSize))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "read failed")
+	}
+	truncated := info.Size() > int64(len(content))
 	return c.JSON(http.StatusOK, readWorkspaceFileResponse{
 		Path:      filepath.ToSlash(rel),
-		Content:   string(buf[:n]),
+		Content:   string(content),
 		Truncated: truncated,
 	})
 }

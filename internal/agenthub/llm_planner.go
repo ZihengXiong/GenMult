@@ -58,7 +58,7 @@ func (p *llmPlanner) Plan(ctx context.Context, input orch.PlanInput) (orch.Plan,
 	// rule planner's (parallel) directMentionPlan stays as the fallback below.
 	planAgents := input.Agents
 	mentionConstraint := ""
-	if mentioned := mentionedAgents(objective, input.Agents); len(mentioned) > 0 {
+	if mentioned := orch.MentionedAgents(objective, input.Agents); len(mentioned) > 0 {
 		planAgents = mentioned
 		mentionConstraint = buildMentionConstraint(mentioned)
 		p.log.Info("llm planner: explicit @mention present, planning over mentioned subset",
@@ -286,35 +286,6 @@ func hasDependencyCycle(drafts []orch.TaskDraft) bool {
 		}
 	}
 	return visited != len(indeg)
-}
-
-// agentIsMentioned reports whether the objective @-mentions the given agent by a
-// recognizable alias (bare bot UUID, full id, display name, or provider name).
-func agentIsMentioned(lowerObjective string, a orch.AgentDescriptor) bool {
-	for _, alias := range []string{strings.TrimPrefix(a.ID, "bot:"), a.ID, a.Name, a.ProviderName} {
-		alias = strings.ToLower(strings.TrimSpace(alias))
-		if alias != "" && strings.Contains(lowerObjective, "@"+alias) {
-			return true
-		}
-	}
-	return false
-}
-
-// mentionedAgents returns the subset of agents the objective explicitly
-// @-mentions, preserving the input order. Empty when none are mentioned, so the
-// caller can fall back to planning over all room agents.
-func mentionedAgents(objective string, agents []orch.AgentDescriptor) []orch.AgentDescriptor {
-	lower := strings.ToLower(objective)
-	if !strings.Contains(lower, "@") {
-		return nil
-	}
-	out := make([]orch.AgentDescriptor, 0, len(agents))
-	for _, a := range agents {
-		if agentIsMentioned(lower, a) {
-			out = append(out, a)
-		}
-	}
-	return out
 }
 
 // buildMentionConstraint appends an instruction to the planner system prompt so
