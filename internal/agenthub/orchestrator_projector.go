@@ -2,6 +2,7 @@ package agenthub
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"sort"
@@ -13,14 +14,16 @@ import (
 
 // projectRun turns new orchestrator run events into room chat messages so that
 // a run's planning, per-agent outputs, and final result surface in the AgentHub
-// room timeline ("在聊天流中汇报结果"). It is idempotent: each run's last
-// projected event seq is tracked in-memory and ListEvents(afterSeq) only returns
-// newer events.
+// room timeline ("在聊天流中汇报结果"). It is idempotent on two levels: the
+// in-memory per-run high-water mark (projSeq) keeps repeat calls within one
+// process cheap, and the DB-level partial unique index on message metadata
+// (run_id, event_seq) suppresses duplicates across process restarts — a
+// re-projected event surfaces as ErrDuplicateMessage and is skipped.
 //
 // Granularity is per-task-completion (one message per task result), matching the
 // M1 design; token-level streaming is a future enhancement. Projection is driven
 // synchronously from the wiring StartRun/ReconcileRun calls (DispatchAsync is off).
-func (s *OrchestratorService) projectRun(ctx context.Context, ownerUserID string, snap orch.RunSnapshot) {
+func (s *OrchestratorService) projectRun(ctx context.Context, snap orch.RunSnapshot) {
 	if s == nil || s.rooms == nil || s.orch == nil {
 		return
 	}
@@ -45,7 +48,10 @@ func (s *OrchestratorService) projectRun(ctx context.Context, ownerUserID string
 
 	msgs, maxSeq := runEventsToMessages(events, snap.Run, snap.Tasks, after)
 	for i, req := range msgs {
-		if _, err := s.rooms.CreateMessage(ctx, ownerUserID, roomID, req); err != nil {
+		if _, err := s.rooms.CreateSystemMessage(ctx, roomID, req); err != nil {
+			if errors.Is(err, ErrDuplicateMessage) {
+				continue
+			}
 			s.log.Error("project run: create room message failed",
 				slog.String("run_id", runID),
 				slog.Int("message_index", i),

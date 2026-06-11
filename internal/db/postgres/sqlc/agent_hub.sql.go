@@ -131,6 +131,7 @@ VALUES (
   $7,
   $8
 )
+ON CONFLICT DO NOTHING
 RETURNING id, room_id, sender_id, sender_type, sender_name, kind, title, body, metadata, created_at
 `
 

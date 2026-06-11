@@ -24,6 +24,11 @@ var (
 	ErrInvalidRoomID    = errors.New("invalid room id")
 	ErrInvalidOwner     = errors.New("invalid owner user id")
 	ErrInvalidMessageID = errors.New("invalid message id")
+	// ErrDuplicateMessage means the insert was suppressed by the partial unique
+	// index on metadata (run_id, event_seq): this exact run event was already
+	// projected to the room, e.g. by a previous process lifetime. Callers that
+	// project run events treat it as success.
+	ErrDuplicateMessage = errors.New("agent hub room message already projected")
 )
 
 type Service struct {
@@ -343,6 +348,18 @@ func (s *Service) CreateMessage(ctx context.Context, ownerUserID, roomID string,
 	return s.createMessage(ctx, roomUUID, req)
 }
 
+// CreateSystemMessage inserts a message into a room without an owner check. It
+// is for internal producers (the orchestrator run projector), which act on
+// rooms resolved from trusted backend state rather than user input; it is not
+// exposed over HTTP.
+func (s *Service) CreateSystemMessage(ctx context.Context, roomID string, req CreateMessageRequest) (Message, error) {
+	roomUUID, err := dbpkg.ParseUUID(roomID)
+	if err != nil {
+		return Message{}, ErrInvalidRoomID
+	}
+	return s.createMessage(ctx, roomUUID, req)
+}
+
 func (s *Service) createMessage(ctx context.Context, roomUUID pgtype.UUID, req CreateMessageRequest) (Message, error) {
 	req = normalizeMessageRequest(req)
 	if req.Body == "" {
@@ -359,6 +376,12 @@ func (s *Service) createMessage(ctx context.Context, roomUUID pgtype.UUID, req C
 		Metadata:   jsonBytes(req.Metadata),
 	})
 	if err != nil {
+		// The insert uses ON CONFLICT DO NOTHING, so a duplicate (run_id,
+		// event_seq) projection comes back as zero RETURNING rows rather than a
+		// constraint error.
+		if errors.Is(err, pgx.ErrNoRows) {
+			return Message{}, ErrDuplicateMessage
+		}
 		return Message{}, err
 	}
 	return messageFromRow(row), nil

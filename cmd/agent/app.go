@@ -24,6 +24,7 @@ import (
 	agentpkg "github.com/ZihengXiong/GenMult/internal/agent"
 	"github.com/ZihengXiong/GenMult/internal/agent/background"
 	agenttools "github.com/ZihengXiong/GenMult/internal/agent/tools"
+	"github.com/ZihengXiong/GenMult/internal/agenthub"
 	agenthubproviders "github.com/ZihengXiong/GenMult/internal/agenthub/providers"
 	audiopkg "github.com/ZihengXiong/GenMult/internal/audio"
 	"github.com/ZihengXiong/GenMult/internal/boot"
@@ -832,6 +833,24 @@ func startAudioTempStoreCleanup(lc fx.Lifecycle, store *audiopkg.TempStore) {
 		},
 		OnStop: func(_ context.Context) error {
 			close(done)
+			return nil
+		},
+	})
+}
+
+// startAgentHubReconciler runs the orchestrator's background reconcile loop for
+// the process lifetime: once at boot (crash self-heal for runs interrupted by a
+// restart) and then periodically, so active runs progress even when no frontend
+// is polling POST /runs/:id/reconcile.
+func startAgentHubReconciler(lc fx.Lifecycle, svc *agenthub.OrchestratorService) {
+	ctx, cancel := context.WithCancel(context.Background())
+	lc.Append(fx.Hook{
+		OnStart: func(_ context.Context) error {
+			go svc.RunBackgroundReconciler(ctx, 30*time.Second)
+			return nil
+		},
+		OnStop: func(_ context.Context) error {
+			cancel()
 			return nil
 		},
 	})

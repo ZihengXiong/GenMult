@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	sdk "github.com/memohai/twilight-ai/sdk"
 
@@ -32,20 +33,17 @@ type OrchestratorService struct {
 	log   *slog.Logger
 
 	// projSeq tracks the last orchestrator event seq projected to each room as a
-	// chat message, so projectRun can incrementally and idempotently surface new
-	// run events. Idempotency is correct within a process lifetime.
+	// chat message, so projectRun can incrementally surface new run events
+	// without re-listing a run's full history on every reconcile.
 	//
-	// DURABILITY CONTRACT: this map is in-memory only, so after a restart it
-	// starts empty and projectRun(after=0) would re-post a run's full event
-	// history. Today that path is unreachable — ReconcileActiveRuns is only
-	// exposed via POST /runs/reconcile-active and is never called automatically
-	// (no client hits it, no boot-time self-heal). Before wiring any automatic
-	// reconcile / boot-time re-projection, make projection idempotent at the
-	// insert layer instead of relying on this map: each projected message already
-	// carries {run_id, event_seq} in its metadata (see roomMessageForEvent), so a
-	// unique constraint on (run_id, event_seq) + INSERT … ON CONFLICT DO NOTHING
-	// closes the restart window fully (a persisted high-water mark would still
-	// leave a crash gap between the message insert and the seq write).
+	// DURABILITY CONTRACT: this map is a per-process fast path, not the
+	// idempotency mechanism. Correctness across restarts lives at the insert
+	// layer: every projected message carries {run_id, event_seq} in its metadata
+	// (see roomMessageForEvent), a partial unique index covers those keys, and
+	// the insert runs ON CONFLICT DO NOTHING — a re-projection after the map
+	// resets surfaces as ErrDuplicateMessage and is skipped. That is what makes
+	// automatic reconcile (RunBackgroundReconciler, POST /runs/reconcile-active)
+	// safe to call at any time.
 	projMu  sync.Mutex
 	projSeq map[string]int64
 }
@@ -203,7 +201,7 @@ func (s *OrchestratorService) StartRun(ctx context.Context, ownerUserID, roomID 
 	if err != nil {
 		return snapshot, err
 	}
-	s.projectRun(ctx, ownerUserID, snapshot)
+	s.projectRun(ctx, snapshot)
 	return snapshot, nil
 }
 
@@ -236,7 +234,7 @@ func (s *OrchestratorService) ReconcileRun(ctx context.Context, ownerUserID, run
 	if err != nil {
 		return reconciled, err
 	}
-	s.projectRun(ctx, ownerUserID, reconciled)
+	s.projectRun(ctx, reconciled)
 	return reconciled, nil
 }
 
@@ -278,14 +276,59 @@ func (s *OrchestratorService) ReconcileActiveRuns(ctx context.Context, ownerUser
 		if err != nil {
 			return out, err
 		}
-		// NOTE: across a process restart projSeq is empty, so this re-projects the
-		// run's whole event history as duplicate room messages. Safe only while
-		// this entry point isn't called automatically — see the projSeq durability
-		// contract before wiring boot-time / periodic reconcile.
-		s.projectRun(ctx, ownerUserID, snapshot)
+		s.projectRun(ctx, snapshot)
 		out = append(out, snapshot)
 	}
 	return out, nil
+}
+
+// RunBackgroundReconciler drives active runs to completion without depending on
+// frontend polling. It reconciles once immediately — the crash self-heal path:
+// failTimedOutTasks marks attempts started in a previous process lifetime as
+// interrupted and retries them — and then on every tick, so runs whose room is
+// not open in any browser still make progress. It blocks until ctx is cancelled.
+//
+// Concurrent reconciles from HTTP handlers are safe: the engine's transitions
+// are state-machine-guarded and projection is idempotent at the insert layer.
+func (s *OrchestratorService) RunBackgroundReconciler(ctx context.Context, interval time.Duration) {
+	if interval <= 0 {
+		interval = 30 * time.Second
+	}
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for {
+		s.reconcileActiveRunsOnce(ctx)
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
+	}
+}
+
+// reconcileActiveRunsOnce advances every non-terminal run and projects its new
+// events. Per-run errors are logged and skipped so one stuck run cannot stall
+// the others.
+func (s *OrchestratorService) reconcileActiveRunsOnce(ctx context.Context) {
+	runs, err := s.orch.ListActiveRuns(ctx)
+	if err != nil {
+		s.log.Error("background reconcile: list active runs failed", slog.Any("error", err))
+		return
+	}
+	for _, run := range runs {
+		if ctx.Err() != nil {
+			return
+		}
+		snapshot, err := s.orch.ReconcileRun(ctx, run.ID)
+		if err != nil {
+			s.log.Error("background reconcile: run failed",
+				slog.String("run_id", run.ID),
+				slog.Any("error", err),
+			)
+			continue
+		}
+		s.projectRun(ctx, snapshot)
+	}
 }
 
 // buildPlanner returns an LLM-backed planner (with rule-planner fallback) when

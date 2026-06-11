@@ -164,6 +164,7 @@ func options() fx.Option {
 			startChannelManager,
 			startEmailManager,
 			startContainerReconciliation,
+			startAgentHubReconciler,
 			startBackgroundTaskCleanup,
 			startAudioTempStoreCleanup,
 			startServer,

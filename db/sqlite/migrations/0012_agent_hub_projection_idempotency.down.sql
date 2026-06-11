@@ -1,0 +1,2 @@
+-- 0012_agent_hub_projection_idempotency
+DROP INDEX IF EXISTS idx_agent_hub_room_messages_run_event;
