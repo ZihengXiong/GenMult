@@ -70,3 +70,47 @@ func TestPromptWithContext_InjectsUpstreamOutput(t *testing.T) {
 		t.Errorf("summary fallback not used: %q", got)
 	}
 }
+
+func TestClampMiddle(t *testing.T) {
+	if got := ClampMiddle("short", 100); got != "short" {
+		t.Errorf("within budget should be unchanged: %q", got)
+	}
+	long := strings.Repeat("头", 500) + strings.Repeat("尾", 500)
+	got := ClampMiddle(long, 200)
+	if runes := len([]rune(got)); runes > 200 {
+		t.Errorf("clamped length = %d runes, want <= 200", runes)
+	}
+	if !strings.HasPrefix(got, "头") || !strings.HasSuffix(got, "尾") {
+		t.Errorf("clamp should keep head and tail: %q", got)
+	}
+	if !strings.Contains(got, "已截断") {
+		t.Errorf("clamp should mark the elision: %q", got)
+	}
+	if got := ClampMiddle(long, 0); got != long {
+		t.Errorf("non-positive max should be a no-op")
+	}
+}
+
+// TestUpstreamOutputsBounded guards the prompt budget: a huge upstream output
+// must be clamped (keeping its head and tail) instead of inflating the
+// dependent task's CLI prompt without bound.
+func TestUpstreamOutputsBounded(t *testing.T) {
+	huge := "BEGIN-MARKER " + strings.Repeat("x", UpstreamAttemptMaxChars*3) + " END-MARKER"
+	req := orchestrator.ExecuteTaskRequest{
+		Task: orchestrator.Task{Description: "转述上游产出"},
+		Upstream: []orchestrator.TaskAttempt{{
+			AgentID:       "qiling",
+			Status:        orchestrator.AttemptStatusSucceeded,
+			OutputPayload: map[string]any{"raw_output": huge},
+		}},
+	}
+	got := PromptWithContext(req)
+	if runes := len([]rune(got)); runes > UpstreamTotalMaxChars+1000 {
+		t.Errorf("prompt length = %d runes, want bounded by upstream budget", runes)
+	}
+	for _, want := range []string{"BEGIN-MARKER", "END-MARKER", "已截断", "转述上游产出", "qiling"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("bounded prompt missing %q", want)
+		}
+	}
+}

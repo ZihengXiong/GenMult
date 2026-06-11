@@ -115,3 +115,56 @@ func TestPinnedRoomContextSurvivesScrollOut(t *testing.T) {
 		t.Fatalf("recent history missing newest message, got %q", recent)
 	}
 }
+
+// TestRecentRoomHistoryBudget guards the context budget: the rendered history
+// must clamp oversized messages and keep the newest messages within the total
+// budget (dropping the oldest first), so run metadata and CLI prompts stay
+// bounded no matter how large projected agent outputs get.
+func TestRecentRoomHistoryBudget(t *testing.T) {
+	ctx := context.Background()
+	conn, rooms := newProjectionTestRooms(t)
+	room := createProjectionTestRoom(t, rooms)
+
+	host := &OrchestratorService{
+		rooms:   rooms,
+		log:     slog.New(slog.DiscardHandler),
+		projSeq: make(map[string]int64),
+	}
+
+	// One oversized agent dump plus a tail of normal messages.
+	msgs := seedSequentialMessages(t, conn, rooms, room.ID, 12)
+	huge := strings.Repeat("码", historyMessageMaxChars*5)
+	if _, err := conn.ExecContext(ctx,
+		`UPDATE agent_hub_room_messages SET body = ? WHERE id = ?`, huge, msgs[5].ID,
+	); err != nil {
+		t.Fatalf("inflate message: %v", err)
+	}
+
+	got := host.recentRoomHistory(ctx, testOwnerID, room.ID, 20)
+	if runes := len([]rune(got)); runes > historyTotalMaxChars+historyMessageMaxChars {
+		t.Fatalf("history length = %d runes, want bounded", runes)
+	}
+	if !strings.Contains(got, "msg-12") {
+		t.Fatalf("history must keep the newest message, got %q", got)
+	}
+	if !strings.Contains(got, "已截断") {
+		t.Fatalf("oversized message should be clamped with a marker")
+	}
+
+	// With many oversized messages the oldest must drop out entirely.
+	for _, m := range msgs {
+		if _, err := conn.ExecContext(ctx,
+			`UPDATE agent_hub_room_messages SET body = ? WHERE id = ?`,
+			strings.Repeat("长", historyMessageMaxChars*2)+" "+m.Body, m.ID,
+		); err != nil {
+			t.Fatalf("inflate message: %v", err)
+		}
+	}
+	got = host.recentRoomHistory(ctx, testOwnerID, room.ID, 20)
+	if runes := len([]rune(got)); runes > historyTotalMaxChars+historyMessageMaxChars {
+		t.Fatalf("history length = %d runes, want bounded", runes)
+	}
+	if strings.Contains(got, "msg-1\n") || strings.HasPrefix(got, "Me：msg-1") {
+		t.Fatalf("oldest message should be dropped under budget pressure")
+	}
+}

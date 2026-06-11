@@ -6,6 +6,45 @@ import (
 	"github.com/ZihengXiong/GenMult/internal/agenthub/orchestrator"
 )
 
+// Context size budgets, in runes, used as a conservative token proxy (no
+// tokenizer dependency). CLI prompts travel as a single exec argument, so
+// unbounded context risks ARG_MAX startup failures on top of token-cost
+// blowup and lost-in-the-middle recall degradation.
+const (
+	// UpstreamAttemptMaxChars bounds one upstream task's output inside a
+	// dependent task's prompt. Generous: dependent tasks genuinely build on
+	// this content ("转述上游产出" only works if the substance survives).
+	UpstreamAttemptMaxChars = 10000
+	// UpstreamTotalMaxChars bounds the combined upstream block.
+	UpstreamTotalMaxChars = 24000
+)
+
+// clampMarker is inserted where elided content was removed.
+const clampMarker = "\n…（中间内容过长，已截断）…\n"
+
+// ClampMiddle returns s unchanged when it fits within max runes; otherwise it
+// keeps the head and tail halves and marks the elision, preserving both the
+// opening intent and the trailing conclusions (the two ends carry the most
+// signal in agent output). Shared by the prompt builders and the host layer's
+// room-history rendering.
+func ClampMiddle(s string, maxRunes int) string {
+	if maxRunes <= 0 {
+		return s
+	}
+	runes := []rune(s)
+	if len(runes) <= maxRunes {
+		return s
+	}
+	marker := []rune(clampMarker)
+	keep := maxRunes - len(marker)
+	if keep <= 0 {
+		return string(runes[:maxRunes])
+	}
+	head := keep / 2
+	tail := keep - head
+	return string(runes[:head]) + clampMarker + string(runes[len(runes)-tail:])
+}
+
 // PromptWithContext builds the CLI prompt for a task, prepending (a) the outputs
 // of upstream tasks this task depends on (ExecuteTaskRequest.Upstream) and (b)
 // the room's recent conversation history (Context["room_history"]) so the agent
@@ -41,6 +80,7 @@ func upstreamOutputs(upstream []orchestrator.TaskAttempt) string {
 		if text == "" {
 			continue
 		}
+		text = ClampMiddle(text, UpstreamAttemptMaxChars)
 		label := strings.TrimSpace(att.AgentID)
 		if label == "" {
 			label = strings.TrimSpace(att.ProviderName)
@@ -58,7 +98,7 @@ func upstreamOutputs(upstream []orchestrator.TaskAttempt) string {
 	if b.Len() == 0 {
 		return ""
 	}
-	return "上游协作 Agent 的产出（你的任务需要基于/转述它们，请直接使用以下内容）：\n" + b.String()
+	return "上游协作 Agent 的产出（你的任务需要基于/转述它们，请直接使用以下内容）：\n" + ClampMiddle(b.String(), UpstreamTotalMaxChars)
 }
 
 // attemptOutputText extracts the agent's produced text from an attempt's output

@@ -334,27 +334,51 @@ func (s *OrchestratorService) reconcileActiveRunsOnce(ctx context.Context) {
 // buildPlanner returns an LLM-backed planner (with rule-planner fallback) when
 // Anthropic credentials are available, otherwise the deterministic rule planner.
 // It logs which path is active so "the orchestrator is intelligent" is verifiable.
+// Context size budgets, in runes (conservative token proxy). The rendered
+// history is persisted in run metadata and prepended to the planner prompt and
+// every sub-task CLI prompt, so it must stay bounded no matter how large
+// individual room messages are (projected agent outputs can be full code dumps).
+const (
+	historyMessageMaxChars = 1500
+	historyTotalMaxChars   = 12000
+	pinnedMessageMaxChars  = 1500
+	pinnedTotalMaxChars    = 6000
+)
+
 // recentRoomHistory renders the room's most recent messages as a plain-text
-// transcript (oldest→newest) for use as orchestrator run context. Best-effort:
-// returns "" on any error.
+// transcript (oldest→newest) for use as orchestrator run context. The window
+// is budgeted, not just counted: each message is clamped and the transcript
+// keeps the newest messages that fit historyTotalMaxChars, dropping the oldest
+// first. Best-effort: returns "" on any error.
 func (s *OrchestratorService) recentRoomHistory(ctx context.Context, ownerUserID, roomID string, limit int32) string {
 	resp, err := s.rooms.ListMessages(ctx, ownerUserID, roomID, limit)
 	if err != nil || len(resp.Items) == 0 {
 		return ""
 	}
-	var b strings.Builder
-	for _, m := range resp.Items {
+	lines := make([]string, 0, len(resp.Items))
+	total := 0
+	for i := len(resp.Items) - 1; i >= 0; i-- { // newest → oldest
+		m := resp.Items[i]
 		body := strings.TrimSpace(m.Body)
 		if body == "" {
 			continue
 		}
+		body = providers.ClampMiddle(body, historyMessageMaxChars)
 		name := strings.TrimSpace(m.SenderName)
 		if name == "" {
 			name = strings.TrimSpace(m.SenderType)
 		}
-		b.WriteString(name)
-		b.WriteString("：")
-		b.WriteString(body)
+		line := name + "：" + body
+		if total+len([]rune(line)) > historyTotalMaxChars && len(lines) > 0 {
+			break
+		}
+		lines = append(lines, line)
+		total += len([]rune(line)) + 1
+	}
+	// Collected newest-first; emit oldest→newest.
+	var b strings.Builder
+	for i := len(lines) - 1; i >= 0; i-- {
+		b.WriteString(lines[i])
 		b.WriteString("\n")
 	}
 	return strings.TrimSpace(b.String())
@@ -380,6 +404,7 @@ func (s *OrchestratorService) pinnedRoomContext(ctx context.Context, ownerUserID
 		if body == "" {
 			continue
 		}
+		body = providers.ClampMiddle(body, pinnedMessageMaxChars)
 		name := strings.TrimSpace(m.SenderName)
 		if name == "" {
 			name = strings.TrimSpace(m.SenderType)
@@ -394,7 +419,7 @@ func (s *OrchestratorService) pinnedRoomContext(ctx context.Context, ownerUserID
 	if pinned == "" {
 		return ""
 	}
-	return "用户置顶的关键信息（长期上下文，务必优先考虑）：\n" + pinned
+	return "用户置顶的关键信息（长期上下文，务必优先考虑）：\n" + providers.ClampMiddle(pinned, pinnedTotalMaxChars)
 }
 
 // pinnedMessageIDs extracts the pinned_message_ids string slice from room
