@@ -114,3 +114,37 @@ func TestUpstreamOutputsBounded(t *testing.T) {
 		}
 	}
 }
+
+// TestUpstreamOutputsUseDisplayNames: the upstream block must label outputs
+// with the agent's display name from run metadata (surviving the JSON
+// map[string]any round-trip) instead of the opaque bot UUID, and fall back to
+// the raw id when no name is known.
+func TestUpstreamOutputsUseDisplayNames(t *testing.T) {
+	req := orchestrator.ExecuteTaskRequest{
+		Task: orchestrator.Task{Description: "汇总"},
+		Context: map[string]any{
+			// JSON round-trip shape: map[string]any with string values.
+			"agent_names": map[string]any{"bot:1111": "前端"},
+		},
+		Upstream: []orchestrator.TaskAttempt{
+			{AgentID: "bot:1111", Status: orchestrator.AttemptStatusSucceeded, OutputPayload: map[string]any{"raw_output": "页面已完成"}},
+			{AgentID: "bot:2222", Status: orchestrator.AttemptStatusSucceeded, OutputPayload: map[string]any{"raw_output": "接口已完成"}},
+		},
+	}
+	got := PromptWithContext(req)
+	if !strings.Contains(got, "[前端]：") {
+		t.Fatalf("expected display-name label, got %q", got)
+	}
+	if strings.Contains(got, "[bot:1111]") {
+		t.Fatalf("named agent must not be labelled by raw id, got %q", got)
+	}
+	if !strings.Contains(got, "[bot:2222]") {
+		t.Fatalf("unnamed agent must fall back to raw id, got %q", got)
+	}
+
+	// In-process shape (no SQL round-trip yet): map[string]string.
+	req.Context = map[string]any{"agent_names": map[string]string{"bot:1111": "前端"}}
+	if got := PromptWithContext(req); !strings.Contains(got, "[前端]：") {
+		t.Fatalf("map[string]string shape must work too, got %q", got)
+	}
+}

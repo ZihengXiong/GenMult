@@ -167,6 +167,35 @@ func TestRecentRoomHistoryBudget(t *testing.T) {
 	if strings.Contains(got, "msg-1\n") || strings.HasPrefix(got, "Me：msg-1") {
 		t.Fatalf("oldest message should be dropped under budget pressure")
 	}
+	// Dropped history must be announced so agents don't mistake the window for
+	// the whole conversation.
+	if !strings.Contains(got, "更早的对话因长度限制未包含") {
+		t.Fatalf("expected truncation notice when older messages are dropped, got %q", got)
+	}
+}
+
+// TestRecentRoomHistoryNoTruncationNotice: a small conversation that fits the
+// window completely must not carry the truncation notice.
+func TestRecentRoomHistoryNoTruncationNotice(t *testing.T) {
+	ctx := context.Background()
+	conn, rooms := newProjectionTestRooms(t)
+	room := createProjectionTestRoom(t, rooms)
+	_ = conn
+
+	host := &OrchestratorService{
+		rooms:   rooms,
+		log:     slog.New(slog.DiscardHandler),
+		projSeq: make(map[string]int64),
+	}
+	seedSequentialMessages(t, conn, rooms, room.ID, 3)
+
+	got := host.recentRoomHistory(ctx, testOwnerID, room.ID, 20)
+	if got == "" {
+		t.Fatal("expected non-empty history")
+	}
+	if strings.Contains(got, "更早的对话因长度限制未包含") {
+		t.Fatalf("small history must not claim truncation, got %q", got)
+	}
 }
 
 // TestMergeCapabilities: provider baseline stays first, user-configured extras

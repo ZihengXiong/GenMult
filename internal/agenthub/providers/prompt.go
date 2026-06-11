@@ -63,17 +63,40 @@ func PromptWithContext(req orchestrator.ExecuteTaskRequest) string {
 			prompt = "群聊对话历史（仅供理解上下文，请聚焦“当前任务”）：\n" + h + "\n\n当前任务：\n" + prompt
 		}
 	}
-	if up := upstreamOutputs(req.Upstream); up != "" {
+	if up := upstreamOutputs(req.Upstream, agentNamesFromContext(req.Context)); up != "" {
 		prompt = up + "\n\n" + prompt
 	}
 	return prompt
+}
+
+// agentNamesFromContext extracts the agent_id → display-name map the host
+// stores in run metadata. After a SQL round-trip the map arrives as
+// map[string]any (JSON), so both shapes are handled. Returns nil when absent.
+func agentNamesFromContext(contextMap map[string]any) map[string]string {
+	if contextMap == nil {
+		return nil
+	}
+	switch raw := contextMap["agent_names"].(type) {
+	case map[string]string:
+		return raw
+	case map[string]any:
+		out := make(map[string]string, len(raw))
+		for id, v := range raw {
+			if name, ok := v.(string); ok && strings.TrimSpace(name) != "" {
+				out[id] = name
+			}
+		}
+		return out
+	default:
+		return nil
+	}
 }
 
 // upstreamOutputs renders the text outputs of successful upstream task attempts
 // (those this task depends on) as a labelled block, so a dependent agent can see
 // and build on what the upstream agents produced. Returns "" when there is no
 // usable upstream output.
-func upstreamOutputs(upstream []orchestrator.TaskAttempt) string {
+func upstreamOutputs(upstream []orchestrator.TaskAttempt, agentNames map[string]string) string {
 	var b strings.Builder
 	for _, att := range upstream {
 		text := attemptOutputText(att.OutputPayload)
@@ -81,7 +104,12 @@ func upstreamOutputs(upstream []orchestrator.TaskAttempt) string {
 			continue
 		}
 		text = ClampMiddle(text, UpstreamAttemptMaxChars)
-		label := strings.TrimSpace(att.AgentID)
+		// Prefer the agent's display name ("前端") over the raw id ("bot:<uuid>"),
+		// which carries no meaning for the downstream model.
+		label := strings.TrimSpace(agentNames[strings.TrimSpace(att.AgentID)])
+		if label == "" {
+			label = strings.TrimSpace(att.AgentID)
+		}
 		if label == "" {
 			label = strings.TrimSpace(att.ProviderName)
 		}

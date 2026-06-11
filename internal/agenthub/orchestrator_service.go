@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"strconv"
 	"strings"
@@ -188,6 +189,19 @@ func (s *OrchestratorService) StartRun(ctx context.Context, ownerUserID, roomID 
 	for k, v := range req.Metadata {
 		metadata[k] = v
 	}
+	// Agent display names ride in run metadata so prompt builders can label
+	// upstream outputs "[前端]" instead of an opaque "[bot:<uuid>]".
+	if _, exists := metadata["agent_names"]; !exists {
+		names := make(map[string]any, len(agents))
+		for _, a := range agents {
+			if n := strings.TrimSpace(a.Name); n != "" && strings.TrimSpace(a.ID) != "" {
+				names[a.ID] = n
+			}
+		}
+		if len(names) > 0 {
+			metadata["agent_names"] = names
+		}
+	}
 	if _, exists := metadata["room_history"]; !exists {
 		// Pinned messages are surfaced as long-term context ahead of the rolling
 		// recent-history window, so user-curated key facts persist across runs even
@@ -366,6 +380,7 @@ func (s *OrchestratorService) recentRoomHistory(ctx context.Context, ownerUserID
 	}
 	lines := make([]string, 0, len(resp.Items))
 	total := 0
+	truncated := false
 	for i := len(resp.Items) - 1; i >= 0; i-- { // newest → oldest
 		m := resp.Items[i]
 		body := strings.TrimSpace(m.Body)
@@ -379,13 +394,23 @@ func (s *OrchestratorService) recentRoomHistory(ctx context.Context, ownerUserID
 		}
 		line := name + "：" + body
 		if total+len([]rune(line)) > historyTotalMaxChars && len(lines) > 0 {
+			truncated = true
 			break
 		}
 		lines = append(lines, line)
 		total += len([]rune(line)) + 1
 	}
+	// The fetch window itself may have cut off older messages.
+	if limit > 0 && len(resp.Items) >= int(limit) {
+		truncated = true
+	}
 	// Collected newest-first; emit oldest→newest.
 	var b strings.Builder
+	// Tell the agents the transcript is incomplete rather than letting them
+	// assume this is the whole conversation (pins still cover older key facts).
+	if truncated && len(lines) > 0 {
+		fmt.Fprintf(&b, "（更早的对话因长度限制未包含，以下仅为最近 %d 条消息）\n", len(lines))
+	}
 	for i := len(lines) - 1; i >= 0; i-- {
 		b.WriteString(lines[i])
 		b.WriteString("\n")
