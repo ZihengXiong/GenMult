@@ -268,7 +268,9 @@ func CodexParseEvent(line []byte) (CLIEvent, error) {
 				return CLIEvent{Type: "text", Content: ce.Item.Content, Raw: line}, nil
 			}
 			if ce.Item.Type == "command" {
-				return CLIEvent{Type: "tool_use", Content: ce.Item.Name, Raw: line}, nil
+				// Carry name + arguments so the tool-loop guard can discriminate
+				// distinct invocations of the same command.
+				return CLIEvent{Type: "tool_use", Content: ce.Item.Name, ToolName: ce.Item.Name, Payload: ce.Item.Arguments, Raw: line}, nil
 			}
 		}
 	case "turn.completed":

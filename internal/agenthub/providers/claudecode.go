@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/ZihengXiong/GenMult/internal/agent"
 	"github.com/ZihengXiong/GenMult/internal/agenthub/orchestrator"
 )
 
@@ -178,6 +179,11 @@ func (p *ClaudeCodeProvider) Execute(ctx context.Context, req orchestrator.Execu
 		)
 		if errors.Is(err, ErrCLINotFound) {
 			return orchestrator.ExecuteTaskResult{Retryable: false}, err
+		}
+		// Livelock is behavioral, not transient: a retry replays the same prompt
+		// and almost certainly loops again, burning tokens — degrade instead.
+		if errors.Is(err, agent.ErrToolLoopDetected) {
+			return orchestrator.ExecuteTaskResult{Retryable: false}, fmt.Errorf("%w：检测到同一工具+参数被连续重复调用且无进展，已中止该任务以避免空转", err)
 		}
 		errStr := err.Error()
 		errLower := strings.ToLower(errStr)

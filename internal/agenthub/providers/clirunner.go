@@ -9,6 +9,8 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"github.com/ZihengXiong/GenMult/internal/agent"
 )
 
 // CLIRunnerConfig controls subprocess behavior.
@@ -67,6 +69,16 @@ func (r *CLIRunner) Run(ctx context.Context, prompt string, workDir string, exec
 	// 2. Build arguments.
 	args := r.config.BuildArgs(prompt)
 
+	// Livelock guard: CLI agents only have --max-turns / wall-clock timeouts, but
+	// a single turn can burn many identical tool calls without progress. Reuse the
+	// single-bot ToolLoopGuard (same tool + normalized arguments hashing): after
+	// the package-default repeat threshold plus one warning grace (the warning
+	// cannot be delivered into a running CLI turn, so it only logs), the subprocess
+	// is cancelled and Run returns agent.ErrToolLoopDetected.
+	runCtx, cancelRun := context.WithCancelCause(ctx)
+	defer cancelRun(nil)
+	toolGuard := agent.NewToolLoopGuard(0, 0)
+
 	// 3. Start execution.
 	req := ExecRequest{
 		Bin:     r.config.BinaryName,
@@ -77,7 +89,7 @@ func (r *CLIRunner) Run(ctx context.Context, prompt string, workDir string, exec
 		Timeout: 2 * time.Hour,
 	}
 
-	handle, err := executor.Start(ctx, req)
+	handle, err := executor.Start(runCtx, req)
 	if err != nil {
 		r.logger.Error("failed to start execution",
 			slog.String("binary", r.config.BinaryName),
@@ -193,6 +205,8 @@ func (r *CLIRunner) Run(ctx context.Context, prompt string, workDir string, exec
 				r.config.OnEvent(event)
 			}
 
+			r.inspectToolLoop(toolGuard, event, cancelRun)
+
 			// Accumulate text for storage. For stream-json (claudecode, Stdin set),
 			// text events are snapshots that already carry the full content —
 			// skipping "result" avoids doubling the response in bot_history_messages.
@@ -229,8 +243,11 @@ func (r *CLIRunner) Run(ctx context.Context, prompt string, workDir string, exec
 			slog.String("error", waitErr.Error()),
 			slog.String("stderr", stderrStr),
 		)
-		if ctx.Err() != nil {
-			return "", ctx.Err()
+		// A done context explains the exit error: surface its cause — the
+		// tool-loop abort from inspectToolLoop, or the caller's own
+		// cancellation / deadline (Cause falls back to ctx.Err()).
+		if cause := context.Cause(runCtx); cause != nil {
+			return "", cause
 		}
 		return "", fmt.Errorf("CLI exit error (code %d): %w (stderr: %s)", exitCode, waitErr, stderrStr)
 	}
@@ -238,6 +255,34 @@ func (r *CLIRunner) Run(ctx context.Context, prompt string, workDir string, exec
 	r.logger.Info("CLI execution finished", slog.Int("exit_code", exitCode), slog.String("stderr", stderrStr))
 
 	return outputBuilder.String(), nil
+}
+
+// inspectToolLoop feeds tool invocations into the loop guard and cancels the
+// subprocess (with agent.ErrToolLoopDetected as the cause) once the same tool
+// with the same arguments has repeated past the guard's abort budget. Codex
+// command items carry the tool name in Content with no payload; Claude events
+// carry ToolName plus the first tool input.
+func (r *CLIRunner) inspectToolLoop(guard *agent.ToolLoopGuard, event CLIEvent, cancel context.CancelCauseFunc) {
+	if event.Type != "tool_use" && event.ToolName == "" {
+		return
+	}
+	name := strings.TrimSpace(event.ToolName)
+	if name == "" {
+		name = strings.TrimSpace(event.Content)
+	}
+	if name == "" {
+		// No discriminator at all: hashing would lump unrelated calls together
+		// and risk a false abort, so don't count the event.
+		return
+	}
+	warn, abort := guard.Guard(name, event.Payload)
+	switch {
+	case abort:
+		r.logger.Warn("tool loop detected, aborting subprocess", slog.String("tool", name))
+		cancel(agent.ErrToolLoopDetected)
+	case warn:
+		r.logger.Warn("tool loop warning: repeated identical tool invocation", slog.String("tool", name))
+	}
 }
 
 // errorDetailFromStderr extracts the most relevant line from accumulated
