@@ -3,6 +3,7 @@ package providers
 import (
 	"os"
 	"strconv"
+	"strings"
 )
 
 // ClaudeCodeConfig holds configuration for the Claude Code CLI provider.
@@ -63,6 +64,20 @@ func (c *ProviderConfigs) FromEnvWithDefaults() {
 
 	if c.Codex.APIKey == "" {
 		c.Codex.APIKey = os.Getenv("OPENAI_API_KEY")
+	}
+	if c.Codex.APIKey == "" {
+		// The codex provider's missing-key error tells users DEEPSEEK_API_KEY is
+		// accepted, so honor it. A DeepSeek key is useless against api.openai.com:
+		// when no OpenAI-compatible base URL is configured anywhere, point the CLI
+		// at DeepSeek's OpenAI-compatible endpoint derived from DEEPSEEK_API_URL.
+		if dsKey := os.Getenv("DEEPSEEK_API_KEY"); dsKey != "" {
+			c.Codex.APIKey = dsKey
+			if c.Codex.BaseURL == "" && os.Getenv("OPENAI_BASE_URL") == "" {
+				if dsURL := os.Getenv("DEEPSEEK_API_URL"); dsURL != "" {
+					c.Codex.BaseURL = strings.TrimRight(dsURL, "/") + "/v1"
+				}
+			}
+		}
 	}
 	if c.Codex.Sandbox == "" {
 		c.Codex.Sandbox = "workspace-write"
