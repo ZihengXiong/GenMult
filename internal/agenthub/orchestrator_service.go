@@ -21,6 +21,7 @@ import (
 	postgresstore "github.com/ZihengXiong/GenMult/internal/db/postgres/store"
 	sqlitestore "github.com/ZihengXiong/GenMult/internal/db/sqlite/store"
 	dbstore "github.com/ZihengXiong/GenMult/internal/db/store"
+	"github.com/ZihengXiong/GenMult/internal/message/event"
 	"github.com/ZihengXiong/GenMult/internal/models"
 	globalproviders "github.com/ZihengXiong/GenMult/internal/providers"
 	"github.com/ZihengXiong/GenMult/internal/settings"
@@ -54,6 +55,10 @@ type OrchestratorService struct {
 	summarize func(ctx context.Context, prompt string) (string, error)
 	// summaryFlight keeps at most one summary update in flight per room.
 	summaryFlight sync.Map
+
+	// events, when non-nil, receives a push notification per reconciled run
+	// (key agenthub-room:<roomID>) so SSE subscribers refresh without polling.
+	events *event.Hub
 }
 
 type StartRunRequest struct {
@@ -76,6 +81,7 @@ func NewOrchestratorService(
 	botService *bots.Service,
 	queries dbstore.Queries,
 	settingsService *settings.Service,
+	eventHub *event.Hub,
 ) (*OrchestratorService, error) {
 	if log == nil {
 		log = slog.Default()
@@ -160,12 +166,13 @@ func NewOrchestratorService(
 		MaxParallelPerAgent: 1,
 		DispatchAsync:       true,
 	})
-	return &OrchestratorService{
+	svc := &OrchestratorService{
 		rooms:   roomService,
 		orch:    orchestrator,
 		bots:    botService,
 		log:     log.With(slog.String("service", "agenthub_orchestrator")),
 		projSeq: make(map[string]int64),
+		events:  eventHub,
 		// Summary memory reuses the planner's model resolution (first enabled
 		// chat model, chat-completions preferred) per call; calls are rare —
 		// only when the history window actually overflows.
@@ -182,7 +189,57 @@ func NewOrchestratorService(
 				sdk.WithTemperature(0.2),
 			)
 		},
-	}, nil
+	}
+	// Event-driven projection + push: every reconcile — including the engine's
+	// internal ones after async task completion, which no API caller observes —
+	// projects fresh run events into the room timeline and notifies SSE
+	// subscribers. Projection is insert-layer idempotent, so overlapping with
+	// the poll-driven path is harmless.
+	orchestrator.SetOnReconciled(func(snapshot orch.RunSnapshot) {
+		ctx := context.WithoutCancel(context.Background())
+		svc.projectRun(ctx, snapshot)
+		svc.publishRunChanged(snapshot)
+	})
+	return svc, nil
+}
+
+// roomRunEventKey is the hub subscription key for a room's run-change pushes.
+func roomRunEventKey(roomID string) string {
+	return "agenthub-room:" + strings.TrimSpace(roomID)
+}
+
+// publishRunChanged notifies the room's SSE subscribers that a run advanced.
+// Non-blocking, best-effort (slow subscribers are dropped by the hub).
+func (s *OrchestratorService) publishRunChanged(snapshot orch.RunSnapshot) {
+	if s.events == nil || strings.TrimSpace(snapshot.Run.RoomID) == "" {
+		return
+	}
+	data, err := json.Marshal(map[string]any{
+		"room_id": snapshot.Run.RoomID,
+		"run_id":  snapshot.Run.ID,
+		"status":  snapshot.Run.Status,
+	})
+	if err != nil {
+		return
+	}
+	s.events.Publish(event.Event{
+		Type:  event.EventTypeAgentHubRun,
+		BotID: roomRunEventKey(snapshot.Run.RoomID),
+		Data:  data,
+	})
+}
+
+// SubscribeRoomRunEvents subscribes the caller (owner-checked) to a room's
+// run-change push stream. The returned cancel must be called when done.
+func (s *OrchestratorService) SubscribeRoomRunEvents(ctx context.Context, ownerUserID, roomID string) (<-chan event.Event, func(), error) {
+	if _, err := s.rooms.Get(ctx, ownerUserID, roomID); err != nil {
+		return nil, nil, err
+	}
+	if s.events == nil {
+		return nil, nil, errors.New("event hub unavailable")
+	}
+	_, ch, cancel := s.events.Subscribe(roomRunEventKey(roomID), event.DefaultBufferSize)
+	return ch, cancel, nil
 }
 
 func (s *OrchestratorService) StartRun(ctx context.Context, ownerUserID, roomID string, req StartRunRequest) (orch.RunSnapshot, error) {

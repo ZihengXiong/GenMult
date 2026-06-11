@@ -440,3 +440,47 @@ func TestConfirmationGateHoldsDispatchUntilConfirmed(t *testing.T) {
 		t.Fatalf("double confirm must be harmless: %v", err)
 	}
 }
+
+// TestOnReconciledHookFires: the post-reconcile callback must observe every
+// reconcile's final snapshot (the host hangs projection + push on it),
+// including the cancellation path.
+func TestOnReconciledHookFires(t *testing.T) {
+	store := NewMemoryStore()
+	svc := NewService(store, fixedPlanner{plan: Plan{PlannerVersion: "test", Tasks: []TaskDraft{
+		{ClientKey: "one", Title: "one", Description: "first", ProviderName: "noop", MaxRetries: 0, Timeout: time.Second},
+	}}}, NewProviderRegistry(NoopProvider{}), nil, Config{})
+
+	var got []RunSnapshot
+	svc.SetOnReconciled(func(snap RunSnapshot) { got = append(got, snap) })
+
+	snap, err := svc.StartRun(context.Background(), StartRunInput{RoomID: "room-1", Objective: "ship", AutoDispatch: true})
+	if err != nil {
+		t.Fatalf("StartRun: %v", err)
+	}
+	if len(got) == 0 {
+		t.Fatal("hook must fire for the StartRun-triggered reconcile")
+	}
+	last := got[len(got)-1]
+	if last.Run.ID != snap.Run.ID || last.Run.Status != RunStatusCompleted {
+		t.Fatalf("hook saw %s/%s, want completed snapshot of %s", last.Run.ID, last.Run.Status, snap.Run.ID)
+	}
+
+	// Cancellation of a fresh gated run also notifies.
+	gated, err := svc.StartRun(context.Background(), StartRunInput{
+		RoomID: "room-1", Objective: "hold", AutoDispatch: false,
+		Metadata: map[string]any{AwaitConfirmationMetaKey: true},
+	})
+	if err != nil {
+		t.Fatalf("StartRun gated: %v", err)
+	}
+	before := len(got)
+	if _, err := svc.CancelRun(context.Background(), gated.Run.ID); err != nil {
+		t.Fatalf("CancelRun: %v", err)
+	}
+	if len(got) <= before {
+		t.Fatal("hook must fire on cancellation")
+	}
+	if got[len(got)-1].Run.Status != RunStatusCancelled {
+		t.Fatalf("hook saw %s, want cancelled", got[len(got)-1].Run.Status)
+	}
+}

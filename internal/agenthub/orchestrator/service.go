@@ -29,6 +29,13 @@ type Service struct {
 	logger    *slog.Logger
 	clock     func() time.Time
 	startedAt time.Time
+	// onReconciled, when set, is invoked synchronously with the final snapshot
+	// of every ReconcileRun — including the engine's internal reconciles after
+	// async task completion, which no API caller observes. It is the seam that
+	// lets the host project run events to room messages (and notify push
+	// subscribers) the moment progress happens instead of waiting for the next
+	// poll. The callback must not call back into the Service.
+	onReconciled func(RunSnapshot)
 }
 
 func NewService(store Store, planner Planner, registry *ProviderRegistry, logger *slog.Logger, cfg Config) *Service {
@@ -183,7 +190,22 @@ func (s *Service) ConfirmRun(ctx context.Context, runID string) (RunSnapshot, er
 	return s.ReconcileRun(ctx, run.ID)
 }
 
+// SetOnReconciled registers the post-reconcile callback (see Service field
+// doc). Call before the service starts handling runs; not safe to swap
+// concurrently with reconciles.
+func (s *Service) SetOnReconciled(fn func(RunSnapshot)) {
+	s.onReconciled = fn
+}
+
 func (s *Service) ReconcileRun(ctx context.Context, runID string) (RunSnapshot, error) {
+	snapshot, err := s.reconcileRun(ctx, runID)
+	if err == nil && s.onReconciled != nil {
+		s.onReconciled(snapshot)
+	}
+	return snapshot, err
+}
+
+func (s *Service) reconcileRun(ctx context.Context, runID string) (RunSnapshot, error) {
 	run, err := s.store.GetRun(ctx, strings.TrimSpace(runID))
 	if err != nil {
 		return RunSnapshot{}, err
@@ -293,7 +315,13 @@ func (s *Service) CancelRun(ctx context.Context, runID string) (RunSnapshot, err
 	if _, err := s.transitionRun(ctx, run, RunStatusCancelled); err != nil {
 		return RunSnapshot{}, err
 	}
-	return s.GetSnapshot(ctx, run.ID)
+	snapshot, err := s.GetSnapshot(ctx, run.ID)
+	if err == nil && s.onReconciled != nil {
+		// Cancellation appends task/run events without a reconcile pass; fire
+		// the hook so they project and push immediately too.
+		s.onReconciled(snapshot)
+	}
+	return snapshot, err
 }
 
 // Retry backoff bounds: a retryable failure (rate limit, transient provider

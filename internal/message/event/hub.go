@@ -25,6 +25,9 @@ const (
 	EventTypeBackgroundTask EventType = "background_task"
 	// EventTypeAgentStream is emitted for server-initiated agent stream updates.
 	EventTypeAgentStream EventType = "agent_stream"
+	// EventTypeAgentHubRun is emitted when an AgentHub orchestration run
+	// advances (keyed by agenthub-room:<roomID>, not a bot ID).
+	EventTypeAgentHubRun EventType = "agent_hub_run"
 )
 
 // Event is the normalized payload emitted by the in-process message event hub.

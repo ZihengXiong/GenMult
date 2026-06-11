@@ -1223,6 +1223,7 @@ import McpCard from '@/pages/supermarket/components/mcp-card.vue'
 import InstallSkillDialog from '@/pages/supermarket/components/install-skill-dialog.vue'
 import InstallMcpDialog from '@/pages/supermarket/components/install-mcp-dialog.vue'
 import { connectWebSocket, createSession, type UIMessage, type UIStreamEvent, type UIToolMessage, type ChatAttachment } from '@/composables/api/useChat'
+import { readSSEStream } from '@/composables/api/useChat.sse'
 import { useChatSelectionStore } from '@/store/chat-selection'
 import { useWorkspaceTabsStore } from '@/store/workspace-tabs'
 import { visibleBots } from '@/utils/bots'
@@ -1980,12 +1981,17 @@ function ensureRunDraft(taskId: string, task?: AgentHubRunSnapshot['tasks'][numb
   return draft
 }
 
+// runPollingTick lets the SSE push path trigger an immediate refresh of the
+// currently polled run instead of waiting for the next scheduled tick.
+let runPollingTick: (() => void) | null = null
+
 function stopAgentHubRunPolling(runId = '') {
   if (runPollingTimer !== undefined) {
-    window.clearInterval(runPollingTimer)
+    window.clearTimeout(runPollingTimer)
     runPollingTimer = undefined
   }
   runPollingKey = ''
+  runPollingTick = null
   resetRunLiveDrafts()
   if (!runId || activeRunPollingId.value === runId) {
     activeRunPollingId.value = ''
@@ -2002,7 +2008,14 @@ function startAgentHubRunPolling(roomId: string, runId: string) {
   runPollingKey = key
   activeRunPollingId.value = runId
 
+  let ticking = false
   const tick = async () => {
+    if (ticking || runPollingKey !== key) return
+    ticking = true
+    // Adaptive cadence: fast while a task is actually running (live thinking
+    // bubbles need it); slow otherwise — SSE pushes cover state changes, and
+    // the slow tick remains the fallback that releases retry backoffs.
+    let delay = 6000
     try {
       const snapshot = await reconcileAgentHubRun(runId)
       queryCache.invalidateQueries({ key: ['agent-hub', 'runs', 'latest', roomId] })
@@ -2011,18 +2024,27 @@ function startAgentHubRunPolling(roomId: string, runId: string) {
       await pumpRunLiveEvents(runId, snapshot).catch((error) => {
         console.error('Failed to pump AgentHub run events:', error)
       })
+      if (snapshot.tasks.some((task) => task.status === 'running')) delay = 1500
       if (isRunTerminal(snapshot.run.status)) {
         completedPolledRunIds.add(runId)
         stopAgentHubRunPolling(runId)
+        return
       }
     }
     catch (error) {
       console.error('Failed to refresh AgentHub run progress:', error)
     }
+    finally {
+      ticking = false
+    }
+    if (runPollingKey === key) {
+      window.clearTimeout(runPollingTimer)
+      runPollingTimer = window.setTimeout(tick, delay)
+    }
   }
 
+  runPollingTick = () => { void tick() }
   void tick()
-  runPollingTimer = window.setInterval(tick, 1500)
 }
 
 watch(
@@ -2049,6 +2071,70 @@ watch(
 )
 
 onUnmounted(() => stopAgentHubRunPolling())
+
+// ---- run-change push (SSE) ----------------------------------------------
+// The backend publishes one event per reconciled run (including the engine's
+// internal post-completion reconciles), so the UI refreshes the moment
+// something happens; the adaptive poll above degrades to a slow fallback.
+let runEventsAbort: AbortController | null = null
+
+async function streamAgentHubRoomRunEvents(roomId: string, signal: AbortSignal, onEvent: () => void): Promise<void> {
+  const response = await client.get({
+    url: '/agent-hub/rooms/{room_id}/runs/events',
+    path: { room_id: roomId },
+    parseAs: 'stream',
+    signal,
+    throwOnError: true,
+  })
+  const body = response.data as ReadableStream<Uint8Array> | null
+  if (!body) throw new Error('No response body')
+  await readSSEStream(body, () => onEvent())
+}
+
+function stopRoomRunEventStream() {
+  runEventsAbort?.abort()
+  runEventsAbort = null
+}
+
+function startRoomRunEventStream(roomId: string) {
+  stopRoomRunEventStream()
+  const controller = new AbortController()
+  runEventsAbort = controller
+  void (async () => {
+    while (!controller.signal.aborted) {
+      try {
+        await streamAgentHubRoomRunEvents(roomId, controller.signal, () => {
+          queryCache.invalidateQueries({ key: ['agent-hub', 'runs', 'latest', roomId] })
+          queryCache.invalidateQueries({ key: ['agent-hub', 'messages', roomId] })
+          // Pull live process events / advance the run promptly on push.
+          runPollingTick?.()
+        })
+      }
+      catch {
+        // Network error or abort — fall through to the reconnect delay.
+      }
+      if (controller.signal.aborted) break
+      await new Promise((resolve) => setTimeout(resolve, 3000))
+    }
+  })()
+}
+
+watch(
+  () => {
+    const roomId = selectedRoom.value?.id ?? ''
+    return isPersistedRoomId(roomId) ? roomId : ''
+  },
+  (roomId) => {
+    if (!roomId) {
+      stopRoomRunEventStream()
+      return
+    }
+    startRoomRunEventStream(roomId)
+  },
+  { immediate: true },
+)
+
+onUnmounted(() => stopRoomRunEventStream())
 
 const tasks = computed<TaskPanelItem[]>(() => {
   const snapshot = selectedRoomRun.value

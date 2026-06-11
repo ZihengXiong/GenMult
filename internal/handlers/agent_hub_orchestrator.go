@@ -1,11 +1,13 @@
 package handlers
 
 import (
+	"bufio"
 	"errors"
 	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/labstack/echo/v4"
 
@@ -33,6 +35,7 @@ func (h *AgentHubOrchestratorHandler) Register(e *echo.Echo) {
 	group := e.Group("/agent-hub")
 	group.POST("/rooms/:room_id/runs", h.StartRun)
 	group.GET("/rooms/:room_id/runs/latest", h.GetLatestRoomRun)
+	group.GET("/rooms/:room_id/runs/events", h.StreamRoomRunEvents)
 	group.GET("/runs/:run_id", h.GetRun)
 	group.POST("/runs/:run_id/reconcile", h.ReconcileRun)
 	group.POST("/runs/:run_id/confirm", h.ConfirmRun)
@@ -92,6 +95,65 @@ func (h *AgentHubOrchestratorHandler) GetLatestRoomRun(c echo.Context) error {
 		return h.httpError(err)
 	}
 	return c.JSON(http.StatusOK, snapshot)
+}
+
+// StreamRoomRunEvents godoc
+// @Summary Stream AgentHub run-change pushes for a room (SSE)
+// @Description Emits one JSON event per reconciled run in the room, so the UI
+// @Description can refresh immediately instead of fixed-interval polling.
+// @Tags agent-hub
+// @Produce text/event-stream
+// @Param room_id path string true "Room ID"
+// @Success 200 {string} string "SSE stream"
+// @Failure 401 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Router /agent-hub/rooms/{room_id}/runs/events [get].
+func (h *AgentHubOrchestratorHandler) StreamRoomRunEvents(c echo.Context) error {
+	ownerID, err := auth.UserIDFromContext(c)
+	if err != nil {
+		return err
+	}
+	stream, cancel, err := h.service.SubscribeRoomRunEvents(c.Request().Context(), ownerID, c.Param("room_id"))
+	if err != nil {
+		return h.httpError(err)
+	}
+	defer cancel()
+
+	c.Response().Header().Set(echo.HeaderContentType, "text/event-stream")
+	c.Response().Header().Set(echo.HeaderCacheControl, "no-cache")
+	c.Response().Header().Set(echo.HeaderConnection, "keep-alive")
+	c.Response().WriteHeader(http.StatusOK)
+	flusher, ok := c.Response().Writer.(http.Flusher)
+	if !ok {
+		return echo.NewHTTPError(http.StatusInternalServerError, "streaming not supported")
+	}
+	writer := bufio.NewWriter(c.Response().Writer)
+
+	ctx := c.Request().Context()
+	heartbeat := time.NewTicker(25 * time.Second)
+	defer heartbeat.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-heartbeat.C:
+			// Comment line keeps proxies from idling out the connection.
+			if _, err := writer.WriteString(": ping\n\n"); err != nil {
+				return nil
+			}
+			if err := writer.Flush(); err != nil {
+				return nil
+			}
+			flusher.Flush()
+		case ev, open := <-stream:
+			if !open {
+				return nil
+			}
+			if err := writeSSEJSON(writer, flusher, ev); err != nil {
+				return nil
+			}
+		}
+	}
 }
 
 // GetRun godoc
