@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 
 	orch "github.com/ZihengXiong/GenMult/internal/agenthub/orchestrator"
 )
@@ -166,5 +167,77 @@ func TestLLMPlanner_NilModelFallsBack(t *testing.T) {
 	}
 	if len(plan.Tasks) == 0 {
 		t.Error("expected fallback plan to have tasks")
+	}
+}
+
+// sentinelPlanner lets lazy-planner tests observe which planner served a call.
+type sentinelPlanner struct{ version string }
+
+func (p sentinelPlanner) Plan(context.Context, orch.PlanInput) (orch.Plan, error) {
+	return orch.Plan{PlannerVersion: p.version, Tasks: []orch.TaskDraft{{ClientKey: "t", Title: "t"}}}, nil
+}
+
+// TestLazyPlanner_UpgradesWhenModelAppears: rule fallback while no model is
+// configured, rate-limited re-probing, upgrade on success, then sticky.
+func TestLazyPlanner_UpgradesWhenModelAppears(t *testing.T) {
+	resolveCalls := 0
+	var available orch.Planner
+	lazy := newLazyPlanner(func(context.Context) orch.Planner {
+		resolveCalls++
+		return available
+	}, sentinelPlanner{version: "fallback"}, time.Minute, nil)
+
+	now := time.Now()
+	lazy.now = func() time.Time { return now }
+	input := orch.PlanInput{RoomID: "r", Objective: "o"}
+
+	// No model yet → fallback, one probe.
+	plan, err := lazy.Plan(context.Background(), input)
+	if err != nil || plan.PlannerVersion != "fallback" {
+		t.Fatalf("expected fallback plan, got %v / %v", plan.PlannerVersion, err)
+	}
+	if resolveCalls != 1 {
+		t.Fatalf("expected 1 resolve call, got %d", resolveCalls)
+	}
+
+	// Within the retry interval: no re-probe even across many calls.
+	for i := 0; i < 5; i++ {
+		if _, err := lazy.Plan(context.Background(), input); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if resolveCalls != 1 {
+		t.Fatalf("probing not rate-limited: %d resolve calls", resolveCalls)
+	}
+
+	// Model appears; after the interval the next Plan upgrades.
+	available = sentinelPlanner{version: "llm"}
+	now = now.Add(2 * time.Minute)
+	plan, err = lazy.Plan(context.Background(), input)
+	if err != nil || plan.PlannerVersion != "llm" {
+		t.Fatalf("expected llm plan after upgrade, got %v / %v", plan.PlannerVersion, err)
+	}
+	if resolveCalls != 2 {
+		t.Fatalf("expected 2 resolve calls, got %d", resolveCalls)
+	}
+
+	// Sticky: no further resolution attempts once resolved.
+	available = nil
+	now = now.Add(time.Hour)
+	plan, _ = lazy.Plan(context.Background(), input)
+	if plan.PlannerVersion != "llm" {
+		t.Fatalf("resolved planner must be sticky, got %v", plan.PlannerVersion)
+	}
+	if resolveCalls != 2 {
+		t.Fatalf("resolved planner must stop probing, got %d resolve calls", resolveCalls)
+	}
+}
+
+// TestLazyPlanner_NilResolveServesFallback guards the degenerate wiring.
+func TestLazyPlanner_NilResolveServesFallback(t *testing.T) {
+	lazy := newLazyPlanner(nil, sentinelPlanner{version: "fallback"}, 0, nil)
+	plan, err := lazy.Plan(context.Background(), orch.PlanInput{RoomID: "r", Objective: "o"})
+	if err != nil || plan.PlannerVersion != "fallback" {
+		t.Fatalf("expected fallback, got %v / %v", plan.PlannerVersion, err)
 	}
 }

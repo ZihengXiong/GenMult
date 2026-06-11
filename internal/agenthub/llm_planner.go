@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"sync"
 	"time"
 
 	sdk "github.com/memohai/twilight-ai/sdk"
@@ -15,6 +16,78 @@ import (
 )
 
 const llmPlannerVersion = "llm-planner/v1"
+
+// plannerResolveRetryInterval rate-limits how often the lazy planner re-probes
+// the DB for a usable chat model while none is configured.
+const plannerResolveRetryInterval = time.Minute
+
+// lazyPlanner resolves the LLM planner on demand instead of once at process
+// start, so a user who configures their first chat model (or fixes provider
+// credentials) after boot gets LLM planning on their next run without a server
+// restart. While no model is configured it serves the deterministic fallback
+// and re-probes at most once per retryInterval; once resolution succeeds the
+// planner is fixed for the process lifetime (same as the old eager behavior).
+type lazyPlanner struct {
+	mu            sync.Mutex
+	resolve       func(ctx context.Context) orch.Planner
+	fallback      orch.Planner
+	resolved      orch.Planner
+	retryInterval time.Duration
+	lastAttempt   time.Time
+	now           func() time.Time
+	log           *slog.Logger
+}
+
+func newLazyPlanner(resolve func(ctx context.Context) orch.Planner, fallback orch.Planner, retryInterval time.Duration, log *slog.Logger) *lazyPlanner {
+	if fallback == nil {
+		fallback = orch.NewRulePlanner()
+	}
+	if retryInterval <= 0 {
+		retryInterval = plannerResolveRetryInterval
+	}
+	if log == nil {
+		log = slog.Default()
+	}
+	return &lazyPlanner{
+		resolve:       resolve,
+		fallback:      fallback,
+		retryInterval: retryInterval,
+		now:           time.Now,
+		log:           log.With(slog.String("component", "agenthub_lazy_planner")),
+	}
+}
+
+func (p *lazyPlanner) Plan(ctx context.Context, input orch.PlanInput) (orch.Plan, error) {
+	return p.current(ctx).Plan(ctx, input)
+}
+
+// current returns the resolved LLM planner, attempting (rate-limited)
+// resolution first, and the fallback while none is available. The mutex stays
+// held across resolve — a cheap DB lookup — so concurrent runs never resolve
+// twice.
+func (p *lazyPlanner) current(ctx context.Context) orch.Planner {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.resolved != nil {
+		return p.resolved
+	}
+	if p.resolve == nil {
+		return p.fallback
+	}
+	now := p.now()
+	if !p.lastAttempt.IsZero() && now.Sub(p.lastAttempt) < p.retryInterval {
+		return p.fallback
+	}
+	p.lastAttempt = now
+	if planner := p.resolve(ctx); planner != nil {
+		p.resolved = planner
+		p.log.Info("agenthub planner: LLM planner enabled (chat model resolved)")
+		return p.resolved
+	}
+	p.log.Info("agenthub planner: no usable chat model yet, using rule planner",
+		slog.Duration("next_probe_in", p.retryInterval))
+	return p.fallback
+}
 
 // llmPlanner implements orchestrator.Planner by asking an LLM to decompose the
 // objective into a task DAG over the room's available agents. Any failure (no

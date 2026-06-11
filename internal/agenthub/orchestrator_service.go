@@ -137,8 +137,17 @@ func NewOrchestratorService(
 		orch.NoopProvider{},
 	)
 
-	plannerModel := resolvePlannerModel(context.Background(), queries, log)
-	orchestrator := orch.NewService(store, buildPlanner(plannerModel, log), registry, log, orch.Config{
+	// Lazy planner: the LLM model is resolved on first use (and re-probed at
+	// most once a minute while absent), so configuring the first chat model
+	// after boot upgrades planning without a restart.
+	planner := newLazyPlanner(func(ctx context.Context) orch.Planner {
+		model := resolvePlannerModel(ctx, queries, log)
+		if model == nil {
+			return nil
+		}
+		return newLLMPlanner(model, orch.NewRulePlanner(), log)
+	}, orch.NewRulePlanner(), plannerResolveRetryInterval, log)
+	orchestrator := orch.NewService(store, planner, registry, log, orch.Config{
 		MaxParallelPerRun:   3,
 		MaxParallelPerAgent: 1,
 		DispatchAsync:       true,
@@ -454,19 +463,6 @@ func joinContextBlocks(blocks ...string) string {
 		}
 	}
 	return strings.Join(parts, "\n\n")
-}
-
-func buildPlanner(model *sdk.Model, log *slog.Logger) orch.Planner {
-	if log == nil {
-		log = slog.Default()
-	}
-	rule := orch.NewRulePlanner()
-	if model == nil {
-		log.Info("agenthub planner: using rule planner (no enabled chat model configured for LLM planning)")
-		return rule
-	}
-	log.Info("agenthub planner: using LLM planner with rule-planner fallback")
-	return newLLMPlanner(model, rule, log)
 }
 
 // resolvePlannerModel builds the LLM planner's model from the user's first
