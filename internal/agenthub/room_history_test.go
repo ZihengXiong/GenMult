@@ -168,3 +168,37 @@ func TestRecentRoomHistoryBudget(t *testing.T) {
 		t.Fatalf("oldest message should be dropped under budget pressure")
 	}
 }
+
+// TestMergeCapabilities: provider baseline stays first, user-configured extras
+// append, duplicates (case-insensitive) and blanks are dropped.
+func TestMergeCapabilities(t *testing.T) {
+	baseline := []string{"plan", "code", "test"}
+	got := mergeCapabilities(baseline, []string{" 前端 ", "Code", "", "文档"})
+	want := []string{"plan", "code", "test", "前端", "文档"}
+	if len(got) != len(want) {
+		t.Fatalf("merged = %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("merged = %v, want %v", got, want)
+		}
+	}
+	if out := mergeCapabilities(baseline, nil); &out[0] != &baseline[0] {
+		t.Fatalf("no extras should return baseline as-is")
+	}
+}
+
+// TestAgentsFromRoomNonBotDefaults: non-bot ids keep provider-derived caps.
+func TestAgentsFromRoomNonBotDefaults(t *testing.T) {
+	host := &OrchestratorService{log: slog.New(slog.DiscardHandler), projSeq: make(map[string]int64)}
+	agents := host.agentsFromRoom(context.Background(), Room{AgentIDs: []string{"claude-code", "my-bot"}})
+	if len(agents) != 2 {
+		t.Fatalf("agents = %d, want 2", len(agents))
+	}
+	if agents[0].ProviderName != "claudecode" || len(agents[0].Capabilities) != 6 {
+		t.Fatalf("claude agent caps = %v", agents[0].Capabilities)
+	}
+	if agents[1].ProviderName != "noop" || len(agents[1].Capabilities) != 4 {
+		t.Fatalf("fallback agent caps = %v", agents[1].Capabilities)
+	}
+}

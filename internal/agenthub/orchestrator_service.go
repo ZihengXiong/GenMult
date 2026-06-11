@@ -538,7 +538,7 @@ func (s *OrchestratorService) agentsFromRoom(ctx context.Context, room Room) []o
 		if id == "" {
 			continue
 		}
-		provider, name := s.resolveAgentProvider(ctx, id)
+		provider, name, botCaps := s.resolveAgentProvider(ctx, id)
 		caps := defaultCaps
 		switch provider {
 		case "claudecode", "codex":
@@ -546,6 +546,13 @@ func (s *OrchestratorService) agentsFromRoom(ctx context.Context, room Room) []o
 		case "memoh":
 			caps = []string{"plan", "analysis", "review", "chat"}
 		}
+		// The provider baseline says what the runtime can do; the bot's
+		// user-configured capabilities add what this agent is *for* (e.g.
+		// "前端", "文档"). Both planners read these: the rule planner keyword-
+		// matches them and the LLM planner sees them in its agent roster, so
+		// merging (never removing) gives scheduling more signal without
+		// regressing any existing assignment.
+		caps = mergeCapabilities(caps, botCaps)
 		out = append(out, orch.AgentDescriptor{
 			ID:           id,
 			ProviderName: provider,
@@ -560,13 +567,14 @@ func (s *OrchestratorService) agentsFromRoom(ctx context.Context, room Room) []o
 	return out
 }
 
-// resolveAgentProvider maps a room agent id to its orchestrator provider name
-// and display name. A "bot:UUID" id is resolved against the bot store by the
-// bot's framework (claudecode/codex/memoh) so backend-derived runs (those that
-// don't carry an explicit Agents list, e.g. reconcile) dispatch to the real
-// provider instead of falling through to noop. Non-bot ids and lookup failures
-// fall back to the id-heuristic friendlyAgentName.
-func (s *OrchestratorService) resolveAgentProvider(ctx context.Context, agentID string) (provider string, name string) {
+// resolveAgentProvider maps a room agent id to its orchestrator provider name,
+// display name, and the bot's user-configured capabilities. A "bot:UUID" id is
+// resolved against the bot store by the bot's framework (claudecode/codex/
+// memoh) so backend-derived runs (those that don't carry an explicit Agents
+// list, e.g. reconcile) dispatch to the real provider instead of falling
+// through to noop. Non-bot ids and lookup failures fall back to the
+// id-heuristic friendlyAgentName with no extra capabilities.
+func (s *OrchestratorService) resolveAgentProvider(ctx context.Context, agentID string) (provider string, name string, capabilities []string) {
 	id := strings.TrimSpace(agentID)
 	if strings.HasPrefix(id, "bot:") && s.bots != nil {
 		botID := strings.TrimPrefix(id, "bot:")
@@ -577,15 +585,42 @@ func (s *OrchestratorService) resolveAgentProvider(ctx context.Context, agentID 
 			}
 			switch strings.TrimSpace(bot.Framework) {
 			case bots.FrameworkClaudeCode:
-				return "claudecode", display
+				return "claudecode", display, bot.Capabilities
 			case bots.FrameworkCodex:
-				return "codex", display
+				return "codex", display, bot.Capabilities
 			case bots.FrameworkMemoh:
-				return "memoh", display
+				return "memoh", display, bot.Capabilities
 			}
 		}
 	}
-	return friendlyAgentName(id)
+	provider, name = friendlyAgentName(id)
+	return provider, name, nil
+}
+
+// mergeCapabilities appends the bot's user-configured capabilities to the
+// provider baseline, deduplicating case-insensitively and keeping order
+// (baseline first, custom extras after).
+func mergeCapabilities(baseline, extra []string) []string {
+	if len(extra) == 0 {
+		return baseline
+	}
+	seen := make(map[string]struct{}, len(baseline)+len(extra))
+	out := make([]string, 0, len(baseline)+len(extra))
+	for _, group := range [][]string{baseline, extra} {
+		for _, c := range group {
+			c = strings.TrimSpace(c)
+			if c == "" {
+				continue
+			}
+			key := strings.ToLower(c)
+			if _, ok := seen[key]; ok {
+				continue
+			}
+			seen[key] = struct{}{}
+			out = append(out, c)
+		}
+	}
+	return out
 }
 
 func firstNonEmpty(values ...string) string {
