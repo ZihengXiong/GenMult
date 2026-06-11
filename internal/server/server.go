@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"log/slog"
+	"net/url"
 	"strings"
 
 	"github.com/labstack/echo/v4"
@@ -43,7 +44,7 @@ func NewServer(log *slog.Logger, addr string, jwtSecret string,
 		LogValuesFunc: func(c echo.Context, v middleware.RequestLoggerValues) error {
 			log.Info("request",
 				slog.String("method", v.Method),
-				slog.String("uri", v.URI),
+				slog.String("uri", redactURI(v.URI)),
 				slog.Int("status", v.Status),
 				slog.Duration("latency", v.Latency),
 				slog.String("remote_ip", c.RealIP()),
@@ -74,6 +75,35 @@ func (s *Server) Start() error {
 
 func (s *Server) Stop(ctx context.Context) error {
 	return s.echo.Shutdown(ctx)
+}
+
+// redactURI masks credential-bearing query parameters before a request URI is
+// written to the log. JWTs are accepted via "?token=" (TokenLookup includes
+// query:token, used by WebSocket clients that cannot set headers), so logging
+// the raw URI would persist live credentials in the request log.
+func redactURI(uri string) string {
+	lowerURI := strings.ToLower(uri)
+	if !strings.Contains(lowerURI, "token") && !strings.Contains(lowerURI, "key") && !strings.Contains(lowerURI, "secret") {
+		return uri
+	}
+	u, err := url.Parse(uri)
+	if err != nil {
+		return uri
+	}
+	q := u.Query()
+	changed := false
+	for key := range q {
+		lower := strings.ToLower(key)
+		if strings.Contains(lower, "token") || strings.Contains(lower, "key") || strings.Contains(lower, "secret") {
+			q.Set(key, "***")
+			changed = true
+		}
+	}
+	if !changed {
+		return uri
+	}
+	u.RawQuery = q.Encode()
+	return u.String()
 }
 
 func shouldSkipJWT(path string) bool {
