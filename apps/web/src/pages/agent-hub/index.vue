@@ -3199,11 +3199,29 @@ async function startSelectedRoomRun() {
   await runRoomObjective(room, objective, true)
 }
 
+// textMentionsAlias reports whether lower-cased text contains "@<alias>" at a
+// word boundary — the char after the alias must not be an identifier char, so
+// "@ds2" never counts as mentioning an agent aliased "ds". Mirrors the
+// backend's orchestrator.MentionedAgents (isMentionChar) semantics.
+function textMentionsAlias(text: string, alias: string): boolean {
+  alias = alias.trim()
+  if (!alias) return false
+  const needle = `@${alias.toLowerCase()}`
+  let from = 0
+  while (true) {
+    const idx = text.indexOf(needle, from)
+    if (idx === -1) return false
+    const next = text[idx + needle.length]
+    if (next === undefined || !/[a-z0-9._:/@-]/.test(next)) return true
+    from = idx + needle.length
+  }
+}
+
 // mentionedRoomAgents returns the room agents explicitly @-mentioned in a body.
 function mentionedRoomAgents(body: string): AgentItem[] {
   const text = body.toLowerCase()
   return selectedRoomAgents.value.filter((a) =>
-    text.includes(`@${a.name.toLowerCase()}`) || text.includes(`@${a.id.toLowerCase()}`))
+    textMentionsAlias(text, a.name) || textMentionsAlias(text, a.id))
 }
 
 // wantsOrchestration decides whether a composer message should kick off an
@@ -3215,7 +3233,7 @@ function wantsOrchestration(body: string): boolean {
   // mention of the word "orchestrator" in prose must not hijack a normal reply.
   if (/@(主|orchestrator|编排|主\s*agent)/i.test(body)) return true
   const main = mainAgent.value
-  if (main && (text.includes(`@${main.name.toLowerCase()}`) || text.includes(`@${main.id.toLowerCase()}`))) return true
+  if (main && (textMentionsAlias(text, main.name) || textMentionsAlias(text, main.id))) return true
   return mentionedRoomAgents(body).length >= 2
 }
 

@@ -220,8 +220,18 @@ func claudeAppendSystem(in RunInput, cfg providers.ClaudeCodeConfig) string {
 	return strings.Join(parts, "\n\n")
 }
 
+// History transcript budgets, in runes. The transcript rides inside
+// --append-system-prompt — a single execve argument — so besides token cost a
+// single oversized history message (e.g. a pasted log) risks ARG_MAX startup
+// failures. Same protection pattern as the orchestrator's room-history budgets.
+const (
+	historyMessageMaxChars = 2000
+	historyTotalMaxChars   = 24000
+)
+
 // formatHistoryTranscript renders the last maxMessages history turns as a plain
-// text transcript. User turns are written verbatim: the resolver has already
+// text transcript, clamping each message and the overall transcript to the
+// budgets above. User turns are written verbatim: the resolver has already
 // prefixed them with the sender's "[name] " (see loadMessages) so multiple
 // agents in a room stay distinguishable. Assistant turns are labeled
 // "Assistant". maxMessages <= 0 means no limit.
@@ -236,7 +246,7 @@ func formatHistoryTranscript(msgs []sdk.Message, maxMessages int) string {
 	sb.WriteString("--- Conversation History ---\n")
 	wrote := false
 	for _, msg := range msgs {
-		text := extractMsgText(msg)
+		text := providers.ClampMiddle(extractMsgText(msg), historyMessageMaxChars)
 		if text == "" {
 			continue
 		}
@@ -258,7 +268,8 @@ func formatHistoryTranscript(msgs []sdk.Message, maxMessages int) string {
 		return ""
 	}
 	sb.WriteString("--- End of History ---")
-	return sb.String()
+	// Middle elision keeps the oldest context opener and the most recent turns.
+	return providers.ClampMiddle(sb.String(), historyTotalMaxChars)
 }
 
 // claudeCurrentUserNDJSON builds the single stream-json user message (one line)

@@ -226,7 +226,9 @@ func (r *CLIRunner) Run(ctx context.Context, prompt string, workDir string, exec
 				if r.config.OnEvent != nil {
 					r.config.OnEvent(event)
 				}
-				if event.Type == "text" || event.Type == "result" {
+				// Same accumulation rule as the main loop: in stream-json mode
+				// (Stdin set) "result" duplicates the already-captured text events.
+				if event.Type == "text" || (event.Type == "result" && r.config.Stdin == "") {
 					outputBuilder.WriteString(event.Content)
 				}
 			}

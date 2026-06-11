@@ -75,6 +75,37 @@ func TestFormatHistoryTranscript_TruncateAndLabel(t *testing.T) {
 	}
 }
 
+// TestFormatHistoryTranscript_CharBudgets: the transcript rides in a single
+// execve argument (--append-system-prompt), so one pasted-log-sized message
+// must be clamped and the overall transcript bounded, while the newest turns
+// (the tail) survive.
+func TestFormatHistoryTranscript_CharBudgets(t *testing.T) {
+	huge := strings.Repeat("长", historyMessageMaxChars*3)
+	msgs := []sdk.Message{
+		sdk.UserMessage("[Alice] " + huge),
+		sdk.AssistantMessage("recent answer"),
+	}
+	got := formatHistoryTranscript(msgs, 0)
+	if n := len([]rune(got)); n > historyTotalMaxChars {
+		t.Fatalf("transcript exceeds total budget: %d > %d", n, historyTotalMaxChars)
+	}
+	if strings.Contains(got, huge) {
+		t.Fatalf("oversized message should have been clamped")
+	}
+	if !strings.Contains(got, "Assistant: recent answer") || !strings.Contains(got, "--- End of History ---") {
+		t.Fatalf("tail (newest turns + end marker) must survive clamping: %s", got)
+	}
+
+	many := make([]sdk.Message, 0, 40)
+	for i := 0; i < 40; i++ {
+		many = append(many, sdk.UserMessage(strings.Repeat("x", 1500)))
+	}
+	got = formatHistoryTranscript(many, 0)
+	if n := len([]rune(got)); n > historyTotalMaxChars {
+		t.Fatalf("many-message transcript exceeds total budget: %d > %d", n, historyTotalMaxChars)
+	}
+}
+
 func TestFormatHistoryTranscript_Empty(t *testing.T) {
 	if got := formatHistoryTranscript(nil, 15); got != "" {
 		t.Fatalf("nil messages: want empty, got %q", got)
