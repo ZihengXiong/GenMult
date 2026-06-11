@@ -260,6 +260,39 @@ func (q *Queries) GetAgentHubRoom(ctx context.Context, arg GetAgentHubRoomParams
 	return i, err
 }
 
+const getAgentHubRoomMessage = `-- name: GetAgentHubRoomMessage :one
+SELECT m.id, m.room_id, m.sender_id, m.sender_type, m.sender_name, m.kind, m.title, m.body, m.metadata, m.created_at
+FROM agent_hub_room_messages m
+JOIN agent_hub_rooms r ON r.id = m.room_id
+WHERE m.id = $1
+  AND m.room_id = $2
+  AND r.owner_user_id = $3
+`
+
+type GetAgentHubRoomMessageParams struct {
+	ID          pgtype.UUID `json:"id"`
+	RoomID      pgtype.UUID `json:"room_id"`
+	OwnerUserID pgtype.UUID `json:"owner_user_id"`
+}
+
+func (q *Queries) GetAgentHubRoomMessage(ctx context.Context, arg GetAgentHubRoomMessageParams) (AgentHubRoomMessage, error) {
+	row := q.db.QueryRow(ctx, getAgentHubRoomMessage, arg.ID, arg.RoomID, arg.OwnerUserID)
+	var i AgentHubRoomMessage
+	err := row.Scan(
+		&i.ID,
+		&i.RoomID,
+		&i.SenderID,
+		&i.SenderType,
+		&i.SenderName,
+		&i.Kind,
+		&i.Title,
+		&i.Body,
+		&i.Metadata,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const listAgentHubRoomAgentsByOwner = `-- name: ListAgentHubRoomAgentsByOwner :many
 SELECT a.room_id, a.agent_id, a.created_at
 FROM agent_hub_room_agents a
@@ -294,7 +327,7 @@ FROM agent_hub_room_messages m
 JOIN agent_hub_rooms r ON r.id = m.room_id
 WHERE m.room_id = $1
   AND r.owner_user_id = $2
-ORDER BY m.created_at ASC, m.id ASC
+ORDER BY m.created_at DESC, m.id DESC
 LIMIT $3
 `
 
@@ -304,6 +337,8 @@ type ListAgentHubRoomMessagesParams struct {
 	LimitCount  int32       `json:"limit_count"`
 }
 
+// Newest N messages (callers re-sort ascending for timeline display), so the
+// window slides with the conversation instead of freezing at the room's start.
 func (q *Queries) ListAgentHubRoomMessages(ctx context.Context, arg ListAgentHubRoomMessagesParams) ([]AgentHubRoomMessage, error) {
 	rows, err := q.db.Query(ctx, listAgentHubRoomMessages, arg.RoomID, arg.OwnerUserID, arg.LimitCount)
 	if err != nil {

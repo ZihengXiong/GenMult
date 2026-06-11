@@ -337,6 +337,32 @@ func (s *Service) ListMessages(ctx context.Context, ownerUserID, roomID string, 
 	return ListMessagesResponse{Items: items}, nil
 }
 
+// GetMessage fetches a single room message by id, scoped to the room and its
+// owner. Used to resolve pinned messages exactly, independent of how far they
+// have scrolled out of the recent-history window.
+func (s *Service) GetMessage(ctx context.Context, ownerUserID, roomID, messageID string) (Message, error) {
+	ownerID, roomUUID, err := parseOwnerAndRoom(ownerUserID, roomID)
+	if err != nil {
+		return Message{}, err
+	}
+	msgUUID, err := dbpkg.ParseUUID(messageID)
+	if err != nil {
+		return Message{}, ErrInvalidMessageID
+	}
+	row, err := s.queries.GetAgentHubRoomMessage(ctx, dbsqlc.GetAgentHubRoomMessageParams{
+		ID:          msgUUID,
+		RoomID:      roomUUID,
+		OwnerUserID: ownerID,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return Message{}, ErrNotFound
+		}
+		return Message{}, err
+	}
+	return messageFromRow(row), nil
+}
+
 func (s *Service) CreateMessage(ctx context.Context, ownerUserID, roomID string, req CreateMessageRequest) (Message, error) {
 	_, roomUUID, err := parseOwnerAndRoom(ownerUserID, roomID)
 	if err != nil {

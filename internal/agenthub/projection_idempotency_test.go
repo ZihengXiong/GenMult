@@ -18,8 +18,10 @@ const testOwnerID = "11111111-1111-4111-8111-111111111111"
 
 // newProjectionTestRooms builds a rooms Service over an in-memory SQLite DB
 // with the real agent_hub schema, including the partial unique index from
-// migration 0012 that backs insert-layer projection idempotency.
-func newProjectionTestRooms(t *testing.T) *Service {
+// migration 0012 that backs insert-layer projection idempotency. The raw
+// connection is returned for tests that need to manipulate rows directly
+// (e.g. spreading created_at past CURRENT_TIMESTAMP's 1s resolution).
+func newProjectionTestRooms(t *testing.T) (*sql.DB, *Service) {
 	t.Helper()
 	ctx := context.Background()
 	conn, err := db.OpenSQLite(ctx, config.SQLiteConfig{DSN: ":memory:"})
@@ -35,7 +37,7 @@ func newProjectionTestRooms(t *testing.T) *Service {
 	if err != nil {
 		t.Fatalf("new sqlite store: %v", err)
 	}
-	return NewService(sqlitestore.NewQueries(store))
+	return conn, NewService(sqlitestore.NewQueries(store))
 }
 
 func execProjectionSchema(t *testing.T, conn *sql.DB) {
@@ -103,7 +105,7 @@ func createProjectionTestRoom(t *testing.T, rooms *Service) Room {
 
 func TestCreateSystemMessageSuppressesDuplicateProjection(t *testing.T) {
 	ctx := context.Background()
-	rooms := newProjectionTestRooms(t)
+	_, rooms := newProjectionTestRooms(t)
 	room := createProjectionTestRoom(t, rooms)
 
 	projected := CreateMessageRequest{
@@ -149,7 +151,7 @@ func TestCreateSystemMessageSuppressesDuplicateProjection(t *testing.T) {
 // after a process restart) and asserts no duplicate messages appear.
 func TestProjectRunIdempotentAcrossRestart(t *testing.T) {
 	ctx := context.Background()
-	rooms := newProjectionTestRooms(t)
+	_, rooms := newProjectionTestRooms(t)
 	room := createProjectionTestRoom(t, rooms)
 
 	engine := orch.NewService(

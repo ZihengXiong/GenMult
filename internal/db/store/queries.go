@@ -96,6 +96,7 @@ type Queries interface {
 	GetAccountByUserID(ctx context.Context, userID pgtype.UUID) (dbsqlc.User, error)
 	GetActiveSessionForRoute(ctx context.Context, routeID pgtype.UUID) (dbsqlc.BotSession, error)
 	GetAgentHubRoom(ctx context.Context, arg dbsqlc.GetAgentHubRoomParams) (dbsqlc.AgentHubRoom, error)
+	GetAgentHubRoomMessage(ctx context.Context, arg dbsqlc.GetAgentHubRoomMessageParams) (dbsqlc.AgentHubRoomMessage, error)
 	GetBotACLDefaultEffect(ctx context.Context, id pgtype.UUID) (string, error)
 	GetBotByID(ctx context.Context, id pgtype.UUID) (dbsqlc.GetBotByIDRow, error)
 	GetBotChannelConfig(ctx context.Context, arg dbsqlc.GetBotChannelConfigParams) (dbsqlc.BotChannelConfig, error)

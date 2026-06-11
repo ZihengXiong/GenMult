@@ -132,6 +132,25 @@ func (q *Queries) GetAgentHubRoom(ctx context.Context, arg pgsqlc.GetAgentHubRoo
 	return result, nil
 }
 
+func (q *Queries) GetAgentHubRoomMessage(ctx context.Context, arg pgsqlc.GetAgentHubRoomMessageParams) (pgsqlc.AgentHubRoomMessage, error) {
+	if q == nil || q.store == nil || q.store.queries == nil {
+		return pgsqlc.AgentHubRoomMessage{}, errSQLiteQueriesNotConfigured
+	}
+	var sqliteArg sqlitesqlc.GetAgentHubRoomMessageParams
+	if err := convertValue(arg, &sqliteArg); err != nil {
+		return pgsqlc.AgentHubRoomMessage{}, err
+	}
+	out, err := q.store.queries.GetAgentHubRoomMessage(ctx, sqliteArg)
+	if err != nil {
+		return pgsqlc.AgentHubRoomMessage{}, mapQueryErr(err)
+	}
+	var result pgsqlc.AgentHubRoomMessage
+	if err := convertValue(out, &result); err != nil {
+		return pgsqlc.AgentHubRoomMessage{}, err
+	}
+	return result, nil
+}
+
 func (q *Queries) ListAgentHubRoomAgentsByOwner(ctx context.Context, ownerUserID pgtype.UUID) ([]pgsqlc.AgentHubRoomAgent, error) {
 	if q == nil || q.store == nil || q.store.queries == nil {
 		return nil, errSQLiteQueriesNotConfigured

@@ -117,13 +117,23 @@ ON CONFLICT DO NOTHING
 RETURNING id, room_id, sender_id, sender_type, sender_name, kind, title, body, metadata, created_at;
 
 -- name: ListAgentHubRoomMessages :many
+-- Newest N messages (callers re-sort ascending for timeline display), so the
+-- window slides with the conversation instead of freezing at the room's start.
 SELECT m.id, m.room_id, m.sender_id, m.sender_type, m.sender_name, m.kind, m.title, m.body, m.metadata, m.created_at
 FROM agent_hub_room_messages m
 JOIN agent_hub_rooms r ON r.id = m.room_id
 WHERE m.room_id = sqlc.arg(room_id)
   AND r.owner_user_id = sqlc.arg(owner_user_id)
-ORDER BY m.created_at ASC, m.id ASC
+ORDER BY m.created_at DESC, m.id DESC
 LIMIT sqlc.arg(limit_count);
+
+-- name: GetAgentHubRoomMessage :one
+SELECT m.id, m.room_id, m.sender_id, m.sender_type, m.sender_name, m.kind, m.title, m.body, m.metadata, m.created_at
+FROM agent_hub_room_messages m
+JOIN agent_hub_rooms r ON r.id = m.room_id
+WHERE m.id = sqlc.arg(id)
+  AND m.room_id = sqlc.arg(room_id)
+  AND r.owner_user_id = sqlc.arg(owner_user_id);
 
 -- name: DeleteAgentHubRoomMessage :exec
 DELETE FROM agent_hub_room_messages

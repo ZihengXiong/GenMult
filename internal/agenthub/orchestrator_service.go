@@ -361,26 +361,19 @@ func (s *OrchestratorService) recentRoomHistory(ctx context.Context, ownerUserID
 }
 
 // pinnedRoomContext renders the room's user-pinned messages (room.metadata
-// .pinned_message_ids) as a labelled long-term-context block. Best-effort:
-// returns "" when there are no pins or on any lookup error.
+// .pinned_message_ids) as a labelled long-term-context block. Pins are resolved
+// by id so they stay in context no matter how far they scroll out of the
+// recent-history window — that persistence is the point of pinning.
+// Best-effort: returns "" when there are no pins or on any lookup error.
 func (s *OrchestratorService) pinnedRoomContext(ctx context.Context, ownerUserID, roomID string, room Room) string {
 	ids := pinnedMessageIDs(room.Metadata)
 	if len(ids) == 0 {
 		return ""
 	}
-	want := make(map[string]struct{}, len(ids))
-	for _, id := range ids {
-		want[id] = struct{}{}
-	}
-	// Pull a wide window so pins that scrolled out of the recent window are still
-	// found; pins are few so the linear scan is cheap.
-	resp, err := s.rooms.ListMessages(ctx, ownerUserID, roomID, 500)
-	if err != nil || len(resp.Items) == 0 {
-		return ""
-	}
 	var b strings.Builder
-	for _, m := range resp.Items {
-		if _, ok := want[m.ID]; !ok {
+	for _, id := range ids {
+		m, err := s.rooms.GetMessage(ctx, ownerUserID, roomID, id)
+		if err != nil {
 			continue
 		}
 		body := strings.TrimSpace(m.Body)
