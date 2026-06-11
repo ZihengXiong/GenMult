@@ -8,7 +8,7 @@
 
 ## 最近一次全量验证
 
-- **基线 commit**: `a0aa049` （branch `feat/agenthub-projection-idempotency`）
+- **基线 commit**: `148b9ff` （branch `feat/agenthub-projection-idempotency`；全量套件实测于 `a0aa049`，其后到基线仅 docs/脚本改动，无需套件）
 - **日期**: 2026-06-11
 - **结论**: 全部通过
 
