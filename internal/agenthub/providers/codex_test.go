@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -107,4 +108,31 @@ exit 1
 	require.Error(t, err)
 	assert.True(t, res.Retryable)
 	assert.ErrorIs(t, err, ErrRateLimit)
+}
+
+// TestCodexBuildArgsCustomEndpoint: a configured base URL must ride as -c
+// provider overrides (codex ≥0.139 ignores OPENAI_BASE_URL env entirely and
+// would silently fall back to the machine's ChatGPT login).
+func TestCodexBuildArgsCustomEndpoint(t *testing.T) {
+	args := CodexBuildArgs(CodexConfig{BaseURL: "https://proxy.example.com/v1", Model: "m1"}, "do it")
+	joined := strings.Join(args, " ")
+	for _, want := range []string{
+		`model_providers.custom.base_url="https://proxy.example.com/v1"`,
+		`model_providers.custom.env_key="OPENAI_API_KEY"`,
+		`model_provider="custom"`,
+		"--model m1",
+	} {
+		if !strings.Contains(joined, want) {
+			t.Fatalf("args missing %q: %v", want, args)
+		}
+	}
+	if args[len(args)-1] != "do it" {
+		t.Fatalf("prompt must be the final argument: %v", args)
+	}
+
+	// No base URL → no provider overrides (default codex auth flow).
+	plain := strings.Join(CodexBuildArgs(CodexConfig{Model: "m1"}, "x"), " ")
+	if strings.Contains(plain, "model_provider") {
+		t.Fatalf("unexpected provider overrides without base URL: %v", plain)
+	}
 }

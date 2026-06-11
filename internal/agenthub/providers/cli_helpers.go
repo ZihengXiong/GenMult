@@ -232,11 +232,28 @@ func CodexEnv(cfg CodexConfig) []string {
 }
 
 // CodexBuildArgs builds the Codex CLI arguments for a prompt.
+//
+// Custom endpoints ride as -c config overrides, NOT environment variables:
+// codex ≥0.139 ignores OPENAI_BASE_URL/OPENAI_API_KEY entirely (verified live —
+// it silently used the machine's ChatGPT login instead), and reads providers
+// only from config. The injected provider keeps env_key=OPENAI_API_KEY so the
+// key still travels via CodexEnv. NOTE: codex speaks only the Responses API
+// (`wire_api="chat"` was removed upstream), so the endpoint must implement
+// /responses — api.openai.com or a translating proxy. DeepSeek's /v1 does not
+// (verified live: 404), so DeepSeek cannot back the codex provider today.
 func CodexBuildArgs(cfg CodexConfig, prompt string) []string {
 	args := []string{
 		"exec",
 		"--json",
 		"--skip-git-repo-check",
+	}
+	if baseURL := strings.TrimSpace(cfg.BaseURL); baseURL != "" {
+		args = append(args,
+			"-c", `model_providers.custom.name="Custom"`,
+			"-c", `model_providers.custom.base_url="`+baseURL+`"`,
+			"-c", `model_providers.custom.env_key="OPENAI_API_KEY"`,
+			"-c", `model_provider="custom"`,
+		)
 	}
 	if cfg.Sandbox != "" {
 		args = append(args, "--sandbox", cfg.Sandbox)
