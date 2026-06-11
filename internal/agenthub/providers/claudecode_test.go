@@ -38,6 +38,10 @@ func (*mockStore) UpdateRunStatus(_ context.Context, _ string, _ orchestrator.Ru
 	return orchestrator.Run{}, nil
 }
 
+func (*mockStore) UpdateRunMetadata(_ context.Context, _ string, _ map[string]any) (orchestrator.Run, error) {
+	return orchestrator.Run{}, nil
+}
+
 func (*mockStore) ListRunsByStatus(_ context.Context, _ ...orchestrator.RunStatus) ([]orchestrator.Run, error) {
 	return nil, nil
 }

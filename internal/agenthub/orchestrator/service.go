@@ -152,6 +152,37 @@ func (s *Service) LatestSnapshotByRoom(ctx context.Context, roomID string) (RunS
 	return s.GetSnapshot(ctx, run.ID)
 }
 
+// AwaitConfirmationMetaKey marks a planned run held for explicit user
+// confirmation: reconcile passes keep the DAG visible (tasks turn Ready) but
+// never dispatch until ConfirmRun clears the hold. The host sets it when a run
+// is started with auto_dispatch=false — without the hold, the frontend's
+// reconcile polling would dispatch the plan anyway, defeating the gate.
+const AwaitConfirmationMetaKey = "await_confirmation"
+
+func runAwaitsConfirmation(run Run) bool {
+	v, ok := run.Metadata[AwaitConfirmationMetaKey].(bool)
+	return ok && v
+}
+
+// ConfirmRun clears a run's confirmation hold and reconciles it, dispatching
+// the previously planned tasks. Confirming a run that holds no gate (or
+// confirming twice) is harmless — it degrades to a plain reconcile.
+func (s *Service) ConfirmRun(ctx context.Context, runID string) (RunSnapshot, error) {
+	run, err := s.store.GetRun(ctx, strings.TrimSpace(runID))
+	if err != nil {
+		return RunSnapshot{}, err
+	}
+	if runAwaitsConfirmation(run) && !isTerminalRunStatus(run.Status) {
+		metadata := cloneMap(run.Metadata)
+		delete(metadata, AwaitConfirmationMetaKey)
+		if run, err = s.store.UpdateRunMetadata(ctx, run.ID, metadata); err != nil {
+			return RunSnapshot{}, err
+		}
+		_, _ = s.appendEvent(ctx, run.ID, "", EventRunConfirmed, nil)
+	}
+	return s.ReconcileRun(ctx, run.ID)
+}
+
 func (s *Service) ReconcileRun(ctx context.Context, runID string) (RunSnapshot, error) {
 	run, err := s.store.GetRun(ctx, strings.TrimSpace(runID))
 	if err != nil {
@@ -178,6 +209,11 @@ func (s *Service) ReconcileRun(ctx context.Context, runID string) (RunSnapshot, 
 			return RunSnapshot{}, err
 		}
 		if isTerminalRunStatus(run.Status) {
+			break
+		}
+		// Confirmation gate: keep the plan visible but dispatch nothing until
+		// the user confirms (ConfirmRun clears the hold).
+		if runAwaitsConfirmation(run) {
 			break
 		}
 		if err := s.dispatchReadyTasks(ctx, run); err != nil {

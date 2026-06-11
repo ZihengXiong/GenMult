@@ -314,6 +314,25 @@ func (s *SQLStore) UpdateRunStatus(ctx context.Context, runID string, status Run
 	return s.GetRun(ctx, run.ID)
 }
 
+func (s *SQLStore) UpdateRunMetadata(ctx context.Context, runID string, metadata map[string]any) (Run, error) {
+	run, err := s.GetRun(ctx, runID)
+	if err != nil {
+		return Run{}, err
+	}
+	raw := marshalJSON(metadata)
+	nowMS := toMillis(time.Now().UTC())
+	if s.dialect == dialectPostgres {
+		if _, execErr := s.pg.Exec(ctx, `UPDATE agent_hub_runs SET metadata=$1, updated_at_ms=$2 WHERE id=$3`, raw, nowMS, run.ID); execErr != nil {
+			return Run{}, execErr
+		}
+	} else {
+		if _, execErr := s.sq.ExecContext(ctx, `UPDATE agent_hub_runs SET metadata=?, updated_at_ms=? WHERE id=?`, string(raw), nowMS, run.ID); execErr != nil {
+			return Run{}, execErr
+		}
+	}
+	return s.GetRun(ctx, run.ID)
+}
+
 func (s *SQLStore) ListRunsByStatus(ctx context.Context, statuses ...RunStatus) ([]Run, error) {
 	where := ""
 	args := make([]any, 0)

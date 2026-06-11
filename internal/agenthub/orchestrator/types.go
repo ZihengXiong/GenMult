@@ -45,6 +45,7 @@ type EventType string
 const (
 	EventRunCreated       EventType = "run_created"
 	EventRunPlanned       EventType = "run_planned"
+	EventRunConfirmed     EventType = "run_confirmed"
 	EventRunStatusChanged EventType = "run_status_changed"
 	EventTaskCreated      EventType = "task_created"
 	EventTaskReady        EventType = "task_ready"

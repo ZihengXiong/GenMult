@@ -382,3 +382,61 @@ func findTask(tasks []Task, title string) *Task {
 	}
 	return nil
 }
+
+// TestConfirmationGateHoldsDispatchUntilConfirmed: a run started without
+// auto-dispatch and carrying the await_confirmation hold must keep its plan
+// visible but undispatched across reconcile passes (the frontend polls
+// reconcile every 1.5s), and dispatch to completion only after ConfirmRun.
+func TestConfirmationGateHoldsDispatchUntilConfirmed(t *testing.T) {
+	store := NewMemoryStore()
+	svc := NewService(store, fixedPlanner{plan: Plan{PlannerVersion: "test", Tasks: []TaskDraft{
+		{ClientKey: "one", Title: "one", Description: "first", ProviderName: "noop", MaxRetries: 0, Timeout: time.Second},
+	}}}, NewProviderRegistry(NoopProvider{}), nil, Config{})
+
+	snap, err := svc.StartRun(context.Background(), StartRunInput{
+		RoomID:       "room-1",
+		Objective:    "ship",
+		AutoDispatch: false,
+		Metadata:     map[string]any{AwaitConfirmationMetaKey: true},
+	})
+	if err != nil {
+		t.Fatalf("StartRun: %v", err)
+	}
+	if len(snap.Tasks) != 1 || snap.Tasks[0].Status != TaskStatusReady {
+		t.Fatalf("plan must be visible and ready, got %+v", snap.Tasks)
+	}
+
+	// Reconcile polling must not dispatch a gated run.
+	for i := 0; i < 3; i++ {
+		snap, err = svc.ReconcileRun(context.Background(), snap.Run.ID)
+		if err != nil {
+			t.Fatalf("ReconcileRun: %v", err)
+		}
+	}
+	if len(snap.Attempts) != 0 {
+		t.Fatalf("gated run must not dispatch, got %d attempts", len(snap.Attempts))
+	}
+	if isTerminalRunStatus(snap.Run.Status) {
+		t.Fatalf("gated run must stay live, got %s", snap.Run.Status)
+	}
+
+	// Confirmation releases the gate and the run completes.
+	snap, err = svc.ConfirmRun(context.Background(), snap.Run.ID)
+	if err != nil {
+		t.Fatalf("ConfirmRun: %v", err)
+	}
+	if snap.Run.Status != RunStatusCompleted {
+		t.Fatalf("expected completed run after confirmation, got %s", snap.Run.Status)
+	}
+	if _, held := snap.Run.Metadata[AwaitConfirmationMetaKey]; held {
+		t.Fatal("confirmation must clear the hold")
+	}
+	if len(snap.Attempts) != 1 {
+		t.Fatalf("expected 1 attempt, got %d", len(snap.Attempts))
+	}
+
+	// Confirming again degrades to a plain reconcile.
+	if _, err := svc.ConfirmRun(context.Background(), snap.Run.ID); err != nil {
+		t.Fatalf("double confirm must be harmless: %v", err)
+	}
+}

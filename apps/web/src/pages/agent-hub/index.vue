@@ -321,6 +321,22 @@
 
         <template v-else-if="activeActivity === 'tasks'">
           <div class="space-y-2">
+            <div
+              v-if="awaitingConfirmationRunId"
+              class="rounded-md border border-amber-500/40 bg-amber-500/10 p-2.5"
+            >
+              <p class="text-xs font-medium text-amber-700 dark:text-amber-300">
+                计划已生成，等待确认后才会开始执行
+              </p>
+              <button
+                type="button"
+                class="mt-2 w-full rounded-md bg-amber-600 px-2 py-1.5 text-xs font-medium text-white transition hover:bg-amber-700 disabled:opacity-60"
+                :disabled="isConfirmingRun"
+                @click="confirmSelectedRoomRun"
+              >
+                {{ isConfirmingRun ? '正在启动…' : '确认执行' }}
+              </button>
+            </div>
             <template v-if="tasks.length">
               <article
                 v-for="task in tasks"
@@ -1316,6 +1332,9 @@ interface AgentHubRun {
   room_id: string
   objective: string
   status: string
+  // Present while the run is held by the plan-confirmation gate
+  // (metadata.await_confirmation, cleared by POST /runs/:id/confirm).
+  metadata?: Record<string, unknown>
   created_at: string
   updated_at: string
 }
@@ -2515,6 +2534,16 @@ async function reconcileAgentHubRun(runId: string): Promise<AgentHubRunSnapshot>
   return data
 }
 
+async function confirmAgentHubRun(runId: string): Promise<AgentHubRunSnapshot> {
+  const { data } = await client.request<{ 200: AgentHubRunSnapshot }, unknown, true>({
+    method: 'POST',
+    url: '/agent-hub/runs/{run_id}/confirm',
+    path: { run_id: runId },
+    throwOnError: true,
+  })
+  return data
+}
+
 // A raw orchestrator run event (see internal/agenthub/orchestrator.RunEvent).
 // payload carries the provider's CLI signal as { content, raw_type } (set by
 // providers.ClaudeCodeProvider.Execute onEvent).
@@ -3130,7 +3159,7 @@ function buildRunAgents(): RunAgentDescriptor[] {
 // "发起任务" button and the composer @-mention path. The backend dispatches
 // asynchronously, so the page polls reconcile until the run reaches a terminal
 // state and refreshes both the task panel and the message stream.
-async function runRoomObjective(room: RoomItem, objective: string, announce: boolean) {
+async function runRoomObjective(room: RoomItem, objective: string, announce: boolean, planFirst = false) {
   if (!isPersistedRoomId(room.id) || isStartingRun.value || selectedRoomAgents.value.length === 0) return
   isStartingRun.value = true
   let announced = false
@@ -3146,13 +3175,15 @@ async function runRoomObjective(room: RoomItem, objective: string, announce: boo
           sender_type: 'system',
           sender_name: 'AgentHub',
           kind: 'task',
-          title: '已发起协作任务',
+          title: planFirst ? '已生成协作计划，待确认' : '已发起协作任务',
           body: objective,
         },
       })
       announced = true
     }
-    const snapshot = await createAgentHubRoomRun(room.id, { objective, auto_dispatch: true, agents: buildRunAgents() })
+    // planFirst → plan-confirmation gate: the backend plans the DAG but holds
+    // dispatch (run.metadata.await_confirmation) until 确认执行.
+    const snapshot = await createAgentHubRoomRun(room.id, { objective, auto_dispatch: !planFirst, agents: buildRunAgents() })
     activeRunPollingId.value = snapshot.run.id
     activeActivity.value = 'tasks'
     queryCache.invalidateQueries({ key: ['agent-hub', 'runs', 'latest', room.id] })
@@ -3196,7 +3227,37 @@ async function startSelectedRoomRun() {
     || ''
   const objective = window.prompt('输入本次协作任务目标', suggestedObjective)?.trim()
   if (!objective) return
-  await runRoomObjective(room, objective, true)
+  const planFirst = window.confirm('需要先生成计划、确认后再执行吗？\n「确定」= 先确认计划（任务面板中点击“确认执行”后才开始）\n「取消」= 直接执行')
+  await runRoomObjective(room, objective, true, planFirst)
+}
+
+// awaitingConfirmationRunId is the latest run held by the plan-confirmation
+// gate for the selected room, or '' when none.
+const awaitingConfirmationRunId = computed(() => {
+  const snapshot = selectedRoomRun.value
+  if (!snapshot || isRunTerminal(snapshot.run.status)) return ''
+  return snapshot.run.metadata?.await_confirmation === true ? snapshot.run.id : ''
+})
+
+const isConfirmingRun = ref(false)
+
+async function confirmSelectedRoomRun() {
+  const runId = awaitingConfirmationRunId.value
+  const roomId = selectedRoom.value?.id ?? ''
+  if (!runId || isConfirmingRun.value) return
+  isConfirmingRun.value = true
+  try {
+    await confirmAgentHubRun(runId)
+    queryCache.invalidateQueries({ key: ['agent-hub', 'runs', 'latest', roomId] })
+    queryCache.invalidateQueries({ key: ['agent-hub', 'messages', roomId] })
+  }
+  catch (error) {
+    console.error('Failed to confirm AgentHub run:', error)
+    toast.error(resolveApiErrorMessage(error, '确认执行失败'))
+  }
+  finally {
+    isConfirmingRun.value = false
+  }
 }
 
 // textMentionsAlias reports whether lower-cased text contains "@<alias>" at a

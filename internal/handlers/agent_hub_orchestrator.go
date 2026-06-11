@@ -35,6 +35,7 @@ func (h *AgentHubOrchestratorHandler) Register(e *echo.Echo) {
 	group.GET("/rooms/:room_id/runs/latest", h.GetLatestRoomRun)
 	group.GET("/runs/:run_id", h.GetRun)
 	group.POST("/runs/:run_id/reconcile", h.ReconcileRun)
+	group.POST("/runs/:run_id/confirm", h.ConfirmRun)
 	group.POST("/runs/:run_id/cancel", h.CancelRun)
 	group.GET("/runs/:run_id/events", h.ListRunEvents)
 	group.POST("/runs/reconcile-active", h.ReconcileActiveRuns)
@@ -135,6 +136,30 @@ func (h *AgentHubOrchestratorHandler) ReconcileRun(c echo.Context) error {
 		return err
 	}
 	snapshot, err := h.service.ReconcileRun(c.Request().Context(), ownerID, c.Param("run_id"))
+	if err != nil {
+		return h.httpError(err)
+	}
+	return c.JSON(http.StatusOK, snapshot)
+}
+
+// ConfirmRun godoc
+// @Summary Confirm a gated AgentHub run
+// @Description Clear the plan-confirmation hold and dispatch the planned tasks.
+// @Tags agent-hub
+// @Produce json
+// @Param run_id path string true "Run ID"
+// @Success 200 {object} orchestrator.RunSnapshot
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /agent-hub/runs/{run_id}/confirm [post].
+func (h *AgentHubOrchestratorHandler) ConfirmRun(c echo.Context) error {
+	ownerID, err := auth.UserIDFromContext(c)
+	if err != nil {
+		return err
+	}
+	snapshot, err := h.service.ConfirmRun(c.Request().Context(), ownerID, c.Param("run_id"))
 	if err != nil {
 		return h.httpError(err)
 	}

@@ -28,6 +28,9 @@ type Store interface {
 	CreateRun(ctx context.Context, run Run) (Run, error)
 	GetRun(ctx context.Context, runID string) (Run, error)
 	UpdateRunStatus(ctx context.Context, runID string, status RunStatus) (Run, error)
+	// UpdateRunMetadata replaces the run's metadata map (used by the plan
+	// confirmation gate to clear the await_confirmation hold).
+	UpdateRunMetadata(ctx context.Context, runID string, metadata map[string]any) (Run, error)
 	ListRunsByStatus(ctx context.Context, statuses ...RunStatus) ([]Run, error)
 	// GetLatestRunByRoom returns the most recently updated run for a room, or
 	// ErrNotFound if the room has no runs yet.

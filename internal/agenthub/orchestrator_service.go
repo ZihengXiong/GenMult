@@ -212,6 +212,11 @@ func (s *OrchestratorService) StartRun(ctx context.Context, ownerUserID, roomID 
 	for k, v := range req.Metadata {
 		metadata[k] = v
 	}
+	// Plan confirmation gate: a run started without auto-dispatch stays planned
+	// but undisptached — even across reconcile polling — until ConfirmRun.
+	if !autoDispatch {
+		metadata[orch.AwaitConfirmationMetaKey] = true
+	}
 	// Agent display names ride in run metadata so prompt builders can label
 	// upstream outputs "[前端]" instead of an opaque "[bot:<uuid>]".
 	if _, exists := metadata["agent_names"]; !exists {
@@ -289,6 +294,21 @@ func (s *OrchestratorService) ReconcileRun(ctx context.Context, ownerUserID, run
 	}
 	s.projectRun(ctx, reconciled)
 	return reconciled, nil
+}
+
+// ConfirmRun clears a gated run's confirmation hold (owner-checked) and
+// dispatches its planned tasks.
+func (s *OrchestratorService) ConfirmRun(ctx context.Context, ownerUserID, runID string) (orch.RunSnapshot, error) {
+	snapshot, err := s.GetSnapshot(ctx, ownerUserID, runID)
+	if err != nil {
+		return orch.RunSnapshot{}, err
+	}
+	confirmed, err := s.orch.ConfirmRun(ctx, snapshot.Run.ID)
+	if err != nil {
+		return confirmed, err
+	}
+	s.projectRun(ctx, confirmed)
+	return confirmed, nil
 }
 
 func (s *OrchestratorService) CancelRun(ctx context.Context, ownerUserID, runID string) (orch.RunSnapshot, error) {

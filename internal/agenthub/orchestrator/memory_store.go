@@ -80,6 +80,19 @@ func (s *MemoryStore) UpdateRunStatus(_ context.Context, runID string, status Ru
 	return cloneRun(run), nil
 }
 
+func (s *MemoryStore) UpdateRunMetadata(_ context.Context, runID string, metadata map[string]any) (Run, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	run, ok := s.runs[strings.TrimSpace(runID)]
+	if !ok {
+		return Run{}, ErrNotFound
+	}
+	run.Metadata = cloneMap(metadata)
+	run.UpdatedAt = time.Now().UTC()
+	s.runs[run.ID] = run
+	return cloneRun(run), nil
+}
+
 func (s *MemoryStore) ListRunsByStatus(_ context.Context, statuses ...RunStatus) ([]Run, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
