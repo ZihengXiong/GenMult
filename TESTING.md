@@ -19,6 +19,7 @@
 | 前端/TS（`apps/`、`packages/`） | `pnpm vitest run`（需 mise PATH，见下） | ✅ 10 文件 97 用例 |
 | 前端/TS | `pnpm eslint .` | ✅ 0 问题 |
 | 真实 LLM 链路（`internal/agenthub/`） | `LIVE_LLM_TEST=1 go test ./internal/agenthub/ -run TestLive -v -count=1`（先 `set -a; source .env; set +a`） | ✅ 4/4（deepseek-v4-flash，花费可忽略） |
+| 真实服务端到端（确认闸/SSE 推送/消息投影） | `scripts/e2e-agenthub.sh`（本地起 sqlite 服务，免 Docker 免 LLM，<1 分钟） | ✅ PASS（2026-06-11） |
 
 ## 增量重测规则
 
